@@ -1,0 +1,454 @@
+<!-- TABLE -->
+<div class="row">
+    <div class="col-12 grid-margin">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h4 class="card-title mb-0">Students</h4>
+                    <?php $addUrl = $this->Url->build(['controller' => 'Dashboard', 'action' => 'addStudent', 'prefix' => 'Teacher']); ?>
+                    <?= $this->Html->link(__('Add Student'), '#', ['class' => 'btn btn-primary btn-add-student', 'data-no-ajax' => 'true', 'data-href' => $addUrl]) ?>
+                </div>
+
+                <div class="table-responsive">
+                <table class="table table-striped table-hover defaultDataTable" style="width:100%">
+                    <thead>
+                        <tr>
+                            <th>LRN (Learner Reference Number)</th>
+                            <th>Name</th>
+                            <th>Grade / Section</th>
+                            <th class="text-center">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach($students as $student) { ?>
+                            <tr data-id="<?= $this->Encrypt->hex($student->id) ?>" data-lrn="<?= h($student->lrn) ?>">
+                                <td class="fw-bold"><?= $student->lrn ?></td>
+                                <td><?= h($student->name) ?></td>
+                                <td><?= h($student->grade_section) ?></td>
+                                <td class="text-center" style="white-space:nowrap">
+                                                    <?= $this->Html->link('<i class="mdi mdi-eye-outline"></i>', ['controller' => 'Dashboard', 'action' => 'student', 'prefix' => 'Teacher', $this->Encrypt->hex($student->id)], ['escape' => false, 'class' => 'btn btn-sm btn-outline-secondary btn-view-student', 'title' => 'View']) ?>
+                                                    <?php $editUrl = $this->Url->build(['controller' => 'Dashboard', 'action' => 'editStudent', 'prefix' => 'Teacher', $this->Encrypt->hex($student->id)]); ?>
+                                                    <?= $this->Html->link('<i class="mdi mdi-pencil"></i>', '#', ['escape' => false, 'class' => 'btn btn-sm btn-outline-primary btn-edit-student', 'title' => 'Edit', 'data-no-ajax' => 'true', 'data-href' => $editUrl]) ?>
+                                                    <?= $this->Html->link('<i class="mdi mdi-delete"></i>', '#', ['escape' => false, 'class' => 'btn btn-sm btn-outline-danger btn-delete-student', 'data-url' => $this->Url->build(['controller' => 'Dashboard', 'action' => 'deleteStudent', 'prefix' => 'Teacher', $this->Encrypt->hex($student->id)]), 'data-name' => h($student->name), 'title' => 'Delete']) ?>
+                                </td>
+                            </tr>
+                        <?php } ?>
+                    </tbody>
+                </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal placeholder for Add/Edit Student -->
+<div class="modal fade" id="studentModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Student</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body py-3">
+        <div class="text-center">Loading...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<?php $this->start('script'); ?>
+<script>
+    (function(){
+        // Wait for jQuery and Swal to be available before initializing; this avoids the script running
+        // before the global vendor scripts are loaded by the layout.
+        var retries = 0;
+        function ensureReady() {
+            retries++;
+            if (window.jQuery) {
+                init(window.jQuery);
+                return;
+            }
+            if (retries < 50) { // ~10s max
+                setTimeout(ensureReady, 200);
+            } else {
+                // give up silently to avoid blocking the page
+                console.warn('students.js: jQuery not available, skipping init');
+            }
+        }
+
+        function init($) {
+            var dt = null;
+            try {
+                if ($.fn && $.fn.DataTable) {
+                    // Prevent reinitialisation: only init if not already a DataTable
+                    if (!$.fn.DataTable.isDataTable('.defaultDataTable')) {
+                        dt = $('.defaultDataTable').DataTable({
+                            responsive: true,
+                            pageLength: 25,
+                            ordering: true,
+                            columnDefs: [ { orderable: false, targets: -1 } ],
+                            language: { search: "Filter:" }
+                        });
+                    } else {
+                        dt = $('.defaultDataTable').DataTable();
+                    }
+                }
+            } catch (e) {
+                console.warn('DataTable init failed', e);
+            }
+
+            // Small helper to escape HTML to avoid XSS when inserting values as HTML
+            function escapeHtml(str) {
+                return String(str === undefined || str === null ? '' : str)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#039;');
+            }
+
+            // Helper to show/hide modal. Uses Bootstrap 5 if available, otherwise falls back to a simple class toggle.
+            function showModal() {
+                var $modal = $('#studentModal');
+                if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                    var m = new bootstrap.Modal($modal[0]);
+                    m.show();
+                    $modal.data('bs.instance', m);
+                } else {
+                    $modal.addClass('show').css('display', 'block');
+                    if ($('.modal-backdrop').length === 0) {
+                        $('<div class="modal-backdrop fade show"></div>').appendTo(document.body);
+                    }
+                }
+            }
+
+            function hideModal() {
+                var $modal = $('#studentModal');
+                var inst = $modal.data('bs.instance');
+                if (inst && typeof inst.hide === 'function') {
+                    inst.hide();
+                } else {
+                    $modal.removeClass('show').css('display', 'none');
+                    $('.modal-backdrop').remove();
+                }
+            }
+
+            // Open form in modal (Add/Edit)
+            function openFormModal(url, title) {
+                $('#studentModal .modal-title').text(title);
+                $('#studentModal .modal-body').html('<div class="text-center">Loading...</div>');
+                showModal();
+                // Use a robust AJAX GET with explicit X-Requested-With header and improved error handling
+                $.ajax({
+                    url: url,
+                    method: 'GET',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    cache: false
+                }).done(function(html, textStatus, jqXHR){
+                    // Detect if the server returned the login page (session expired). If so, do a full reload
+                    try {
+                        if (typeof html === 'string' && /<form[^>]+action=["'][^"']*\/users?\/login["']/i.test(html)) {
+                            // Session expired or login returned — reload to trigger top-level redirect to login page
+                            window.location.reload();
+                            return;
+                        }
+                    } catch (err) {
+                        // ignore detection errors and proceed to inject
+                    }
+
+                    $('#studentModal .modal-body').html(html);
+                    // attach form submit handler with client-side validation
+                    $('#studentModal').find('form').on('submit', function(e){
+                        e.preventDefault();
+                        var $form = $(this);
+                        // clear previous validation
+                        $form.find('.is-invalid').removeClass('is-invalid');
+                        $form.find('.invalid-feedback').addClass('d-none').text('');
+
+                        // simple client-side validation
+                        var errors = {};
+                        var lrn = $.trim($form.find('[name="lrn"]').val() || '');
+                        var name = $.trim($form.find('[name="name"]').val() || '');
+                        var grade = $.trim($form.find('[name="grade"]').val() || '');
+                        var section = $.trim($form.find('[name="section"]').val() || '');
+                            if (!/^[0-9]{12}$/.test(lrn)) { errors.lrn = ['LRN must be a 12-digit number']; }
+                        if (!name) { errors.name = ['Name is required']; }
+                        if (!grade) { errors.grade = ['Grade is required']; }
+                        if (!section) { errors.section = ['Section is required']; }
+
+                        if (Object.keys(errors).length) {
+                            // display client-side errors
+                            $.each(errors, function(field, msgs){
+                                var $input = $form.find('[name="' + field + '"]');
+                                $input.addClass('is-invalid');
+                                $form.find('.invalid-feedback[data-field="' + field + '"]').removeClass('d-none').text(msgs.join(', '));
+                            });
+                            return;
+                        }
+
+                        var method = ($form.attr('method') || 'POST').toUpperCase();
+                        var csrf = $('meta[name=csrfToken]').attr('content') || '';
+                        $.ajax({
+                            url: $form.attr('action'),
+                            method: method,
+                            data: $form.serialize(),
+                            dataType: 'json',
+                            headers: { 'X-CSRF-Token': csrf }
+                        }).done(function(res){
+                            if (res && res.success) {
+                                var s = res.student;
+                                if (dt && s && s.id) {
+                                    // update or add row
+                                    var id = String(s.id || '').trim();
+                                    var rowSelector = $();
+
+                                    // 1) Try DataTables-managed nodes (handles Responsive, etc.)
+                                    try {
+                                        rowSelector = $(dt.rows().nodes()).filter(function(){
+                                            var attr = $(this).attr('data-id');
+                                            return attr && String(attr).trim() === id;
+                                        });
+                                    } catch (err) {
+                                        rowSelector = $();
+                                    }
+
+                                    // 2) Fallback: search DOM rows directly (case-insensitive)
+                                    if (!rowSelector || !rowSelector.length) {
+                                        rowSelector = $('.defaultDataTable tbody tr').filter(function(){
+                                            var attr = $(this).attr('data-id') || $(this).data('id');
+                                            if (!attr) return false;
+                                            try { return String(attr).trim().toLowerCase() === id.toLowerCase(); } catch(e){ return false; }
+                                        });
+                                    }
+
+                                    // 3) Last resort: try matching by LRN only (LRN should be unique)
+                                    if (!rowSelector || !rowSelector.length) {
+                                        rowSelector = $('.defaultDataTable tbody tr').filter(function(){
+                                            var code = $(this).find('td').eq(0).text().trim();
+                                            return code === (s.lrn || '');
+                                        });
+                                    }
+
+                                    console.debug('[students] AJAX save: encryptedId=', id, 'matchedRows=', rowSelector ? rowSelector.length : 0);
+                                    if (rowSelector && rowSelector.length) {
+                                        // Update first matched row
+                                        var node = rowSelector[0];
+                                        dt.row(node).data([
+                                            '<span class="fw-bold">' + escapeHtml(s.lrn) + '</span>',
+                                            escapeHtml(s.name),
+                                            escapeHtml(s.grade_section),
+                                            generateActionButtonsHtml(s)
+                                        ]).draw(false);
+                                        // Ensure the data-id attribute remains on the updated row node
+                                        try {
+                                            var updatedNode = dt.row(node).node();
+                                            $(updatedNode).attr('data-id', id);
+                                            // Keep same cell classes/styles as server-rendered rows
+                                            $(updatedNode).find('td').eq(3).addClass('text-center').css('white-space', 'nowrap');
+                                        } catch (e) { /* noop */ }
+                                    } else {
+                                        // No existing row found -> check by LRN once more before adding
+                                        var existingByLrn = $('.defaultDataTable tbody tr').filter(function(){
+                                            return $(this).find('td').eq(0).text().trim() === (s.lrn || '');
+                                        });
+                                        if (existingByLrn && existingByLrn.length) {
+                                            // Update that row instead of adding duplicate
+                                            var node = existingByLrn[0];
+                                            dt.row(node).data([
+                                                '<span class="fw-bold">' + escapeHtml(s.lrn) + '</span>',
+                                                escapeHtml(s.name),
+                                                escapeHtml(s.grade_section),
+                                                generateActionButtonsHtml(s)
+                                            ]).draw(false);
+                                            try { $(node).attr('data-id', id); } catch(e) {}
+                                        } else {
+                                            var newRow = dt.row.add([
+                                                '<span class="fw-bold">' + escapeHtml(s.lrn) + '</span>',
+                                                escapeHtml(s.name),
+                                                escapeHtml(s.grade_section),
+                                                generateActionButtonsHtml(s)
+                                            ]).draw(false).node();
+                                            $(newRow).attr('data-id', id);
+                                        }
+                                        // Apply same classes/styles to action cell so layout matches server-rendered rows
+                                        try { $(newRow).find('td').eq(3).addClass('text-center').css('white-space', 'nowrap'); } catch(e) { /* noop */ }
+                                    }
+                                }
+                                // notify success (Swal optional)
+                                if (window.Swal && typeof Swal.fire === 'function') {
+                                    Swal.fire({icon: 'success', title: 'Success', text: res.message || 'Saved'})
+                                        .then(function(){ hideModal(); });
+                                } else {
+                                    alert(res.message || 'Saved');
+                                    hideModal();
+                                }
+                            } else {
+                                if (res && res.errors) {
+                                    $.each(res.errors, function(field, fieldErrs){
+                                        var $input = $('#studentModal').find('[name="' + field + '"]');
+                                        $input.addClass('is-invalid');
+                                        var $fb = $('#studentModal').find('.invalid-feedback[data-field="' + field + '"]');
+                                        $fb.removeClass('d-none').text(Object.values(fieldErrs).map(function(v){ return v.join ? v.join(', ') : v; }).join(', '));
+                                    });
+                                } else {
+                                    var msg = (res && res.message) ? res.message : 'Please check the form for errors.';
+                                    if (window.Swal && typeof Swal.fire === 'function') {
+                                        Swal.fire({icon:'error', title:'Error', text: msg});
+                                    } else {
+                                        alert(msg);
+                                    }
+                                }
+                            }
+                        }).fail(function(jqXHR, textStatus, errorThrown){
+                            console.error('Student save AJAX failed', {status: jqXHR.status, textStatus: textStatus, error: errorThrown, response: jqXHR.responseText});
+                            var msg = 'Server error';
+                            // Try to extract a helpful message from JSON response
+                            try {
+                                var json = jqXHR.responseJSON || JSON.parse(jqXHR.responseText || '{}');
+                                if (json && json.message) { msg = json.message; }
+                            } catch (e) {
+                                // ignore parse errors
+                            }
+                            if (window.Swal && typeof Swal.fire === 'function') {
+                                Swal.fire({icon:'error', title:'Error', text: msg});
+                            } else {
+                                alert(msg);
+                            }
+                        });
+                    });
+                    }).fail(function(jqXHR, textStatus, errorThrown){
+                        console.error('Failed to load student form', {url: url, status: jqXHR.status, textStatus: textStatus, error: errorThrown});
+                        var response = jqXHR.responseText || '';
+                        // If the server returned HTML (e.g. login page or error), show it inside the modal for debugging.
+                        if (response && response.length > 50) {
+                            $('#studentModal .modal-body').html(response);
+                        } else {
+                            $('#studentModal .modal-body').html('<div class="text-danger text-center">Failed to load form. (' + jqXHR.status + ')</div>');
+                        }
+                    });
+            }
+
+            // Add student (use delegated handler)
+            $(document).on('click', '.btn-add-student', function(e){
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                e.stopPropagation();
+                // prefer data-href (used to avoid navigation before JS attaches), fall back to href when valid
+                var rawHref = $(this).data('href') || $(this).attr('href') || '';
+                var href = (rawHref && rawHref !== '#' && rawHref !== 'javascript:void(0)') ? rawHref : $(this).data('href');
+                openFormModal(href, 'Add Student');
+            });
+
+            // Edit student
+            $(document).on('click', '.btn-edit-student', function(e){
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                e.stopPropagation();
+                // prefer data-href (used to avoid navigation before JS attaches), fall back to href when valid
+                var rawHref = $(this).data('href') || $(this).attr('href') || '';
+                var href = (rawHref && rawHref !== '#' && rawHref !== 'javascript:void(0)') ? rawHref : $(this).data('href');
+                openFormModal(href, 'Edit Student');
+            });
+
+            // helper to generate action buttons HTML for a student object (expects encrypted id in s.id)
+            function generateActionButtonsHtml(s) {
+                var viewUrl = '/teacher/dashboard/student/' + s.id;
+                var editUrl = '/teacher/dashboard/editStudent/' + s.id;
+                var deleteUrl = '/teacher/dashboard/deleteStudent/' + s.id;
+                var escapedName = $('<div>').text(s.name).html();
+                var html = '';
+                html += '<a class="btn btn-sm btn-outline-secondary btn-view-student" href="' + viewUrl + '" title="View"><i class="mdi mdi-eye-outline"></i></a> ';
+                html += '<a class="btn btn-sm btn-outline-primary btn-edit-student" href="' + editUrl + '" title="Edit" data-no-ajax="true"><i class="mdi mdi-pencil"></i></a> ';
+                html += '<a class="btn btn-sm btn-outline-danger btn-delete-student" href="#" data-url="' + deleteUrl + '" data-name="' + escapedName + '" title="Delete"><i class="mdi mdi-delete"></i></a>';
+                return html;
+            }
+
+            // Delete student via AJAX with SweetAlert confirmation
+            $(document).on('click', '.btn-delete-student', function(e){
+                e.preventDefault();
+                var $btn = $(this);
+                var url = $btn.data('url') || $btn.attr('href');
+                var name = $btn.data('name') || 'this student';
+                var rowId = $btn.closest('tr').data('id');
+                // Use Swal if available, otherwise fallback to native confirm()
+                function doDelete() {
+                    $.post(url, {_csrfToken: $('meta[name=csrfToken]').attr('content')}).done(function(res){
+                        if (res && res.success) {
+                            if (dt && rowId) {
+                                var row = $('.defaultDataTable tbody tr[data-id="' + rowId + '"]');
+                                if (row.length) { dt.row(row[0]).remove().draw(false); }
+                            } else {
+                                location.reload();
+                            }
+                            if (window.Swal && typeof Swal.fire === 'function') {
+                                Swal.fire({icon:'success', title:'Deleted', text: res.message || 'Deleted'});
+                            } else {
+                                alert(res.message || 'Deleted');
+                            }
+                        } else {
+                            var err = (res && res.message) ? res.message : 'Could not delete.';
+                            if (window.Swal && typeof Swal.fire === 'function') {
+                                Swal.fire({icon:'error', title:'Error', text: err});
+                            } else {
+                                alert(err);
+                            }
+                        }
+                    }).fail(function(){
+                        if (window.Swal && typeof Swal.fire === 'function') {
+                            Swal.fire({icon:'error', title:'Error', text:'Server error'});
+                        } else {
+                            alert('Server error');
+                        }
+                    });
+                }
+
+                if (window.Swal && typeof Swal.fire === 'function') {
+                    Swal.fire({
+                        title: 'Delete? ',
+                        text: 'Are you sure you want to delete ' + name + '?',
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonText: 'Yes, delete it',
+                        cancelButtonText: 'Cancel'
+                    }).then(function(result){
+                        if (result.isConfirmed) { doDelete(); }
+                    });
+                } else {
+                    if (confirm('Are you sure you want to delete ' + name + '?')) { doDelete(); }
+                }
+            });
+
+            // Close modal handler for elements using data-bs-dismiss
+            $(document).on('click', '[data-bs-dismiss="modal"]', function(e){
+                e.preventDefault();
+                hideModal();
+            });
+
+            // Auto-open modal when redirected here with query params: ?open=add or ?open=edit&id=<hash>
+            (function(){
+                try {
+                    var params = new URLSearchParams(window.location.search || '');
+                    var open = params.get('open');
+                    if (!open) return;
+                    if (open === 'add') {
+                        // Open add modal
+                        openFormModal('/teacher/dashboard/addStudent', 'Add Student');
+                        // remove query params to avoid reopening on refresh
+                        history.replaceState(null, '', window.location.pathname);
+                    } else if (open === 'edit') {
+                        var id = params.get('id');
+                        if (id) {
+                            openFormModal('/teacher/dashboard/editStudent/' + id, 'Edit Student');
+                            history.replaceState(null, '', window.location.pathname);
+                        }
+                    }
+                } catch (e) {
+                    // ignore
+                }
+            })();
+        }
+
+        ensureReady();
+    })();
+</script>
+<?php $this->end(); ?>
