@@ -1,5 +1,9 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
+    # When serving the app from a subdirectory, set the RewriteBase to the folder
+    # This helps mod_rewrite generate correct internal paths and avoids duplicated
+    # path segments when the server does not automatically set the base.
+    RewriteBase /GENTA/
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^ index.php [L]
 </IfModule>

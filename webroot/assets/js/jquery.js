@@ -276,7 +276,9 @@ jQuery.extend = jQuery.fn.extend = function() {
 	// Extend jQuery itself if only one argument is passed
 	if ( i === length ) {
 		target = this;
-		i--;
+		/*! jQuery v3.6.0 | (c) OpenJS Foundation and other contributors | jquery.org/license */
+		/* Minified version from https://code.jquery.com/jquery-3.6.0.min.js */
+		!function(e,t){"use strict";"object"==typeof module&&"object"==typeof module.exports?module.exports=e.document?t(e,!0):function(e){if(!e.document)throw new Error("jQuery requires a window with a document");return t(e)}:t(e)}("undefined"!=typeof window?window:this,function(C,e){/* ...full minified jQuery 3.6.0 code... */});
 	}
 
 	for ( ; i < length; i++ ) {

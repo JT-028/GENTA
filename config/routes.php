@@ -57,10 +57,15 @@ return function (RouteBuilder $routes): void {
          */
         // $builder->connect('/', ['controller' => 'Pages', 'action' => 'display', 'home']);
 
-        // CUSTOM BASE URL
-        $builder->connect('/', ['controller' => 'Users', 'action' => 'login']);
+    // Note: we keep the canonical login URL at /users/login so forms and
+    // helpers generate the same, unambiguous action. However, it's helpful
+    // for users visiting the app root (e.g. http://<ip>/GENTA/) to be
+    // redirected to the canonical login page instead of seeing a missing
+    // route. Add a redirect (GET) so '/' -> '/users/login'. This preserves
+    // a single canonical login path while making the site root reachable.
+    $builder->redirect('/', '/users/login');
         // Route for walkthrough AJAX endpoint
-        $builder->connect('/users/set-walkthrough-shown', ['controller' => 'Users', 'action' => 'setWalkthroughShown', 'plugin' => null]);
+    $builder->connect('/users/set-walkthrough-shown', ['controller' => 'Users', 'action' => 'setWalkthroughShown', 'plugin' => null]);
 
         /*
          * Connect catchall routes for all controllers.

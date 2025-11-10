@@ -88,9 +88,9 @@
 <style>
 /* Enhanced Card Styles */
 .card-gradient-primary {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--brand-primary) 0%, var(--vivid-sky) 100%);
     color: white;
-    box-shadow: 0 4px 20px 0 rgba(102, 126, 234, 0.4);
+    box-shadow: 0 4px 20px 0 rgba(var(--brand-primary-rgba-18), 0.4);
     border: none;
 }
 
@@ -98,7 +98,6 @@
     background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
     color: white;
     box-shadow: 0 4px 20px 0 rgba(17, 153, 142, 0.4);
-    border: none;
 }
 
 .card-gradient-warning {
@@ -408,7 +407,7 @@
         }
         var $ = jQuery;
 
-        $(document).on('click', '.btn-view-all', function(e) {
+    $(document).on('click', '.btn-view-all', function(e) {
             e.preventDefault();
             e.stopPropagation();
             var el = this;
@@ -445,7 +444,7 @@
             var $list = $('#attemptsModalList');
             $list.empty();
                 quizzes.forEach(function(q){
-                var href = window.location.origin + '/teacher/dashboard/studentQuiz/' + q.id;
+                var href = (typeof window.APP_BASE !== 'undefined' ? window.APP_BASE : (window.location.origin || (window.location.protocol + '//' + window.location.host) ) + '/') + 'teacher/dashboard/studentQuiz/' + q.id;
                 var $li = $('<li class="list-group-item d-flex justify-content-between align-items-start"></li>');
                 var $wrap = $('<div></div>');
                 var $link = $('<a class="me-3 d-block" href="' + href + '"></a>').text(q.label);
@@ -460,9 +459,14 @@
                             if (inst && typeof inst.hide === 'function') {
                                 inst.hide();
                             } else {
-                                // If no instance, ensure backdrop removed as fallback
+                                // If no instance, ensure backdrop removed as fallback and do a defensive cleanup
                                 modalEl.classList.remove('show');
                                 document.querySelectorAll('.modal-backdrop').forEach(function(b){ b.remove(); });
+                                // also remove DataTables responsive modal elements and restore body state
+                                document.querySelectorAll('.dtr-modal-background, .dtr-modal').forEach(function(b){ b.remove(); });
+                                document.body.classList.remove('modal-open');
+                                document.body.style.overflow = '';
+                                document.body.style.paddingRight = '';
                             }
                         } else {
                             // Fallback: remove any native overlay created by our fallback UI
@@ -500,7 +504,25 @@
             });
 
             var modalEl = document.getElementById('attemptsModal');
+            // Cleanup helper to defensively remove any leftover overlays and restore body state
+            function _cleanupModalBackdrops() {
+                try {
+                    // Remove Bootstrap backdrops
+                    document.querySelectorAll('.modal-backdrop').forEach(function(b){ b.remove(); });
+                    // Remove DataTables Responsive modal background if any
+                    document.querySelectorAll('.dtr-modal-background, .dtr-modal').forEach(function(b){ b.remove(); });
+                    // Ensure modal-open class removed from body and restore scrolling
+                    document.body.classList.remove('modal-open');
+                    document.body.style.overflow = '';
+                    document.body.style.paddingRight = '';
+                } catch (e) {
+                    console.warn('[AttemptsModal] cleanup error', e);
+                }
+            }
+
             var modal = new bootstrap.Modal(modalEl);
+            // Attach hidden handler to do a defensive cleanup after bootstrap completes hide
+            modalEl.addEventListener('hidden.bs.modal', function(){ setTimeout(_cleanupModalBackdrops, 10); }, { once: true });
             modal.show();
         });
     }
@@ -553,7 +575,7 @@ document.addEventListener('click', function (e) {
                 left.style.flex = '1 1 auto';
                 var a = document.createElement('a');
                 a.className = 'me-3 d-block';
-                a.href = window.location.origin + '/teacher/dashboard/studentQuiz/' + q.id;
+                a.href = (typeof window.APP_BASE !== 'undefined' ? window.APP_BASE : (window.location.origin || (window.location.protocol + '//' + window.location.host) ) + '/') + 'teacher/dashboard/studentQuiz/' + q.id;
                 a.textContent = q.label;
                 a.addEventListener('click', function(ev){
                     ev.preventDefault();
@@ -564,11 +586,15 @@ document.addEventListener('click', function (e) {
                         if (window.bootstrap && bootstrap.Modal && modalEl) {
                             var inst = bootstrap.Modal.getInstance(modalEl);
                             if (inst && typeof inst.hide === 'function') {
-                                inst.hide();
-                            } else {
-                                modalEl.classList.remove('show');
-                                document.querySelectorAll('.modal-backdrop').forEach(function(b){ b.remove(); });
-                            }
+                                    inst.hide();
+                                } else {
+                                    modalEl.classList.remove('show');
+                                    document.querySelectorAll('.modal-backdrop').forEach(function(b){ b.remove(); });
+                                    document.querySelectorAll('.dtr-modal-background, .dtr-modal').forEach(function(b){ b.remove(); });
+                                    document.body.classList.remove('modal-open');
+                                    document.body.style.overflow = '';
+                                    document.body.style.paddingRight = '';
+                                }
                         } else {
                             var existingOverlay = document.getElementById('simpleAttemptsOverlay');
                             if (existingOverlay && existingOverlay.parentNode) existingOverlay.parentNode.removeChild(existingOverlay);
@@ -610,7 +636,18 @@ document.addEventListener('click', function (e) {
         // Show modal if bootstrap available
         if (window.bootstrap && bootstrap.Modal) {
             var modalEl = document.getElementById('attemptsModal');
+            // defensive cleanup helper
+            function _cleanupModalBackdrops_native() {
+                try {
+                    document.querySelectorAll('.modal-backdrop').forEach(function(b){ b.remove(); });
+                    document.querySelectorAll('.dtr-modal-background, .dtr-modal').forEach(function(b){ b.remove(); });
+                    document.body.classList.remove('modal-open');
+                    document.body.style.overflow = '';
+                    document.body.style.paddingRight = '';
+                } catch (e) { console.warn('[AttemptsModal][native] cleanup error', e); }
+            }
             var modal = new bootstrap.Modal(modalEl);
+            modalEl.addEventListener('hidden.bs.modal', function(){ setTimeout(_cleanupModalBackdrops_native, 10); }, { once: true });
             modal.show();
             return;
         }
@@ -662,7 +699,7 @@ document.addEventListener('click', function (e) {
                 li.className = 'list-group-item d-flex justify-content-between align-items-center';
                 var a = document.createElement('a');
                 a.className = 'me-3';
-                a.href = window.location.origin + '/teacher/dashboard/studentQuiz/' + q.id;
+                a.href = (typeof window.APP_BASE !== 'undefined' ? window.APP_BASE : (window.location.origin || (window.location.protocol + '//' + window.location.host) ) + '/') + 'teacher/dashboard/studentQuiz/' + q.id;
                 a.textContent = q.label;
                 a.addEventListener('click', function(ev){
                     ev.preventDefault(); ev.stopPropagation();

@@ -19,8 +19,8 @@
             ])
         ?>
 
-        <!-- ICONS -->
-        <?= $this->Html->meta('genta-logo1.png', '/assets/images/genta-logo1.png', ['type' => 'icon']) ?>
+    <!-- ICONS -->
+    <?= $this->Html->meta('mascot_head.svg', '/assets/images/mascot_head.svg', ['type' => 'icon']) ?>
     </head>
     <body>
         <div class="container-scroller">
@@ -29,10 +29,17 @@
                     <div class="row flex-grow">
                         <div class="col-xxl-4 col-lg-6 col-md-12 mx-auto">
                             <div class="auth-form-light text-left p-5">
-                                <!-- LOGO -->
+                                <!-- LOGO (hide on Users::login to avoid duplicate mascot) -->
+                                <?php
+                                $ctl = $this->request->getParam('controller');
+                                $act = $this->request->getParam('action');
+                                // Hide the brand logo on Users::login and Users::register to avoid
+                                // rendering a duplicate mascot/icon when the page templates include their own mascot.
+                                if (!($ctl === 'Users' && in_array($act, ['login', 'register']))): ?>
                                 <div class="brand-logo">
-                                    <?= $this->Html->image('/assets/images/genta-logo1.png', ['alt' => 'GENTA Icon']) ?>
+                                    <?= $this->Html->image('/assets/images/mascot_head.svg', ['alt' => 'GENTA Icon']) ?>
                                 </div>
+                                <?php endif; ?>
                                 <?= $this->Flash->render() ?>
                                 <?= $this->fetch('content') ?>
                             </div>

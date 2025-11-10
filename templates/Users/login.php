@@ -1,26 +1,30 @@
+<link rel="stylesheet" href="/GENTA/assets/css/mascot.css">
+
+<!-- Mascot centered above the original single-column form -->
+<div id="genta-mascot" class="genta-mascot" aria-hidden="true">
+    <div id="genta-mascot-container" class="frame-circle small" aria-hidden="true"></div>
+</div>
+
 <!-- WELCOME TEXT -->
-<h4>Hello! Welcome to GENTA.</h4>
-<h6 class="font-weight-light">Log in to continue.</h6>
+<h4 class="auth-title">Hello! Welcome to GENTA.</h4>
+<div class="auth-subtitle">Log in to continue.</div>
 
 <!-- LOG IN FORM -->
-<?= $this->Form->create(NULL, ['url' => ['controller' => 'Users', 'action' => 'login', '?' => $this->request->getQuery()]]) ?>
+<?php
+// Use a canonical route-array for the login action so the generated action
+// is always '/users/login' (prefixed by App.base). For safety, force no
+// prefix to avoid inheriting any current routing prefix (e.g. 'teacher').
+?>
+<?= $this->Form->create(null, ['url' => ['controller' => 'Users', 'action' => 'login', 'prefix' => false]]) ?>
     <div class="form-group">
-        <?= $this->Form->email('email', ['class' => 'form-control form-control-lg', 'id' => 'email', 'placeholder' => 'Email Address', 'required' => 'required']) ?>
+        <?= $this->Form->email('email', ['class' => 'form-control form-control-lg', 'id' => 'email', 'placeholder' => 'Email Address', 'required' => 'required', 'aria-label' => 'Email']) ?>
     </div>
-    <div class="form-group">
-        <?= $this->Form->password('password', ['class' => 'form-control form-control-lg', 'id' => 'password', 'placeholder' => 'Password', 'required' => 'required']) ?>
+    <div class="form-group position-relative">
+        <?= $this->Form->password('password', ['class' => 'form-control form-control-lg', 'id' => 'password', 'placeholder' => 'Password', 'required' => 'required', 'aria-label' => 'Password']) ?>
+    <button type="button" id="toggle-password-visibility" class="password-toggle-icon" aria-label="Toggle password visibility"><i class="mdi mdi-eye-off-outline" aria-hidden="true"></i></button>
     </div>
     <div class="mt-3">
-        <?= $this->Form->button('LOG IN', ['class' => 'btn btn-block btn-gradient-primary btn-lg font-weight-medium auth-form-btn', 'type' => 'submit']) ?>
-    </div>
-    <div class="my-2 d-flex justify-content-end align-items-center">
-        <!-- <div class="form-check">
-            <label class="form-check-label text-muted">
-                <?= $this->Form->checkbox('keep_logged_in', ['class' => 'form-check-input']) ?> Keep me logged in
-            </label>
-        </div> -->
-
-        <!-- <?= $this->Html->link('Forgot password?', ['controller' => 'Users', 'action' => 'forgotPassword'], ['escape' => false, 'class' => 'auth-link text-black']) ?> -->
+        <?= $this->Form->button('LOG IN', ['class' => 'btn btn-primary btn-block btn-lg font-weight-medium', 'type' => 'submit']) ?>
     </div>
     <div class="text-center mt-4 font-weight-light"> 
         <?= $this->Html->link('Create new account', ['controller' => 'Users', 'action' => 'register'], ['escape' => false, 'class' => 'text-primary']) ?>
@@ -30,28 +34,23 @@
 <!-- Session Timeout Detection -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Check if user was redirected due to session timeout/inactivity
-    const urlParams = new URLSearchParams(window.location.search);
-    const redirectParam = urlParams.get('redirect');
-    
-    // If there's a redirect parameter, it means the user was trying to access a protected page
-    // but their session expired
-    if (redirectParam && typeof Swal !== 'undefined') {
-        Swal.fire({
-            title: 'Session Expired',
-            html: '<div style="text-align: center;">Your account has been logged out due to a long period of inactivity. Please log in again to continue.</div>',
-            icon: 'warning',
-            confirmButtonText: 'OK',
-            confirmButtonColor: '#b66dff',
-            allowOutsideClick: true,
-            allowEscapeKey: true
-        });
-        
-        // Clean up URL (remove redirect parameter from address bar)
-        if (window.history && window.history.replaceState) {
-            const cleanUrl = window.location.pathname;
-            window.history.replaceState({}, document.title, cleanUrl);
+    // Show a friendly message if the user was redirected after session timeout
+    try {
+        var urlParams = new URLSearchParams(window.location.search);
+        var redirectParam = urlParams.get('redirect');
+        if (redirectParam && typeof Swal !== 'undefined') {
+            Swal.fire({
+                title: 'Session Expired',
+                html: '<div style="text-align: center;">Your account has been logged out due to a long period of inactivity. Please log in again to continue.</div>',
+                icon: 'warning',
+                confirmButtonText: 'OK'
+            });
         }
+    } catch (err) {
+        // Non-fatal: don't break the page if Swal or URL parsing fails
+        console.warn('Session timeout helper error', err);
     }
 });
 </script>
+
+<script src="/GENTA/assets/js/mascot.js" defer></script>

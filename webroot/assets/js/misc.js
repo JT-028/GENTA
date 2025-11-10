@@ -1,3 +1,4 @@
+window.jQuery = window.$ = jQuery;
 var ChartColor = ["#5D62B4", "#54C3BE", "#EF726F", "#F9C446", "rgb(93.0, 98.0, 180.0)", "#21B7EC", "#04BCCC"];
 var primaryColor = getComputedStyle(document.body).getPropertyValue('--primary');
 var secondaryColor = getComputedStyle(document.body).getPropertyValue('--secondary');
@@ -22,7 +23,21 @@ var lightColor = getComputedStyle(document.body).getPropertyValue('--light');
       if (!document.querySelector('link[href*="_navbar-offset.css"]')) {
         var _ln = document.createElement('link');
         _ln.rel = 'stylesheet';
-        _ln.href = '/assets/css/_navbar-offset.css';
+        (function() {
+          // Use configured APP_BASE when available (e.g. '/GENTA/'), fallback to relative path
+          var base = (window.APP_BASE !== undefined) ? String(window.APP_BASE) : null;
+          if (!base) {
+            // try to infer base from current location (take first segment)
+            var pathParts = location.pathname.split('/').filter(function(p){return p.length>0});
+            if (pathParts.length>0) {
+              base = '/' + pathParts[0] + '/';
+            } else {
+              base = '/';
+            }
+          }
+          if (base.slice(-1) !== '/') base += '/';
+          _ln.href = base + 'assets/css/_navbar-offset.css';
+        })();
         document.head.appendChild(_ln);
       }
     } catch (e) {
@@ -125,14 +140,56 @@ var lightColor = getComputedStyle(document.body).getPropertyValue('--light');
         }
       }
     })
-    if ($.cookie('purple-free-banner')!="true") {
+    // Cookie helpers: prefer $.cookie when available, fall back to document.cookie
+    function getCookieValue(name) {
+      try {
+        if (typeof $.cookie === 'function') return $.cookie(name);
+      } catch (e) {
+        // ignore and fallback
+      }
+      var nameEQ = name + "=";
+      var ca = document.cookie.split(';');
+      for (var i = 0; i < ca.length; i++) {
+        var c = ca[i];
+        while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+        if (c.indexOf(nameEQ) === 0) return decodeURIComponent(c.substring(nameEQ.length, c.length));
+      }
+      return undefined;
+    }
+
+    function setCookieValue(name, value, options) {
+      try {
+        if (typeof $.cookie === 'function') { $.cookie(name, value, options); return; }
+      } catch (e) {
+        // ignore and fallback
+      }
+      var cookie = encodeURIComponent(name) + '=' + encodeURIComponent(value);
+      if (options) {
+        if (options.expires) {
+          var exp = options.expires;
+          if (Object.prototype.toString.call(exp) === '[object Date]') {
+            cookie += '; expires=' + exp.toUTCString();
+          } else if (typeof exp === 'number') {
+            var d = new Date();
+            d.setTime(d.getTime() + exp * 24 * 60 * 60 * 1000);
+            cookie += '; expires=' + d.toUTCString();
+          }
+        }
+        if (options.path) cookie += '; path=' + options.path;
+        if (options.domain) cookie += '; domain=' + options.domain;
+        if (options.secure) cookie += '; secure';
+      }
+      document.cookie = cookie;
+    }
+
+    var bannerCookie = getCookieValue('purple-free-banner');
+    if (bannerCookie !== "true") {
       if (proBanner) {
         proBanner.classList.add('d-flex');
       }
       var tmpNav = document.querySelector('.navbar');
       if (tmpNav) tmpNav.classList.remove('fixed-top');
-    }
-    else {
+    } else {
       if (proBanner) {
         proBanner.classList.add('d-none');
       }
@@ -186,9 +243,9 @@ var lightColor = getComputedStyle(document.body).getPropertyValue('--light');
           navEl.classList.remove('mt-3');
         }
         // store cookie
-        var date = new Date();
-        date.setTime(date.getTime() + 24 * 60 * 60 * 1000);
-        $.cookie('purple-free-banner', "true", { expires: date });
+  var date = new Date();
+  date.setTime(date.getTime() + 24 * 60 * 60 * 1000);
+  setCookieValue('purple-free-banner', "true", { expires: date, path: '/' });
         // recompute offset after layout changes
         // use setTimeout to allow DOM reflow
         setTimeout(updateTopOffset, 50);

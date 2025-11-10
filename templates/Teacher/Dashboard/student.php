@@ -40,12 +40,12 @@
                     <div class="row mt-3 px-0">
                         <div class="col-12">
                             <div class="student-actions d-flex flex-wrap gap-2">
-                                <a href="https://nonbasic-bob-inimical.ngrok-free.dev/tailored_module_<?= str_replace(' ', '_', $student->name) ?>_<?= $student->lrn ?>.docx" class="btn btn-warning btn-sm btn-icon-label d-inline-flex align-items-center doc-link" data-type="tailored" data-student="<?= $this->Encrypt->hex($student->id) ?>" target="_blank" rel="noopener noreferrer">
+                                <a href="<?= $this->Url->build(['controller' => 'Dashboard', 'action' => 'downloadDocument', 'prefix' => 'Teacher', $this->Encrypt->hex($student->id), 'tailored']) ?>" class="btn btn-warning btn-sm btn-icon-label d-inline-flex align-items-center doc-link" data-type="tailored" data-student="<?= $this->Encrypt->hex($student->id) ?>" target="_blank" rel="noopener noreferrer">
                                     <i class="mdi mdi-file-document-box-outline me-2" style="font-size:1.15rem;"></i>
                                     <span class="d-none d-sm-inline">Tailored Module</span>
                                 </a>
 
-                                <a href="https://nonbasic-bob-inimical.ngrok-free.dev/analysis_result_<?= str_replace(' ', '_', $student->name) ?>_<?= $student->lrn ?>.docx" class="btn btn-teal btn-sm btn-icon-label d-inline-flex align-items-center doc-link" data-type="analysis" data-student="<?= $this->Encrypt->hex($student->id) ?>" target="_blank" rel="noopener noreferrer">
+                                <a href="<?= $this->Url->build(['controller' => 'Dashboard', 'action' => 'downloadDocument', 'prefix' => 'Teacher', $this->Encrypt->hex($student->id), 'analysis']) ?>" class="btn btn-teal btn-sm btn-icon-label d-inline-flex align-items-center doc-link" data-type="analysis" data-student="<?= $this->Encrypt->hex($student->id) ?>" target="_blank" rel="noopener noreferrer">
                                     <i class="mdi mdi-chart-areaspline me-2" style="font-size:1.15rem;"></i>
                                     <span class="d-none d-sm-inline">Analysis</span>
                                 </a>

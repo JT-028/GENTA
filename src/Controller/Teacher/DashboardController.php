@@ -887,8 +887,16 @@ class DashboardController extends AppController
         ];
         foreach ($possibleDirs as $d) {
             $f = $d . $basename;
-            if (file_exists($f)) {
-                $url = $this->request->getAttribute('base') . '/uploads/' . $basename;
+                if (file_exists($f)) {
+                // Return a URL that points to our downloadDocument controller action
+                // so we can securely stream files that may live outside webroot
+                $url = \Cake\Routing\Router::url([
+                    'prefix' => 'Teacher',
+                    'controller' => 'Dashboard',
+                    'action' => 'downloadDocument',
+                    $studentIDHash,
+                    $type
+                ], true);
                 return $this->response->withType('application/json')->withStringBody(json_encode(['exists' => true, 'url' => $url]));
             }
         }
@@ -910,6 +918,82 @@ class DashboardController extends AppController
         }
 
         return $this->response->withType('application/json')->withStringBody(json_encode(['exists' => false, 'url' => null]));
+    }
+
+    /**
+     * Stream a tailored module or analysis document for download.
+     * Looks for the file in webroot/uploads, webroot, and the developer OneDrive folder.
+     * @param string|null $studentIDHash
+     * @param string|null $type
+     */
+    public function downloadDocument($studentIDHash = null, $type = null)
+    {
+        $this->request->allowMethod(['get']);
+
+        if (!$studentIDHash || !$type) {
+            throw new \Cake\Http\Exception\NotFoundException();
+        }
+
+        $studentID = $this->Decrypt->hex($studentIDHash);
+        if (!$studentID) {
+            throw new \Cake\Http\Exception\NotFoundException();
+        }
+
+        $studentsTable = $this->loadModel('Students');
+        try {
+            $student = $studentsTable->get($studentID);
+        } catch (\Throwable $e) {
+            throw new \Cake\Http\Exception\NotFoundException();
+        }
+
+        // Verify ownership
+        $userSession = $this->Authentication->getIdentity();
+        if ($userSession && isset($userSession->id)) {
+            if ((int)($student->teacher_id ?? 0) !== (int)$userSession->id) {
+                throw new \Cake\Http\Exception\ForbiddenException('You are not allowed to download this file.');
+            }
+        }
+
+        $safeName = str_replace(' ', '_', $student->name);
+        $lrn = $student->lrn;
+        if ($type === 'tailored') {
+            $basename = 'tailored_module_' . $safeName . '_' . $lrn . '.docx';
+        } else {
+            $basename = 'analysis_result_' . $safeName . '_' . $lrn . '.docx';
+        }
+
+        $possibleDirs = [
+            WWW_ROOT . 'uploads' . DS,
+            WWW_ROOT,
+            'C:\\Users\\vonti\\OneDrive\\Desktop\\GENTA SYS\\MAIN_SYSTEM\\uploads\\'
+        ];
+
+        foreach ($possibleDirs as $d) {
+            $f = $d . $basename;
+            if (file_exists($f)) {
+                // Stream file for download; use the original basename as the download name
+                return $this->response->withFile($f, ['download' => true, 'name' => $basename]);
+            }
+        }
+
+        // If not found locally, try the remote host as a last resort
+        $remoteHost = 'https://nonbasic-bob-inimical.ngrok-free.dev/';
+        $remoteUrl = rtrim($remoteHost, '/') . '/' . $basename;
+        try {
+            $hdrs = @get_headers($remoteUrl);
+            if ($hdrs && is_array($hdrs)) {
+                foreach ($hdrs as $h) {
+                    if (stripos($h, '200') !== false) {
+                        // redirect to remote resource
+                        return $this->redirect($remoteUrl);
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            // ignore
+        }
+
+        throw new \Cake\Http\Exception\NotFoundException('File not found');
     }
 
     /**
@@ -1153,10 +1237,14 @@ class DashboardController extends AppController
                         $this->request = $this->request->withAttribute('identity', $identity);
                         // If AJAX, return JSON with updated avatar URL and fullname
                         if ($this->request->is('ajax')) {
+                            // Use Router::url so the controller (no view helper) can generate an app-aware URL
+                            $profileUrl = !empty($user->profile_image)
+                                ? \Cake\Routing\Router::url('/uploads/profile_images/' . $user->profile_image)
+                                : null;
                             $payload = [
                                 'success' => true,
                                 'message' => 'Profile changes saved!',
-                                'profile_image' => !empty($user->profile_image) ? '/uploads/profile_images/' . $user->profile_image : null,
+                                'profile_image' => $profileUrl,
                                 'full_name' => $user->full_name
                             ];
                             return $this->response->withType('application/json')->withStringBody(json_encode($payload));
@@ -1181,7 +1269,6 @@ class DashboardController extends AppController
                             if ($usersTable->save($user)) {
                                 if ($this->request->is('ajax')) {
                                     $payload = ['success' => true, 'message' => 'Password updated!'];
-                                    return $this->response->withType('application/json')->withStringBody(json_encode($payload));
                                 }
                                 $this->Flash->success(__('Password updated!'));
                             } else {

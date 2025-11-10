@@ -25,7 +25,7 @@
         ?>
 
     <!-- ICONS -->
-    <?= $this->Html->meta('icon', '/assets/images/genta-logo1.png') ?>
+    <?= $this->Html->meta('icon', '/assets/images/mascot_head.svg') ?>
 
     <!-- LOTTIE ANIMATION CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.13.0/lottie.min.js"></script>
@@ -41,6 +41,10 @@
     <script>
         window.walkthrough_shown = <?= $walkthrough_shown ? 'true' : 'false' ?>;
     </script>
+    <script>
+        // Base path for the app (includes subdirectory like /GENTA/ when deployed in a folder)
+        window.APP_BASE = <?= json_encode($this->Url->build('/')) ?>;
+    </script>
     
     <!-- PAGE LOADER STYLES (critical) - moved to head so loader appears immediately -->
     <style>
@@ -50,7 +54,8 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            /* Use brand palette variables for loader gradient */
+            background: linear-gradient(135deg, var(--brand-primary) 0%, var(--vivid-sky) 100%);
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -103,13 +108,13 @@
                 <div class="text-center navbar-brand-wrapper d-flex align-items-center justify-content-center">
                     <!-- DEFAULT LOGO -->
                     <?= $this->Html->link(
-                        '<i class="mdi mdi-robot" style="font-size:2rem; color: #b66dff"></i> <span style="font-family: Aitech Rounded, sans-serif; font-size:1.7rem; color: #b66dff; vertical-align:middle;">GENTA</span>',
+                        '<i class="mdi mdi-robot" style="font-size:2rem; color: var(--brand-primary)"></i> <span style="font-family: Aitech Rounded, sans-serif; font-size:1.7rem; color: var(--brand-primary); vertical-align:middle;">GENTA</span>',
                         ['controller' => 'Dashboard', 'action' => 'index', 'prefix' => 'Teacher'],
                         ['escape' => false, 'class' => 'navbar-brand brand-logo']
                     ) ?>
                     <!-- MINI LOGO -->
                     <?= $this->Html->link(
-                        '<i class="mdi mdi-robot" style="font-size:1.5rem; color: #b66dff"></i>',
+                        '<i class="mdi mdi-robot" style="font-size:1.5rem; color: var(--brand-primary)"></i>',
                         ['controller' => 'Dashboard', 'action' => 'index', 'prefix' => 'Teacher'],
                         ['escape' => false, 'class' => 'navbar-brand brand-logo-mini']
                     ) ?>
@@ -127,7 +132,7 @@
                         <!-- HELP BUTTON FOR WALKTHROUGH -->
                         <li class="nav-item d-none d-lg-block">
                             <a class="nav-link" id="help-walkthrough-btn" title="Show Help / Walkthrough" style="position:relative;">
-                                <i class="mdi mdi-help-circle-outline" style="font-size:1.7rem; color:#b66dff;"></i>
+                                <i class="mdi mdi-help-circle-outline" style="font-size:1.7rem; color:var(--brand-primary);"></i>
                             </a>
                         </li>
                     </ul>
@@ -145,8 +150,21 @@
                                 <div class="nav-profile-image">
                                     <?php
                                         $profileImage = $this->Identity->get('profile_image');
-                                        $imgPath = $profileImage ? '/uploads/profile_images/' . h($profileImage) : '/assets/images/faces-clipart/pic-1.png';
-                                        echo $this->Html->image($imgPath, ['alt' => 'profile']);
+                                        // Build base-aware image URLs so they work when the app is served under a subpath.
+                                        // Use the stored filename to construct the canonical uploads path. This avoids
+                                        // rendering whatever stray or double-prefixed value may be present in the session.
+                                        if (!empty($profileImage)) {
+                                            $filename = basename((string)$profileImage);
+                                            // Build a canonical path using the request base (avoid double-prefixing)
+                                            $baseAttr = $this->request->getAttribute('base') ?? (string)\Cake\Core\Configure::read('App.base');
+                                            $baseAttr = rtrim((string)$baseAttr, '/');
+                                            $src = $baseAttr . '/uploads/profile_images/' . $filename;
+                                            // Ensure leading slash
+                                            if (substr($src, 0, 1) !== '/') $src = '/' . $src;
+                                            echo '<img src="' . h($src) . '" alt="profile">';
+                                        } else {
+                                            echo $this->Html->image($this->Url->build('/assets/images/faces-clipart/pic-1.png'), ['alt' => 'profile']);
+                                        }
                                     ?>
                                 </div>
                                 <div class="nav-profile-text d-flex flex-column">
@@ -188,7 +206,8 @@
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="<?= $this->Url->build(['controller' => '../Users', 'action' => 'logout']) ?>" data-no-ajax="true">
+                            <!-- Force a non-prefixed logout URL so we hit App\Controller\UsersController::logout() and not a missing Teacher\UsersController -->
+                            <a class="nav-link" href="<?= $this->Url->build('/users/logout') ?>" data-no-ajax="true">
                                 <span class="menu-title">Log out</span>
                                 <i class="mdi mdi-logout-variant menu-icon"></i>
                             </a>
@@ -257,28 +276,33 @@
         </div>
 
         <!-- JS -->
-        <?=
-            // Only load the latest jQuery (webroot/assets/js/jquery.js) and ensure correct order
-            $this->Html->script([
-                // JQUERY (latest, must be first)
-                '/assets/js/jquery',
-                '/assets/js/jquery.cookie',
-                // Bootstrap bundle (provides modal functionality). Using CDN to ensure availability.
+        <?php
+            // Only load the latest jQuery (webroot/assets/js/jquery.js) and ensure correct order.
+            // Pass only string paths to HtmlHelper::script() to avoid UrlHelper receiving non-string values.
+            echo $this->Html->script([
+                '/assets/vendors/js/vendor.bundle.base.js',
                 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min',
-                // JS VENDOR (without vendor.bundle.base.js, which contains old jQuery)
                 '/assets/vendors/chart.js/Chart.min',
                 '/assets/vendors/js/jquery.dataTables.min',
                 '/assets/vendors/js/dataTables.bootstrap5.min',
                 '/assets/vendors/js/dataTables.responsive.min',
                 '/assets/vendors/js/responsive.bootstrap5.min',
-                    // Input mask for form fields (LRN)
-                    'https://cdn.jsdelivr.net/npm/inputmask@5.0.8/dist/jquery.inputmask.min.js',
-                // JS
+                'https://cdn.jsdelivr.net/npm/inputmask@5.0.8/dist/jquery.inputmask.min.js',
                 '/assets/js/off-canvas',
                 '/assets/js/hoverable-collapse',
+                '/assets/vendors/js/jquery.cookie',
                 '/assets/js/misc',
                 '/assets/js/script'
-            ])
+            ]);
+
+            // Inline: force window.jQuery to reference the latest jQuery instance
+            echo $this->Html->scriptBlock('window.jQuery = window.$ = jQuery;');
+
+            // Inline debug information and dynamic loader for jquery.cookie (kept as scriptBlock to avoid passing booleans to Html->script)
+            echo $this->Html->scriptBlock('console.info("jQuery version:", (window.jQuery && window.jQuery.fn && window.jQuery.fn.jquery) || "<none>"); console.info("$.cookie:", (window.jQuery && (typeof window.jQuery.cookie !== "undefined" || (window.jQuery.fn && typeof window.jQuery.fn.cookie !== "undefined"))) ? "present" : "undefined");');
+
+            echo $this->Html->scriptBlock('(function(){try{if(typeof window.jQuery==="undefined"){console.warn("jQuery is not available yet");return;}var hasCookie = (typeof window.jQuery.cookie!="undefined") || (window.jQuery.fn && typeof window.jQuery.fn.cookie!="undefined"); if(!hasCookie){ var base = (window.APP_BASE!==undefined)?String(window.APP_BASE):"/"; if(base.slice(-1)!="/") base += "/"; var s=document.createElement("script"); s.src = base + "assets/vendors/js/jquery.cookie.js"; s.onload = function(){ console.info("jquery.cookie reloaded. $.cookie:", typeof window.jQuery.cookie, "$.fn.cookie:", typeof (window.jQuery.fn && window.jQuery.fn.cookie)); }; s.onerror = function(){ console.error("Failed to load jquery.cookie.js from", s.src); }; document.head.appendChild(s);} }catch(e){console.error(e);} })();');
+
         ?>
         <?= $this->fetch('script') ?>
 
@@ -308,6 +332,52 @@
 
             // Prevent loader from showing again on AJAX content loads
             window.loaderShown = true;
+        </script>
+        <script>
+            // Ensure --brand-primary-rgba-18 matches the computed --brand-primary color.
+            // This converts hex or rgb(...) CSS var to an "r,g,b" tuple usable in rgba(var(--brand-primary-rgba-18), alpha).
+            (function setBrandPrimaryRgba() {
+                try {
+                    var root = document.documentElement;
+                    var cs = getComputedStyle(root);
+                    var val = cs.getPropertyValue('--brand-primary') || '';
+                    val = String(val).trim().replace(/"|'/g, '');
+                    if (!val) return;
+
+                    function hexToRgb(h) {
+                        if (!h) return null;
+                        h = String(h).trim();
+                        if (h.indexOf('#') === 0) h = h.slice(1);
+                        if (h.length === 3) h = h.split('').map(function(c){ return c + c; }).join('');
+                        if (h.length !== 6) return null;
+                        var n = parseInt(h, 16);
+                        return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+                    }
+
+                    var rgb = null;
+                    if (val.indexOf('rgb') === 0) {
+                        var m = val.match(/rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+                        if (m) rgb = [parseInt(m[1],10), parseInt(m[2],10), parseInt(m[3],10)];
+                    } else {
+                        rgb = hexToRgb(val);
+                    }
+
+                    if (rgb && rgb.length === 3) {
+                        root.style.setProperty('--brand-primary-rgba-18', rgb.join(','));
+                        // Compute a darker variant (approx 82% brightness) for hover/focus fallbacks
+                        try {
+                            var dark = rgb.map(function(c){ return Math.max(0, Math.min(255, Math.round(c * 0.82))); });
+                            // set as an rgb(...) color string so CSS can use it directly
+                            root.style.setProperty('--brand-primary-dark', 'rgb(' + dark.join(',') + ')');
+                        } catch (ee) {
+                            /* ignore */
+                        }
+                    }
+                } catch (e) {
+                    // Non-fatal — preserve page functionality even if color parsing fails
+                    console.warn('setBrandPrimaryRgba failed', e);
+                }
+            })();
         </script>
     </body>
 </html>

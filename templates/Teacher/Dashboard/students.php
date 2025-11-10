@@ -352,9 +352,9 @@
 
             // helper to generate action buttons HTML for a student object (expects encrypted id in s.id)
             function generateActionButtonsHtml(s) {
-                var viewUrl = '/teacher/dashboard/student/' + s.id;
-                var editUrl = '/teacher/dashboard/editStudent/' + s.id;
-                var deleteUrl = '/teacher/dashboard/deleteStudent/' + s.id;
+                var viewUrl = (typeof window.APP_BASE !== 'undefined' ? window.APP_BASE : window.location.origin + '/') + 'teacher/dashboard/student/' + s.id;
+                var editUrl = (typeof window.APP_BASE !== 'undefined' ? window.APP_BASE : window.location.origin + '/') + 'teacher/dashboard/editStudent/' + s.id;
+                var deleteUrl = (typeof window.APP_BASE !== 'undefined' ? window.APP_BASE : window.location.origin + '/') + 'teacher/dashboard/deleteStudent/' + s.id;
                 var escapedName = $('<div>').text(s.name).html();
                 var html = '';
                 html += '<a class="btn btn-sm btn-outline-secondary btn-view-student" href="' + viewUrl + '" title="View"><i class="mdi mdi-eye-outline"></i></a> ';
@@ -432,13 +432,13 @@
                     if (!open) return;
                     if (open === 'add') {
                         // Open add modal
-                        openFormModal('/teacher/dashboard/addStudent', 'Add Student');
+                        openFormModal((typeof window.APP_BASE !== 'undefined' ? window.APP_BASE : window.location.origin + '/') + 'teacher/dashboard/addStudent', 'Add Student');
                         // remove query params to avoid reopening on refresh
                         history.replaceState(null, '', window.location.pathname);
                     } else if (open === 'edit') {
                         var id = params.get('id');
                         if (id) {
-                            openFormModal('/teacher/dashboard/editStudent/' + id, 'Edit Student');
+                            openFormModal((typeof window.APP_BASE !== 'undefined' ? window.APP_BASE : window.location.origin + '/') + 'teacher/dashboard/editStudent/' + id, 'Edit Student');
                             history.replaceState(null, '', window.location.pathname);
                         }
                     }

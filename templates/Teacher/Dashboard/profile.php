@@ -15,7 +15,7 @@
     <label for="profile_image">Profile Picture</label>
     <?= $this->Form->file('profile_image', ['accept' => 'image/*', 'class' => 'form-control']) ?>
     <?php if (!empty($user->profile_image)): ?>
-        <img src="/uploads/profile_images/<?= h($user->profile_image) ?>" alt="Current Profile" style="max-width:100px; margin-top:10px;">
+        <img src="<?= $this->Url->build('/uploads/profile_images/' . h($user->profile_image)) ?>" alt="Current Profile" style="max-width:100px; margin-top:10px;">
     <?php endif; ?>
 </div>
                     <div class="form-group">

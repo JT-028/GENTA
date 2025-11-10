@@ -5,6 +5,31 @@
     font-weight: normal;
     font-style: normal;
 }
+/* Theme palette variables (centralized for easier swaps)
+   Replace the values below with the brand/cyan palette supplied by the designer.
+*/
+:root {
+    --brand-primary: #0ea5e9; /* primary brand color (used to replace #b66dff) */
+    --vivid-sky: #48cae4;    /* accent for gradients */
+    --brand-primary-rgba-18: 14,165,233; /* rgb() tuple for subtle shadows */
+}
+
+/* Override Bootstrap primary utilities to use the centralized brand color */
+.btn-primary {
+    background-color: var(--brand-primary) !important;
+    border-color: var(--brand-primary) !important;
+    color: #ffffff !important;
+}
+.btn-primary:hover, .btn-primary:focus, .btn-primary:active {
+    /* Use a runtime-computed darker variant for broad browser support */
+    background-color: var(--brand-primary-dark, var(--brand-primary)) !important;
+    border-color: var(--brand-primary-dark, var(--brand-primary)) !important;
+    box-shadow: 0 6px 18px rgba(var(--brand-primary-rgba-18), 0.12) !important;
+}
+.text-primary { color: var(--brand-primary) !important; }
+.bg-primary { background-color: var(--brand-primary) !important; color: #fff !important; }
+.badge.bg-primary { background-color: var(--brand-primary) !important; }
+.spinner-border.text-primary { color: var(--brand-primary) !important; }
 /* CUSTOM CSS */
 
 .content-wrapper {
@@ -96,9 +121,9 @@
 
 /* Make primary action visually distinct */
 .modal-footer .btn-primary {
-    background-color: #b66dff !important;
-    border-color: #b66dff !important;
-    box-shadow: 0 6px 18px rgba(182,109,255,0.18) !important;
+    background-color: var(--brand-primary) !important;
+    border-color: var(--brand-primary) !important;
+    box-shadow: 0 6px 18px rgba(var(--brand-primary-rgba-18),0.18) !important;
 }
 
 /* Close button: subtle and accessible */
@@ -170,3 +195,135 @@
     line-height: 1;
 }
 .student-actions .btn .me-2 { margin-right: 0.58rem !important; }
+
+/* --- Brand-driven overrides for sidebar, page headers and gradients --- */
+
+/* Ensure any existing "primary gradient" utility uses the new brand palette */
+.bg-gradient-primary {
+    background: linear-gradient(135deg, var(--brand-primary), var(--vivid-sky)) !important;
+    color: #fff !important;
+    background-size: 200% 200%;
+}
+
+/* Cards / widgets that used the old primary gradient */
+.card-gradient-primary {
+    background: linear-gradient(135deg, var(--brand-primary), var(--vivid-sky)) !important;
+    color: #fff !important;
+    box-shadow: 0 12px 36px rgba(var(--brand-primary-rgba-18), 0.12) !important;
+}
+
+/* Page title icon (small circular icon next to page header) */
+.page-title-icon.bg-gradient-primary {
+    background: linear-gradient(135deg, var(--brand-primary), var(--vivid-sky)) !important;
+    color: #fff !important;
+    box-shadow: 0 10px 30px rgba(var(--brand-primary-rgba-18), 0.12) !important;
+}
+
+/* Sidebar: active link coloring and subtle background highlight */
+#sidebar .nav-item .nav-link {
+    transition: background-color 180ms ease, color 180ms ease;
+}
+#sidebar .nav-link.active,
+#sidebar .nav-item.active > .nav-link {
+    color: var(--brand-primary) !important;
+    /* Remove the translucent blue block behind active items — keep text/icon color only */
+    background: transparent !important;
+}
+
+/* Remove the large blue/tint block behind the profile card and nav tabs */
+#sidebar .nav-profile,
+#sidebar .nav-profile .nav-link {
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+/* Ensure default links in the sidebar don't have a tinted background by default */
+#sidebar .nav-link {
+    background: transparent !important;
+}
+
+/* Active items use colored text/icon only (no left accent bar) */
+#sidebar .nav-link.active, #sidebar .nav-item.active > .nav-link {
+    /* keep colored text/icon via existing rules; no extra pseudo-element */
+}
+
+/* Sidebar: ensure icon and title inherit the active color */
+#sidebar .nav-link .menu-title { color: inherit; }
+#sidebar .nav-link .menu-icon { color: #9aa0a6; transition: color 160ms ease; }
+#sidebar .nav-link.active .menu-icon,
+#sidebar .nav-item.active .menu-icon { color: var(--brand-primary) !important; }
+
+/* Breadcrumb / page header subtle accent — keep text legible but use brand for small accents */
+.page-header .page-title .page-title-icon {
+    /* class already contains bg-gradient-primary in markup; this reinforces it */
+    background: linear-gradient(135deg, var(--brand-primary), var(--vivid-sky)) !important;
+    color: #fff !important;
+}
+
+/* Generic fallback for any remaining "*-gradient-primary" utilities */
+[class*="-gradient-primary"], .gradient-primary {
+    background: linear-gradient(135deg, var(--brand-primary), var(--vivid-sky)) !important;
+    color: #fff !important;
+}
+
+/* Small helper: active badges or small elements using a translucent brand tint */
+.brand-tint {
+    background: rgba(var(--brand-primary-rgba-18), 0.06);
+    color: var(--brand-primary);
+}
+
+
+/* Password visibility toggle: display only the icon (no square button)
+   - Use a slightly larger invisible hit area for touch devices while keeping the
+     visible icon compact.
+   - On hover/focus, the icon color darkens using --brand-primary-dark (computed at runtime).
+*/
+.password-toggle-icon {
+    background: transparent !important;
+    border: 0 !important;
+    margin: 0 !important;
+    /* Increase hit-target while keeping icon visually compact */
+    padding: 6px 8px !important; /* touch-friendly hit area */
+    width: auto !important;
+    height: auto !important;
+    color: var(--brand-primary) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 1.05rem !important;
+    line-height: 1 !important;
+    box-shadow: none !important;
+    cursor: pointer !important;
+    transition: color 140ms ease, transform 120ms ease;
+    border-radius: 6px !important; /* small radius to keep hit area shaped */
+}
+
+/* Hover (desktop) and active look */
+.password-toggle-icon:hover {
+    color: var(--brand-primary-dark, rgba(0,0,0,0.8)) !important;
+    transform: translateY(-1px);
+}
+
+/* Focus for keyboard users: visible ring for accessibility */
+.password-toggle-icon:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(var(--brand-primary-rgba-18), 0.12) !important;
+    border-radius: 8px !important;
+}
+
+/* Slightly larger touch target on small screens */
+@media (max-width: 576px) {
+    .password-toggle-icon {
+        padding: 10px 12px !important;
+        font-size: 1.15rem !important;
+    }
+}
+
+/* Position the password toggle inside positioned form-group containers */
+.form-group.position-relative .password-toggle-icon {
+    position: absolute !important;
+    right: 10px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+}
+
