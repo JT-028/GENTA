@@ -2,12 +2,12 @@
 
 <!-- Mascot centered above the original single-column form -->
 <div id="genta-mascot" class="genta-mascot" aria-hidden="true">
-    <div id="genta-mascot-container" class="frame-circle small" aria-hidden="true"></div>
+    <div id="genta-mascot-container" class="frame-circle" aria-hidden="true"></div>
 </div>
 
 <!-- WELCOME TEXT -->
-<h4 class="auth-title">Hello! Welcome to GENTA.</h4>
-<div class="auth-subtitle">Log in to continue.</div>
+<h4 class="auth-title">Welcome back to GENTA</h4>
+<div class="auth-subtitle">Sign in to access your dashboard — manage quizzes, students, and results.</div>
 
 <!-- LOG IN FORM -->
 <?php

@@ -36,6 +36,16 @@
   </g>
   <g id="face">
     <path id="screen_face" data-name="screen face" class="cls-1" d="M139.06,72.18c-40.07-1.02-82.42,30.09-85.57,80.29-.31,5,.07,10.05,1.44,14.86,3.68,12.98,12.72,21.59,27.51,25.51,3.73.99,7.58,1.42,11.44,1.42h90.36c3.86,0,7.71-.43,11.44-1.42,14.79-3.92,23.83-12.54,27.51-25.51,1.37-4.82,1.75-9.86,1.44-14.86-3.15-50.19-45.5-81.3-85.57-80.29Z"/>
+    <g id="wrong_pass_eyes">
+      <g id="LEFT_EYE" data-name="LEFT EYE">
+        <rect class="cls-2" x="101.56" y="113.92" width="9.58" height="55.68" rx="4.03" ry="4.03" transform="translate(-69.09 116.72) rotate(-45)"/>
+        <rect class="cls-2" x="101.56" y="113.92" width="9.58" height="55.68" rx="4.03" ry="4.03" transform="translate(131.39 -33.68) rotate(45)"/>
+      </g>
+      <g id="RIGHT_EYE" data-name="RIGHT EYE">
+        <rect class="cls-2" x="167.16" y="113.92" width="9.58" height="55.68" rx="4.03" ry="4.03" transform="translate(-49.88 163.11) rotate(-45)"/>
+        <rect class="cls-2" x="167.16" y="113.92" width="9.58" height="55.68" rx="4.03" ry="4.03" transform="translate(150.6 -80.07) rotate(45)"/>
+      </g>
+    </g>
     <g id="closed_eyes" data-name="closed eyes">
       <rect id="left_eye" data-name="left eye" class="cls-2" x="84.31" y="140.34" width="43.73" height="2.48" rx="1.24" ry="1.24"/>
       <rect id="right_eye" data-name="right eye" class="cls-2" x="150.09" y="140.34" width="43.73" height="2.48" rx="1.24" ry="1.24"/>

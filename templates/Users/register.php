@@ -4,7 +4,7 @@
 
 <!-- Mascot centered above the original single-column register form -->
 <div id="genta-mascot" class="genta-mascot" aria-hidden="true">
-    <div id="genta-mascot-container" class="frame-circle small" aria-hidden="true"></div>
+    <div id="genta-mascot-container" class="frame-circle" aria-hidden="true"></div>
 </div>
 
 <h4 class="auth-title">New Account</h4>

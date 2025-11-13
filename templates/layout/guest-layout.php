@@ -7,6 +7,11 @@
 
         <title>GENTA</title>
 
+        <!-- Inline: hide server-rendered flash messages immediately; JS will show SweetAlert toasts instead -->
+        <style>
+            .alert.alert-danger, .alert.alert-success, .flash-error, .flash-success, .message.error, .message.success { display: none !important; }
+        </style>
+
         <!-- CSS -->
         <?=
             $this->Html->css([
@@ -21,6 +26,8 @@
 
     <!-- ICONS -->
     <?= $this->Html->meta('mascot_head.svg', '/assets/images/mascot_head.svg', ['type' => 'icon']) ?>
+    <!-- SWEETALERT2 CDN (to enable consistent toast styling on guest pages) -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     </head>
     <body>
         <div class="container-scroller">
