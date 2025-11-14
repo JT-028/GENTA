@@ -18,10 +18,12 @@
     var svg = container.querySelector('svg');
     if (!svg) return;
 
-    // eye groups present in mascot_head.svg
-    var openGroup = svg.querySelector('#open_eyes');
-    var closedGroup = svg.querySelector('#closed_eyes');
-    var peakGroup = svg.querySelector('#peak_eyes');
+  // eye groups present in mascot_head.svg
+  var openGroup = svg.querySelector('#open_eyes');
+  var closedGroup = svg.querySelector('#closed_eyes');
+  var peakGroup = svg.querySelector('#peak_eyes');
+  // optional group for a dedicated wrong-password expression
+  var wrongGroup = svg.querySelector('#wrong_pass_eyes');
 
   // Diagnostic logger (disabled by default). Enable by setting window.__mascotDebug = true
   // or appending ?mascotDebug=1 to the URL. Logs are kept in window.__mascotEventLog (capped).
@@ -159,9 +161,95 @@
         g.style.willChange = 'opacity';
       } catch (e) {}
     }
-    prepareGroupForFade(openGroup);
-    prepareGroupForFade(closedGroup);
-    prepareGroupForFade(peakGroup);
+  prepareGroupForFade(openGroup);
+  prepareGroupForFade(closedGroup);
+  prepareGroupForFade(peakGroup);
+  // ensure wrong-pass group (if present) is hidden initially so it doesn't show beneath others
+  prepareGroupForFade(wrongGroup);
+    
+    // helper: show a minimal in-page toast when Swal (SweetAlert2) is not available
+    function _showFallbackToast(txt, type) {
+      try {
+        var t = document.createElement('div');
+        t.className = 'genta-toast';
+        t.textContent = txt;
+        t.setAttribute('role', 'status');
+        var bg = type === 'error' ? '#fee2e2' : (type === 'success' ? '#dcfce7' : '#eef2ff');
+        var color = '#0f172a';
+        Object.assign(t.style, {
+          position: 'fixed',
+          top: '16px',
+          right: '16px',
+          zIndex: 11000,
+          background: bg,
+          color: color,
+          padding: '10px 14px',
+          borderRadius: '8px',
+          boxShadow: '0 6px 18px rgba(2,6,23,0.08)',
+          maxWidth: '340px',
+          fontSize: '0.95rem'
+        });
+        document.body.appendChild(t);
+        // auto-dismiss
+        setTimeout(function(){ try{ t.style.transition='opacity 300ms'; t.style.opacity='0'; setTimeout(function(){ try{ t.remove(); }catch(e){} }, 300); }catch(e){} }, 3600);
+      } catch (e) {}
+    }
+
+    // Detect server-side flash elements and show toasts (Swal if available, fallback otherwise).
+    function detectAndHandleFlash() {
+      try {
+        var flashEls = document.querySelectorAll('.alert.alert-danger, .flash-error, .message.error, .alert-danger, .alert.alert-success, .flash-success, .message.success, .alert-success');
+        var foundError = false;
+        var foundAny = false;
+        var SwalToast = null;
+        try {
+          if (typeof Swal !== 'undefined' && Swal && typeof Swal.mixin === 'function') {
+            SwalToast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 3500, timerProgressBar: true });
+          }
+        } catch (e) { SwalToast = null; }
+
+        flashEls.forEach(function(el){
+          try {
+            var txt = (el.textContent || '').trim();
+            if (!txt) return;
+            foundAny = true;
+            var isError = /invalid email|invalid password|invalid email or password|error/i.test(txt) || el.classList.contains('alert-danger') || el.classList.contains('flash-error');
+            var isSuccess = el.classList.contains('alert-success') || el.classList.contains('flash-success') || /success|registered|created|saved/i.test(txt);
+            if (SwalToast) {
+              try {
+                // Use the same options as other site toasts (profile page) so appearance matches exactly
+                Swal.fire({
+                  icon: isError ? 'error' : (isSuccess ? 'success' : 'info'),
+                  toast: true,
+                  position: 'top-end',
+                  showConfirmButton: false,
+                  timer: isError ? 3000 : 1800,
+                  title: txt,
+                });
+              } catch (e) {}
+            } else {
+              _showFallbackToast(txt, isError ? 'error' : (isSuccess ? 'success' : 'info'));
+            }
+            // hide the server-rendered flash to avoid duplicate messages on-screen
+            try { el.style.display = 'none'; } catch (e) {}
+            if (isError && /invalid email|invalid password|invalid email or password/i.test(txt)) foundError = true;
+          } catch(e){}
+        });
+
+        if (!foundAny) {
+          var bodyText = (document.body && document.body.textContent) ? document.body.textContent : '';
+          if (/Invalid email or password\.|invalid email or password/i.test(bodyText)) {
+            foundError = true;
+            if (SwalToast) {
+              try {
+                Swal.fire({ icon: 'error', toast: true, position: 'top-end', showConfirmButton: false, timer: 3000, title: 'Invalid email or password.' });
+              } catch(e){}
+            } else { _showFallbackToast('Invalid email or password.', 'error'); }
+          }
+        }
+        return foundError;
+      } catch (e) { return false; }
+    }
     function _showGroup(g) {
       try {
         window.__mascotLog('_showGroup', g && g.getAttribute && g.getAttribute('id'));
@@ -199,7 +287,32 @@
         // avoid redundant transitions
         if (!force && __mascotCurrentEyeState === state) return;
 
-        // show/hide with cross-fade
+        // show/hide with cross-fade (support extra 'wrong_pass' group if present)
+        if (state === 'wrong_pass') {
+            // If the SVG contains a dedicated wrong-pass group, show it briefly.
+            var wrongG = wrongGroup;
+            if (wrongG) {
+              // hide others, show wrongGroup
+              _hideGroup(openGroup); _hideGroup(closedGroup); _hideGroup(peakGroup);
+              _showGroup(wrongG);
+              // revert to open after a short timeout
+              setTimeout(function(){ try{ _hideGroup(wrongG); showEyes('open'); }catch(e){} }, 700);
+              __mascotCurrentEyeState = state;
+              return;
+            }
+          // fallback: show closed eyes and a brief shake animation on the mascot container
+          try {
+            _hideGroup(openGroup); _hideGroup(peakGroup); _showGroup(closedGroup);
+            if (container) container.classList.add('mascot-wrong');
+            setTimeout(function(){ try{ if (container) container.classList.remove('mascot-wrong'); showEyes('open'); }catch(e){} }, 700);
+            __mascotCurrentEyeState = state;
+            return;
+          } catch (e) {
+            /* ignore */
+          }
+        }
+
+        // Default behaviour for open/closed/peak
         if (state === 'open') { _showGroup(openGroup); } else { _hideGroup(openGroup); }
         if (state === 'closed') { _showGroup(closedGroup); } else { _hideGroup(closedGroup); }
         if (state === 'peak') { _showGroup(peakGroup); } else { _hideGroup(peakGroup); }
@@ -210,8 +323,15 @@
       }
     }
 
-    // initialize to open eyes
-    showEyes('open');
+    // If there's a server-side login failure, show wrong_pass immediately and suppress the brief open flash
+    var __initialError = detectAndHandleFlash();
+    if (__initialError) {
+      // show wrong_pass immediately; it will revert to open after a short delay
+      try { showEyes('wrong_pass', true); } catch(e) { showEyes('open'); }
+    } else {
+      // initialize to open eyes
+      showEyes('open');
+    }
 
     if (email) attachCaretFollower(email);
 
@@ -325,6 +445,11 @@
         });
       }
     }
+
+    // Flash handling is managed earlier via detectAndHandleFlash()
+
+    // Expose a helper so other scripts can trigger the wrong-password expression programmatically
+    try { window.triggerMascotWrongPassword = function() { try{ showEyes('wrong_pass', true); } catch(e){} }; } catch(e) {}
 
     window.addEventListener('pageshow', function () { showEyes('open'); });
   }

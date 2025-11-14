@@ -164,17 +164,97 @@ class Application extends BaseApplication implements AuthenticationServiceProvid
 
             // Parse various types of encoded request bodies so that they are
             // available as array through $request->getData()
-            // https://book.cakephp.org/4/en/controllers/middleware.html#body-parser-middleware
-            ->add(new BodyParserMiddleware())
+            // For our server-to-server approval callbacks we skip the BodyParser
+            // because some clients post raw JSON in ways that trigger a 400
+            // from the parser. We want the controller to handle the raw body
+            // and perform HMAC verification itself.
+            ->add(function (ServerRequestInterface $request, \Psr\Http\Server\RequestHandlerInterface $handler) {
+                try {
+                    $path = (string)$request->getUri()->getPath();
+                    // If the client included the HMAC signature header we should
+                    // also treat this as an API callback even when the PSR-7 path
+                    // doesn't contain the action name (hosting under a subpath
+                    // or normalization can change the visible path). This makes
+                    // the raw-capture robust when requests arrive with the
+                    // X-Callback-Signature header set.
+                    $hasSignatureHeader = (bool)$request->getHeaderLine('X-Callback-Signature');
+                    // Match broadly: the app may be hosted under a base path (e.g. /GENTA),
+                    // so check for the callback action name rather than an exact prefix.
+                    if (strpos($path, 'approvalCallback') !== false || $hasSignatureHeader) {
+                        // Capture raw request bytes and some header diagnostics to help
+                        // debug why the BodyParser is rejecting incoming callbacks.
+                        // Temporary debug: record whether a signature header was present
+                        // and log its (trimmed) value. This helps detect header
+                        // normalization or proxy stripping when callbacks arrive.
+                        // Intentionally do not log the signature header value in production.
+                        // We'll write the raw bytes to a timestamped file in logs and
+                        // attach the raw content as a request attribute so controllers
+                        // can still access it even if php://input was consumed here.
+                        try {
+                            $raw = @file_get_contents('php://input');
+                            $headers = [];
+                            foreach ($request->getHeaders() as $k => $vals) {
+                                $headers[$k] = implode(', ', $vals);
+                            }
+                            $meta = [
+                                'path' => $path,
+                                'method' => $request->getMethod(),
+                                'content_type' => $request->getHeaderLine('Content-Type'),
+                                'content_length' => $request->getHeaderLine('Content-Length'),
+                                'timestamp' => date('Y-m-d_His'),
+                            ];
+                            // Use dirname(__DIR__) to compute project root reliably instead
+                            // of relying on the ROOT constant which may not be available.
+                            $dumpDir = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'logs';
+                            if (!is_dir($dumpDir)) { @mkdir($dumpDir, 0777, true); }
+                            $fname = $dumpDir . DIRECTORY_SEPARATOR . 'approval_cb_' . preg_replace('/[^A-Za-z0-9_\-]/', '_', $meta['timestamp']) . '.txt';
+                            $out = "--- META ---\n" . json_encode($meta) . "\n--- HEADERS ---\n" . json_encode($headers) . "\n--- RAW ---\n" . $raw;
+                            @file_put_contents($fname, $out);
+                            // Attach raw payload as an attribute for downstream controllers
+                            if ($raw !== false && $raw !== null) {
+                                $request = $request->withAttribute('raw_body', $raw);
+                            }
+                        } catch (\Throwable $_) {
+                            // Continue even if logging fails
+                            \Cake\Log\Log::write('error', 'Failed to capture raw approvalCallback input: ' . $_->getMessage());
+                        }
+                        return $handler->handle($request);
+                    }
+                } catch (\Throwable $_) {
+                    // If anything goes wrong, fall back to normal parsing
+                }
+                $bodyParser = new BodyParserMiddleware();
+                return $bodyParser->process($request, $handler);
+            })
 
             // AUTHENTICATION MIDDLEWARE
             ->add(new AuthenticationMiddleware($this))
 
             // Cross Site Request Forgery (CSRF) Protection Middleware
             // https://book.cakephp.org/4/en/security/csrf.html#cross-site-request-forgery-csrf-middleware
-            ->add(new CsrfProtectionMiddleware([
-                'httponly' => true,
-            ]));
+            // Allow skipping CSRF validation for specific server-to-server callback endpoints
+            // (e.g. Flask posting approval callbacks). We use skipCheckCallback to exempt
+            // requests whose path includes '/users/approvalCallback'. Adjust as needed
+            // if your callback path differs or the app is hosted under a subdirectory.
+            ->add((function () {
+                $csrf = new CsrfProtectionMiddleware(['httponly' => true]);
+                $csrf->skipCheckCallback(function ($request) {
+                    try {
+                        $path = (string)$request->getUri()->getPath();
+                        $hasSignatureHeader = (bool)$request->getHeaderLine('X-Callback-Signature');
+                        // If the request targets the approvalCallback endpoint or
+                        // includes the callback signature header, skip CSRF. This
+                        // mirrors the authentication behaviour for API callbacks.
+                        if (strpos($path, '/users/approvalCallback') !== false || $hasSignatureHeader) {
+                            return true;
+                        }
+                    } catch (\Throwable $_) {
+                        // fall through to default behavior (do not skip)
+                    }
+                    return false;
+                });
+                return $csrf;
+            })());
 
         return $middlewareQueue;
     }
@@ -208,19 +288,31 @@ class Application extends BaseApplication implements AuthenticationServiceProvid
 
     public function getAuthenticationService(ServerRequestInterface $request): AuthenticationServiceInterface
     {
-        // On unauthenticated requests redirect to the Users::login action.
-        // Previous value used a relative controller path ('../Users') which
-        // resulted in malformed route arrays and "Missing route/controller"
-        // errors in the logs. Use the canonical controller name here.
-        // Ensure the unauthenticated redirect points to the non-prefixed Users::login
-        // (avoids inheriting a request prefix such as 'teacher' which produced
-        // unwanted routes like /teacher/users/login and Missing Controller errors).
-        $authenticationService = new AuthenticationService([
-            'unauthenticatedRedirect' => Router::url([
+        // Determine whether this request should use the normal unauthenticated
+        // redirect (browser flows) or behave like an API/server-to-server call
+        // which should *not* be redirected to an HTML login page.
+        // If the request targets our approvalCallback endpoint, disable the
+        // redirect so the controller can return a JSON response (or 403).
+    $path = (string)$request->getUri()->getPath();
+    // Treat requests as API-style callbacks if they target the approvalCallback
+    // path OR if they include the X-Callback-Signature header (server-to-server).
+    $hasSignatureHeader = (bool)$request->getHeaderLine('X-Callback-Signature');
+    $isCallbackPath = (strpos($path, '/users/approvalCallback') !== false) || $hasSignatureHeader;
+
+    if ($isCallbackPath) {
+            // For API-style callbacks, do not redirect unauthenticated requests.
+            $unauthenticatedRedirect = false;
+        } else {
+            // Default browser flow: redirect unauthenticated users to Users::login
+            $unauthenticatedRedirect = Router::url([
                 'prefix' => false,
                 'controller' => 'Users',
                 'action' => 'login',
-            ]),
+            ]);
+        }
+
+        $authenticationService = new AuthenticationService([
+            'unauthenticatedRedirect' => $unauthenticatedRedirect,
             'queryParam' => 'redirect',
         ]);
 

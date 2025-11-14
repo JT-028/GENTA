@@ -9,6 +9,11 @@
         <?php endif; ?>
         <title>GENTA</title>
 
+        <!-- Inline: hide server-rendered flash messages early to avoid brief DOM flashes; JS will show SweetAlert toasts instead -->
+        <style>
+            .alert.alert-danger, .alert.alert-success, .flash-error, .flash-success, .message.error, .message.success { display: none !important; }
+        </style>
+
         <!-- CSS -->
         <link href="https://fonts.cdnfonts.com/css/the-bold-font" rel="stylesheet">
         <?= 
@@ -54,8 +59,13 @@
             left: 0;
             width: 100%;
             height: 100%;
-            /* Use brand palette variables for loader gradient */
-            background: linear-gradient(135deg, var(--brand-primary) 0%, var(--vivid-sky) 100%);
+            /* Subtle, near-white brand-tinted background for the loader.
+               Provide a solid fallback color (used when variables are not yet available
+               or when rgba(var(...)) syntax fails) so the loader is never fully transparent. */
+            background-color: #f7fdff; /* very pale cyan fallback */
+            background-image: linear-gradient(135deg, rgba(var(--brand-primary-rgba-18), 0.06) 0%, rgba(var(--brand-primary-rgba-18), 0.03) 100%);
+            background-repeat: no-repeat;
+            background-size: cover;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -75,7 +85,7 @@
         }
 
         .loader-text {
-            color: white;
+            color: var(--brand-primary) !important;
             font-size: 1.5rem;
             font-weight: 600;
             margin-top: 20px;

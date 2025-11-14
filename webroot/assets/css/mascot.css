@@ -1,18 +1,42 @@
 /* External SVG mascot loader styles */
-/* Larger, centered mascot to match reference layout */
+/* Larger, centered mascot to match reference layout
+	 Uses CSS variables so sizing can be controlled centrally.
+	 --mascot-size: preferred maximum size (px)
+	 --mascot-small-size: minimum/compact size (px)
+*/
+:root {
+	--mascot-size: 220px;
+	--mascot-small-size: 140px;
+}
+/* Hide server-rendered flash messages visually; mascot.js will show toasts instead. */
+/* This prevents the old DOM-based alert from flashing briefly before JS replaces it. */
+.alert.alert-danger, .alert.alert-success, .flash-error, .flash-success, .message.error, .message.success, .alert-danger, .alert-success {
+	display: none !important;
+}
 #genta-mascot { display:flex; justify-content:center; align-items:center; margin: 18px 0 12px; }
-#genta-mascot-container { width:220px; max-width:48%; margin: 0 auto; display:flex; align-items:center; justify-content:center; }
+#genta-mascot-container {
+	/* preferred width, but allow percentage-based max in tighter layouts */
+	width: var(--mascot-size);
+	max-width: 48%;
+	min-width: var(--mascot-small-size);
+	margin: 0 auto;
+	display:flex;
+	align-items:center;
+	justify-content:center;
+}
 #genta-mascot svg { width:100%; height:auto; display:block; }
 
 /* Perfect circular frame behind the head. Uses aspect-ratio for responsiveness
-   so the element stays a true circle regardless of size. Padding is inside
-   the circle and the SVG is centered. */
+	 so the element stays a true circle regardless of size. Padding is inside
+	 the circle and the SVG is centered. */
 .frame-circle {
 	display:flex;
 	align-items:center;
 	justify-content:center;
-	width:220px;                /* default size */
-	max-width:40%;
+	/* preferred size, clamped by max-width on the container and min-width below */
+	width: var(--mascot-size);
+	max-width: 40%;
+	min-width: var(--mascot-small-size);
 	aspect-ratio: 1 / 1;        /* ensure square -> circle when border-radius applied */
 	border-radius:50%;
 	box-sizing: border-box;
@@ -22,13 +46,24 @@
 }
 
 /* When the container is used inline (e.g. directly inside a header), keep a sensible max size */
-.frame-circle.small { width:140px; padding:12px; }
+.frame-circle.small { width: var(--mascot-small-size); min-width: var(--mascot-small-size); padding:12px; }
 /* Pupils and hands will be animated via CSS transforms once SVG is injected */
 #genta-mascot .pupil { transition: transform 140ms linear; transform-origin: center; }
 #genta-mascot #left_arm, #genta-mascot #right_arm { transition: transform 260ms cubic-bezier(.2,.9,.2,1); transform-origin: center center; }
 /* fallback class-based cover (kept for safety) */
 .genta-mascot.cover-hands #left_arm { transform: translate(36px,-56px) rotate(-18deg); }
 .genta-mascot.cover-hands #right_arm { transform: translate(-36px,-56px) rotate(18deg); }
+
+/* Brief wrong-password shake animation */
+.mascot-wrong { animation: mascot-shake 700ms ease-in-out; }
+@keyframes mascot-shake {
+	0% { transform: translateX(0); }
+	20% { transform: translateX(-6px); }
+	40% { transform: translateX(6px); }
+	60% { transform: translateX(-4px); }
+	80% { transform: translateX(4px); }
+	100% { transform: translateX(0); }
+}
 
 /* Small UI helper classes used by login/register templates */
 .auth-card { max-width:920px; margin:18px auto; background:#fff; border-radius:10px; box-shadow:0 6px 24px rgba(16,40,60,0.06); overflow:hidden; }
@@ -45,7 +80,8 @@
 @media (max-width:768px){
 	.auth-row { flex-direction:column; }
 	.auth-left { flex-basis:auto; padding:18px; }
-	.frame-circle { width:160px; max-width:160px; }
+	/* Reduce mascot size on tablet/smaller screens */
+	.frame-circle { --mascot-size: 160px; --mascot-small-size: 120px; }
 	.auth-right { padding:18px; }
 }
 
