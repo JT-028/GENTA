@@ -251,17 +251,11 @@ class UsersController extends AppController
                                     }
                                 }
 
-                                // Ensure the callback URL includes the application's base path
-                                // when the app is hosted under a subdirectory (e.g. /GENTA).
-                                // Use Configure::read('App.base') when available and append it
-                                // to the derived base URL so Flask receives an absolute URL.
-                                $appBase = Configure::read('App.base') ?: '';
-                                $callbackBase = rtrim($baseUrl, '\\/') . ($appBase ? rtrim($appBase, '/') : '');
                                 $payload = [
                                     'teacher_id' => (string)$user->id,
                                     'email' => $user->email,
                                     'name' => trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')),
-                                    'callback_url' => $callbackBase . '/users/approvalCallback'
+                                    'callback_url' => rtrim($baseUrl, '\/') . '/users/approvalCallback'
                                 ];
                                 $headers = ['Content-Type' => 'application/json'];
                                 if (!empty($flaskKey)) { $headers['X-API-Key'] = $flaskKey; }

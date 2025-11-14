@@ -59,8 +59,10 @@ class AppController extends Controller
     {
         parent::beforeFilter($event);
 
-        // UNAUTHENTICATED PAGES
-        $this->Authentication->addUnauthenticatedActions(['login', 'register']);
+    // UNAUTHENTICATED PAGES
+    // Allow the approvalCallback endpoint to be called by the Flask admin (server-to-server)
+    // without an authenticated session. Keep login/register public as well.
+    $this->Authentication->addUnauthenticatedActions(['login', 'register', 'approvalCallback']);
 
         // SET LAYOUT FOR ALL PAGES ON GUEST
         $this->viewBuilder()->setLayout('guest-layout');
