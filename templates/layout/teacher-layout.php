@@ -165,11 +165,23 @@
                                         // rendering whatever stray or double-prefixed value may be present in the session.
                                         if (!empty($profileImage)) {
                                             $filename = basename((string)$profileImage);
+                                            // Prefer uploads path if the file exists there, otherwise fall back to assets/images
+                                            $uploadPath = WWW_ROOT . 'uploads' . DS . 'profile_images' . DS . $filename;
+                                            $assetPath = WWW_ROOT . 'assets' . DS . 'images' . DS . $filename;
+
                                             // Build a canonical path using the request base (avoid double-prefixing)
                                             $baseAttr = $this->request->getAttribute('base') ?? (string)\Cake\Core\Configure::read('App.base');
                                             $baseAttr = rtrim((string)$baseAttr, '/');
-                                            $src = $baseAttr . '/uploads/profile_images/' . $filename;
-                                            // Ensure leading slash
+
+                                            if (file_exists($uploadPath)) {
+                                                $src = $baseAttr . '/uploads/profile_images/' . $filename;
+                                            } elseif (file_exists($assetPath)) {
+                                                $src = $baseAttr . '/assets/images/' . $filename;
+                                            } else {
+                                                // Last-resort: use the generic faces-clipart image bundled with the app
+                                                $src = $baseAttr . '/assets/images/faces-clipart/pic-1.png';
+                                            }
+
                                             if (substr($src, 0, 1) !== '/') $src = '/' . $src;
                                             echo '<img src="' . h($src) . '" alt="profile">';
                                         } else {

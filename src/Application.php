@@ -317,10 +317,18 @@ class Application extends BaseApplication implements AuthenticationServiceProvid
         ]);
 
         // Load identifiers, ensure we check email and password fields
+        // Configure the Password identifier to only resolve users that are active (status = 1)
+        // by using the UsersTable::findActive finder. This ensures pending or suspended
+        // accounts cannot be identified and therefore cannot log in even if the
+        // credentials are correct.
         $authenticationService->loadIdentifier('Authentication.Password', [
             'fields' => [
                 'username' => 'email',
                 'password' => 'password',
+            ],
+            'resolver' => [
+                'className' => 'Authentication.Orm',
+                'finder' => 'active'
             ]
         ]);
 

@@ -3,9 +3,12 @@ declare(strict_types=1);
 
 namespace App\Model\Table;
 
+use ArrayObject;
+use Cake\Event\EventInterface;
 use Cake\ORM\Query;
 use Cake\ORM\RulesChecker;
 use Cake\ORM\Table;
+use Cake\Datasource\EntityInterface;
 use Cake\Validation\Validator;
 
 /**
@@ -94,6 +97,20 @@ class UsersTable extends Table
     }
 
     /**
+     * Finder to return only active/approved users.
+     * This is used by the authentication resolver so users with
+     * status != 1 cannot be identified and therefore cannot log in.
+     *
+     * @param \Cake\ORM\Query $query The query to modify
+     * @param array $options Options array (unused)
+     * @return \Cake\ORM\Query
+     */
+    public function findActive(Query $query, array $options)
+    {
+        return $query->where(['Users.status' => 1]);
+    }
+
+    /**
      * Returns a rules checker object that will be used for validating
      * application integrity.
      *
@@ -105,5 +122,26 @@ class UsersTable extends Table
         $rules->add($rules->isUnique(['email'], 'This email address is already in use.'), ['errorField' => 'email']);
 
         return $rules;
+    }
+
+    /**
+     * Ensure newly created users have a default profile image when none provided.
+     * This guarantees templates can always reference a profile image filename.
+     *
+     * @param \Cake\Event\EventInterface $event
+     * @param \Cake\Datasource\EntityInterface $entity
+     * @param \ArrayObject $options
+     * @return void
+     */
+    public function beforeSave(EventInterface $event, EntityInterface $entity, ArrayObject $options)
+    {
+        try {
+            if ($entity->isNew() && (empty($entity->profile_image) || $entity->profile_image === null)) {
+                // Use a simple filename; templates typically resolve this to the uploads path
+                $entity->profile_image = 'default_profile.png';
+            }
+        } catch (\Throwable $_) {
+            // swallow errors to avoid blocking saves; logging can be added if desired
+        }
     }
 }

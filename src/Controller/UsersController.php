@@ -271,7 +271,7 @@ class UsersController extends AppController
                                 \Cake\Log\Log::write('warning', 'Failed to notify Flask about new teacher: ' . $e->getMessage());
                             }
 
-                            $this->Flash->success(__('You successfully registered a new account!'));
+                            $this->Flash->success(__('You successfully registered a new account! Your account is pending admin approval and must be verified by an administrator before you can log in.'));
                             return $this->redirect(['controller' => 'Users', 'action' => 'login']);
                         }
                     } else {

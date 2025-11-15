@@ -15,7 +15,7 @@
 // is always '/users/login' (prefixed by App.base). For safety, force no
 // prefix to avoid inheriting any current routing prefix (e.g. 'teacher').
 ?>
-<?= $this->Form->create(null, ['url' => ['controller' => 'Users', 'action' => 'login', 'prefix' => false]]) ?>
+<?= $this->Form->create(null, ['url' => ['controller' => 'Users', 'action' => 'login', 'prefix' => false], 'id' => 'loginForm']) ?>
     <div class="form-group">
         <?= $this->Form->email('email', ['class' => 'form-control form-control-lg', 'id' => 'email', 'placeholder' => 'Email Address', 'required' => 'required', 'aria-label' => 'Email']) ?>
     </div>

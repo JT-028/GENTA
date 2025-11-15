@@ -24,6 +24,39 @@
   var peakGroup = svg.querySelector('#peak_eyes');
   // optional group for a dedicated wrong-password expression
   var wrongGroup = svg.querySelector('#wrong_pass_eyes');
+  // optional group for happy expression (used on successful register/login)
+  var happyGroup = svg.querySelector('#happy_eyes');
+  // optional group for pending expression (used when account is unverified/pending)
+  var pendingGroup = svg.querySelector('#pending_eyes');
+
+  // Helper: ensure a pending_eyes group exists inside the loaded SVG. If missing,
+  // create one with three circles so the pending animation is always available.
+  function ensurePendingGroup() {
+    try {
+      if (pendingGroup && pendingGroup.parentNode) return pendingGroup;
+      // try to locate again in case of timing
+      pendingGroup = svg.querySelector('#pending_eyes');
+      if (pendingGroup && pendingGroup.parentNode) return pendingGroup;
+      // create group and three circles positioned roughly where the eyes are in the SVG
+      var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      g.setAttribute('id', 'pending_eyes');
+      g.setAttribute('data-name', 'pending eyes');
+  // Increased spacing between dots for better legibility
+  var cx1 = 117.06, cx2 = 139.06, cx3 = 161.06, cy = 140, r = 6.5;
+      var c1 = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      c1.setAttribute('class', 'pending-dot'); c1.setAttribute('cx', cx1); c1.setAttribute('cy', cy); c1.setAttribute('r', r);
+      var c2 = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      c2.setAttribute('class', 'pending-dot'); c2.setAttribute('cx', cx2); c2.setAttribute('cy', cy); c2.setAttribute('r', r);
+      var c3 = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      c3.setAttribute('class', 'pending-dot'); c3.setAttribute('cx', cx3); c3.setAttribute('cy', cy); c3.setAttribute('r', r);
+      g.appendChild(c1); g.appendChild(c2); g.appendChild(c3);
+      // Append near the face group if present, otherwise append to svg root
+      var face = svg.querySelector('#face') || svg;
+      face.appendChild(g);
+      pendingGroup = g;
+      return pendingGroup;
+    } catch (e) { return pendingGroup; }
+  }
 
   // Diagnostic logger (disabled by default). Enable by setting window.__mascotDebug = true
   // or appending ?mascotDebug=1 to the URL. Logs are kept in window.__mascotEventLog (capped).
@@ -150,6 +183,7 @@
   var __mascotForcePeakUntil = 0; // kept for compatibility but not used for persistent peak
   var __mascotToggleInProgress = false;
   var __mascotCurrentEyeState = null;
+  var __mascotStateLockUntil = 0; // when set, prevent other states from overriding (used for pending)
     // prepare cross-fade transitions for the eye groups
     var __eyeHideTimers = {};
     function prepareGroupForFade(g) {
@@ -166,6 +200,10 @@
   prepareGroupForFade(peakGroup);
   // ensure wrong-pass group (if present) is hidden initially so it doesn't show beneath others
   prepareGroupForFade(wrongGroup);
+  // ensure happy group (if present) is hidden initially
+  prepareGroupForFade(happyGroup);
+  // ensure pending group (if present) is hidden initially
+  prepareGroupForFade(pendingGroup);
     
     // helper: show a minimal in-page toast when Swal (SweetAlert2) is not available
     function _showFallbackToast(txt, type) {
@@ -198,14 +236,15 @@
     // Detect server-side flash elements and show toasts (Swal if available, fallback otherwise).
     function detectAndHandleFlash() {
       try {
-        var flashEls = document.querySelectorAll('.alert.alert-danger, .flash-error, .message.error, .alert-danger, .alert.alert-success, .flash-success, .message.success, .alert-success');
+  var flashEls = document.querySelectorAll('.alert.alert-danger, .flash-error, .message.error, .alert-danger, .alert.alert-success, .flash-success, .message.success, .alert-success');
         var foundError = false;
         var foundAny = false;
         var SwalToast = null;
         try {
-          if (typeof Swal !== 'undefined' && Swal && typeof Swal.mixin === 'function') {
-            SwalToast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 3500, timerProgressBar: true });
-          }
+              if (typeof Swal !== 'undefined' && Swal && typeof Swal.mixin === 'function') {
+                // Match default toast duration for pending alerts (4000ms)
+                SwalToast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 4000, timerProgressBar: true });
+              }
         } catch (e) { SwalToast = null; }
 
         flashEls.forEach(function(el){
@@ -229,6 +268,27 @@
               } catch (e) {}
             } else {
               _showFallbackToast(txt, isError ? 'error' : (isSuccess ? 'success' : 'info'));
+            }
+            // If this is a success flash (e.g., registration or profile saved), show happy eyes
+            var isRegistrationSuccess = isSuccess && /registered|you successfully registered|successfully registered a new account/i.test(txt);
+            if (isSuccess) {
+              try {
+                // For registration-specific success messages, set a flag so
+                // initialization won't immediately reset the mascot to 'open'.
+                if (isRegistrationSuccess) {
+                  try { window.__mascotHappyFlash = true; } catch(e) {}
+                }
+                try { showEyes('happy', true); } catch(e) {}
+              } catch(e) {}
+            }
+            // Detect pending/unverified account messages and show pending animation
+            // Do NOT show pending when the success flash is actually the registration confirmation
+            var isPending = /not active|pending admin approval|pending approval|account is not active|awaiting approval/i.test(txt);
+            if (isPending && !isRegistrationSuccess) {
+              // mark that we found a pending flash so initialization won't override it
+              try { window.__mascotPendingFlash = true; } catch(e){}
+              try { if (SwalToast) { Swal.fire({ icon: 'info', toast: true, position: 'top-end', showConfirmButton: false, timer: 4000, title: txt }); } else { _showFallbackToast(txt, 'info'); } } catch(e){}
+              try { showEyes('pending', true); } catch(e){}
             }
             // hide the server-rendered flash to avoid duplicate messages on-screen
             try { el.style.display = 'none'; } catch (e) {}
@@ -278,6 +338,15 @@
       try {
         window.__mascotLog('showEyes', state, !!force, Date.now());
         var now = Date.now();
+        // If a state lock is active, do not change to a different state until it expires.
+        // Allow forced overrides (force === true) and always allow the 'open' state
+        // so pending can revert back to open when its timeout fires.
+        if (now < __mascotStateLockUntil && state !== __mascotCurrentEyeState) {
+          if (!force && state !== 'open') {
+            window.__mascotLog && window.__mascotLog('state locked, ignoring', state);
+            return;
+          }
+        }
         // No persistent force-peak window. Peak is shown immediately when toggled
         // or when the password input is focused and revealed. Do not persist peak
         // after the user moves focus to another field.
@@ -286,6 +355,8 @@
 
         // avoid redundant transitions
         if (!force && __mascotCurrentEyeState === state) return;
+
+        // No DOM overlay cleanup needed here; SVG-based pending eyes are used when available.
 
         // show/hide with cross-fade (support extra 'wrong_pass' group if present)
         if (state === 'wrong_pass') {
@@ -312,6 +383,65 @@
           }
         }
 
+        // pending expression for unverified / awaiting approval accounts
+        if (state === 'pending') {
+          try {
+            // Lock other state changes for the duration of pending animation
+            __mascotStateLockUntil = Date.now() + 4000;
+            var p = ensurePendingGroup();
+            if (p) {
+              _hideGroup(openGroup); _hideGroup(closedGroup); _hideGroup(peakGroup);
+              _showGroup(p);
+              // revert to open after a timeout matching the pending toast (keep in sync)
+              setTimeout(function(){ try{ _hideGroup(p); showEyes('open'); }catch(e){} }, 4000);
+              __mascotCurrentEyeState = state;
+              return;
+            }
+            // Fallback: show closed eyes (do NOT use peak as a fallback for pending)
+            _hideGroup(openGroup); _hideGroup(peakGroup); _showGroup(closedGroup);
+            setTimeout(function(){ try{ _hideGroup(closedGroup); showEyes('open'); }catch(e){} }, 4000);
+            __mascotCurrentEyeState = state;
+            return;
+          } catch (e) {}
+        }
+
+        // peak expression: show the peak_eyes group (used for password reveal)
+        if (state === 'peak') {
+          try {
+            var pg = peakGroup;
+            if (pg) {
+              _hideGroup(openGroup); _hideGroup(closedGroup); _hideGroup(pendingGroup);
+              _showGroup(pg);
+              __mascotCurrentEyeState = state;
+              return;
+            }
+            // Fallback: show open eyes if peak group is not present
+            _hideGroup(closedGroup); _hideGroup(pendingGroup); _showGroup(openGroup);
+            __mascotCurrentEyeState = state;
+            return;
+          } catch (e) {}
+        }
+
+        // happy expression for success cases
+        if (state === 'happy') {
+          try {
+            var h = happyGroup;
+            if (h) {
+              _hideGroup(openGroup); _hideGroup(closedGroup); _hideGroup(peakGroup);
+              _showGroup(h);
+              // revert to open after a short timeout
+              setTimeout(function(){ try{ _hideGroup(h); showEyes('open'); }catch(e){} }, 900);
+              __mascotCurrentEyeState = state;
+              return;
+            }
+            // fallback: briefly show peak
+            _hideGroup(closedGroup); _hideGroup(openGroup); _showGroup(peakGroup);
+            setTimeout(function(){ try{ showEyes('open'); }catch(e){} }, 900);
+            __mascotCurrentEyeState = state;
+            return;
+          } catch (e) {}
+        }
+
         // Default behaviour for open/closed/peak
         if (state === 'open') { _showGroup(openGroup); } else { _hideGroup(openGroup); }
         if (state === 'closed') { _showGroup(closedGroup); } else { _hideGroup(closedGroup); }
@@ -323,14 +453,26 @@
       }
     }
 
+    // NOTE: DOM overlay fallback removed -- prefer SVG #pending_eyes vector group.
+
     // If there's a server-side login failure, show wrong_pass immediately and suppress the brief open flash
     var __initialError = detectAndHandleFlash();
     if (__initialError) {
       // show wrong_pass immediately; it will revert to open after a short delay
       try { showEyes('wrong_pass', true); } catch(e) { showEyes('open'); }
     } else {
-      // initialize to open eyes
-      showEyes('open');
+      // Prefer pending animation when present, otherwise prefer a registration-success
+      // happy expression (if detected). Only fall back to open if neither applies.
+      if (window.__mascotPendingFlash) {
+        try { showEyes('pending', true); } catch(e) { showEyes('open'); }
+        try { window.__mascotPendingFlash = false; } catch(e) {}
+      } else if (window.__mascotHappyFlash) {
+        try { showEyes('happy', true); } catch(e) { showEyes('open'); }
+        try { window.__mascotHappyFlash = false; } catch(e) {}
+      } else {
+        // initialize to open eyes
+        showEyes('open');
+      }
     }
 
     if (email) attachCaretFollower(email);
@@ -452,6 +594,61 @@
     try { window.triggerMascotWrongPassword = function() { try{ showEyes('wrong_pass', true); } catch(e){} }; } catch(e) {}
 
     window.addEventListener('pageshow', function () { showEyes('open'); });
+    
+    // Intercept login form submissions to show happy mascot on successful login before redirecting
+    try {
+      var loginForm = document.getElementById('loginForm') || document.querySelector('form[action*="/Users/login"], form[action*="/users/login"]');
+      if (loginForm) {
+        loginForm.addEventListener('submit', function (ev) {
+          try {
+            // If user agent doesn't support fetch, allow normal submit
+            if (typeof fetch !== 'function') return;
+            ev.preventDefault();
+            var fd = new FormData(loginForm);
+            fetch(loginForm.action || window.location.href, { method: 'POST', credentials: 'same-origin', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+              .then(function (res) {
+                return res.text().then(function(text){ return { url: res.url, text: text }; });
+              }).then(function (obj) {
+                try {
+                  var text = obj.text || '';
+                  // If the response contains the invalid credentials message -> show error
+                    if (/invalid email|invalid password|invalid email or password/i.test(text)) {
+                    // show toast and wrong-pass
+                    try { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', toast: true, position: 'top-end', showConfirmButton: false, timer: 3000, title: (text.match(/Invalid email or password\.|invalid email or password/i) || ['Invalid email or password.'])[0] }); } catch(e) {}
+                    try { showEyes('wrong_pass', true); } catch(e) {}
+                    return;
+                  }
+                    // If the response contains a pending/unverified account message -> show pending state
+                    var isRegistrationResponse = /registered|you successfully registered|successfully registered a new account/i.test(text);
+                    if (/not active|pending admin approval|pending approval|account is not active|awaiting approval/i.test(text) && !isRegistrationResponse) {
+                      try { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'info', toast: true, position: 'top-end', showConfirmButton: false, timer: 4000, title: (text.match(/Your account is not active\.|pending admin approval|pending approval|awaiting approval/i) || [text.trim()])[0] }); } catch(e) {}
+                      try { showEyes('pending', true); } catch(e) {}
+                      return;
+                    }
+                  // Otherwise assume successful login (server redirected to dashboard)
+                  try { showEyes('happy', true); } catch(e) {}
+                  // Show a success toast matching the happy expression before redirecting
+                  try {
+                    if (typeof Swal !== 'undefined') {
+                      Swal.fire({ icon: 'success', toast: true, position: 'top-end', showConfirmButton: false, timer: 900, title: 'Logged in successfully' });
+                    } else {
+                      _showFallbackToast('Logged in successfully', 'success');
+                    }
+                  } catch (e) {}
+                  // Delay to let the user see the happy expression and toast, then navigate to the final URL
+                  setTimeout(function(){ try{ window.location.href = obj.url || '/'; }catch(e){ window.location.reload(); } }, 900);
+                } catch (e) {
+                  // Fallback to normal submit on error
+                  loginForm.submit && loginForm.submit();
+                }
+              }).catch(function(err){
+                // On network error, fallback to normal submit so server handles
+                loginForm.submit && loginForm.submit();
+              });
+          } catch (e) {}
+        });
+      }
+    } catch (e) {}
   }
 
   function loadMascotAndInit() {

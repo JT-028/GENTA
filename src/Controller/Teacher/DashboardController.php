@@ -1238,9 +1238,20 @@ class DashboardController extends AppController
                         // If AJAX, return JSON with updated avatar URL and fullname
                         if ($this->request->is('ajax')) {
                             // Use Router::url so the controller (no view helper) can generate an app-aware URL
-                            $profileUrl = !empty($user->profile_image)
-                                ? \Cake\Routing\Router::url('/uploads/profile_images/' . $user->profile_image)
-                                : null;
+                            $profileUrl = null;
+                            if (!empty($user->profile_image)) {
+                                $filename = basename((string)$user->profile_image);
+                                $uploadPath = WWW_ROOT . 'uploads' . DS . 'profile_images' . DS . $filename;
+                                $assetPath = WWW_ROOT . 'assets' . DS . 'images' . DS . $filename;
+
+                                if (file_exists($uploadPath)) {
+                                    $profileUrl = \Cake\Routing\Router::url('/uploads/profile_images/' . $filename);
+                                } elseif (file_exists($assetPath)) {
+                                    $profileUrl = \Cake\Routing\Router::url('/assets/images/' . $filename);
+                                } else {
+                                    $profileUrl = \Cake\Routing\Router::url('/assets/images/faces-clipart/pic-1.png');
+                                }
+                            }
                             $payload = [
                                 'success' => true,
                                 'message' => 'Profile changes saved!',
