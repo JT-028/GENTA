@@ -27,6 +27,10 @@ Thumbs.db
 tests.sqlite
 # vim
 *~
+
+# Archive folder created by cleanup script/workflow
+/archive-debugging-2025-11-15/
+
 *.swp
 *.swo
 # sublime text & textmate
@@ -39,9 +43,6 @@ tests.sqlite
 # JetBrains, aka PHPStorm, IntelliJ IDEA
 .idea/*
 # NetBeans
-nbproject/*
-# Visual Studio Code
-.vscode
 # nova
 .nova
 # Sass preprocessor
