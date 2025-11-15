@@ -31,6 +31,7 @@
     </div>
     <div class="form-group">
         <?= $this->Form->password('confirm_password', ['class' => 'form-control form-control-lg', 'id' => 'confirm_password', 'placeholder' => 'Confirm Password', 'required' => 'required']) ?>
+        <div id="password-match-indicator" class="small text-muted mt-1" aria-live="polite"></div>
     </div>
     <div class="mb-4">
         <div class="form-check">

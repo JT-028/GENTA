@@ -1,3 +1,6 @@
+// Lightweight presence marker and initial debug log so we can detect whether the file was loaded.
+try { window.__mascotScriptPresent = true; if (typeof console !== 'undefined' && console.info) console.info('[mascot] script file loaded'); } catch (e) {}
+
 (function(){
   // Combined loader + interactivity for the mascot
   // Note: we intentionally do NOT create separate pupil circles for this mascot.
@@ -5,18 +8,21 @@
   // and should themselves be translated slightly to simulate pupil movement.
 
   function initInteractivity() {
-    if (window.__gentaMascotInitialized) return; // idempotent
-    window.__gentaMascotInitialized = true;
+  if (window.__gentaMascotInitialized) return; // idempotent
+  window.__gentaMascotInitialized = true;
+  try { console.info('[mascot] initInteractivity start'); } catch(e){}
 
   var email = document.getElementById('email');
     var password = document.getElementById('password');
   var firstName = document.getElementById('first_name');
   var lastName = document.getElementById('last_name');
+    try { console.info('[mascot] inputs found:', { email: !!email, firstName: !!firstName, lastName: !!lastName, password: !!password }); } catch(e){}
     var container = document.getElementById('genta-mascot-container');
     if (!container) return;
 
     var svg = container.querySelector('svg');
     if (!svg) return;
+  try { console.info('[mascot] svg element present in container'); } catch(e){}
 
   // eye groups present in mascot_head.svg
   var openGroup = svg.querySelector('#open_eyes');
@@ -82,9 +88,52 @@
     } catch (e) { window.__mascotLog = function(){}; window.__dumpMascotLog = function(){ return []; }; }
   })();
 
-  // open eyes rects (to support subtle caret-following)
-    var openLeft = openGroup ? openGroup.querySelector('#left_eye-3') : null;
-    var openRight = openGroup ? openGroup.querySelector('#right_eye-3') : null;
+    // open eyes rects (to support subtle caret-following)
+    var openLeft = null;
+    var openRight = null;
+    try {
+      if (openGroup) {
+        // Try the most specific IDs first, then more generic patterns, then fall back to children
+        openLeft = openGroup.querySelector('#left_eye-3') || openGroup.querySelector('#left_eye') || openGroup.querySelector('[id^="left_eye"]') || openGroup.querySelector('[id*="left_eye"]');
+        openRight = openGroup.querySelector('#right_eye-3') || openGroup.querySelector('#right_eye') || openGroup.querySelector('[id^="right_eye"]') || openGroup.querySelector('[id*="right_eye"]');
+        // If still not found, try to use the first two visual children of the openGroup
+        if (!openLeft || !openRight) {
+          try {
+            var kids = Array.prototype.slice.call(openGroup.children || []);
+            if (!openLeft && kids.length >= 1) openLeft = kids[0];
+            if (!openRight && kids.length >= 2) openRight = kids[1] || kids[0];
+            if ((!openLeft || !openRight) && kids.length === 1) {
+              // if there's only one child, use it for both eyes (best-effort)
+              openLeft = openLeft || kids[0];
+              openRight = openRight || kids[0];
+            }
+          } catch (ee) {}
+        }
+      }
+    } catch (e) {}
+
+    // Intercept registration form to check password confirmation client-side
+    try {
+      var registerForm = document.querySelector('form[action*="/Users/register"], form[action*="/users/register"]');
+      if (registerForm) {
+        registerForm.addEventListener('submit', function (ev) {
+          try {
+            var pwd = document.getElementById('password');
+            var cpwd = document.getElementById('confirm_password');
+            if (pwd && cpwd && pwd.value !== cpwd.value) {
+              // prevent submit and show inline indicator + mascot wrong-pass
+              try { ev.preventDefault(); } catch(e){}
+              try { if (typeof Swal !== 'undefined') { Swal.fire({ icon: 'error', title: 'Passwords do not match', toast: true, position: 'top-end', showConfirmButton: false, timer: 3000 }); } else { _showFallbackToast('Confirm Password did not match the password.', 'error'); } } catch(e){}
+              try { showEyes('wrong_pass', true); } catch(e){}
+              try { cpwd.focus(); } catch(e){}
+              return false;
+            }
+            return true;
+          } catch (err) { return true; }
+        });
+      }
+    } catch (e) {}
+    try { console.info('[mascot] eye groups:', { openGroup: !!openGroup, closedGroup: !!closedGroup, peakGroup: !!peakGroup, openLeft: !!openLeft, openRight: !!openRight }); } catch(e){}
 
     // helper: translate the open eye rects to simulate pupils moving inside the rounded squares
     function setPupils(x, y) {
@@ -92,34 +141,76 @@
         var max = 6; // px
         var xx = Math.max(-max, Math.min(max, x));
         var yy = Math.max(-max, Math.min(max, y));
-        if (openLeft) openLeft.setAttribute('transform', 'translate(' + xx + ',' + yy + ')');
-        if (openRight) openRight.setAttribute('transform', 'translate(' + xx + ',' + yy + ')');
+        if (openLeft) {
+          try { openLeft.setAttribute('transform', 'translate(' + xx + ',' + yy + ')'); } catch (e) {}
+          try { openLeft.style && (openLeft.style.transform = 'translate(' + xx + 'px,' + yy + 'px)'); } catch (e) {}
+        }
+        if (openRight) {
+          try { openRight.setAttribute('transform', 'translate(' + xx + ',' + yy + ')'); } catch (e) {}
+          try { openRight.style && (openRight.style.transform = 'translate(' + xx + 'px,' + yy + 'px)'); } catch (e) {}
+        }
       } catch (e) {}
     }
 
     function resetOpenEyes() { setPupils(0,0); }
 
     // compute caret pixel position in the input (best-effort)
+    // Uses a persistent hidden <span> mirror to measure text width up to the caret,
+    // includes paddingLeft and page scroll offsets so the returned coordinates are page-accurate.
     function getCaretPixelPos(input) {
       try {
         var style = window.getComputedStyle(input);
-        var mirror = document.createElement('span');
-        var value = input.value || '';
-        var pos = input.selectionStart || value.length;
-        mirror.style.visibility = 'hidden';
-        mirror.style.whiteSpace = 'pre';
-        mirror.style.font = style.font;
-        mirror.style.letterSpacing = style.letterSpacing;
-        mirror.style.padding = style.padding;
-        mirror.style.border = style.border;
-        mirror.textContent = value.substring(0, pos) || '\u200B';
-        document.body.appendChild(mirror);
-        var rect = mirror.getBoundingClientRect();
         var inputRect = input.getBoundingClientRect();
-        var caretX = inputRect.left + rect.width - input.scrollLeft;
-        document.body.removeChild(mirror);
-        return { x: caretX, y: inputRect.top + inputRect.height / 2 };
-      } catch (e) { return null; }
+        var value = input.value || '';
+        var pos = (typeof input.selectionStart === 'number') ? input.selectionStart : value.length;
+
+        // Persistent hidden span used as a mirror
+        var span = window.__mascotMirrorSpan;
+        if (!span) {
+          span = document.createElement('span');
+          span.id = '__mascot_caret_mirror_span';
+          span.setAttribute('aria-hidden', 'true');
+          span.style.position = 'absolute';
+          span.style.visibility = 'hidden';
+          span.style.whiteSpace = 'pre';
+          span.style.pointerEvents = 'none';
+          span.style.left = '0px';
+          span.style.top = '0px';
+          span.style.zIndex = '-9999';
+          document.body.appendChild(span);
+          window.__mascotMirrorSpan = span;
+        }
+
+        // Copy font properties so measurement matches the input
+        try {
+          var mprops = ['fontSize','fontFamily','fontWeight','fontStyle','lineHeight','letterSpacing','textTransform','fontVariant','textIndent'];
+          mprops.forEach(function(p){ try { span.style[p] = style[p]; } catch(e){} });
+        } catch (e) {}
+
+        // Use a zero-width char to ensure width > 0 when pos === 0
+        var text = value.substring(0, pos) || '\u200B';
+        // Preserve spaces
+        span.textContent = text;
+
+        var width = span.getBoundingClientRect().width;
+        var paddingLeft = parseFloat(style.paddingLeft) || 0;
+        var scrollLeft = input.scrollLeft || 0;
+        var pageX = (window.pageXOffset !== undefined) ? window.pageXOffset : (document.documentElement && document.documentElement.scrollLeft) || 0;
+        var pageY = (window.pageYOffset !== undefined) ? window.pageYOffset : (document.documentElement && document.documentElement.scrollTop) || 0;
+
+        var caretX = Math.round(inputRect.left + pageX + paddingLeft + width - scrollLeft);
+        var caretY = Math.round(inputRect.top + pageY + inputRect.height / 2);
+        return { x: caretX, y: caretY };
+      } catch (e) {
+        try {
+          var fallbackRect = input.getBoundingClientRect();
+          var pageX2 = (window.pageXOffset !== undefined) ? window.pageXOffset : (document.documentElement && document.documentElement.scrollLeft) || 0;
+          var pageY2 = (window.pageYOffset !== undefined) ? window.pageYOffset : (document.documentElement && document.documentElement.scrollTop) || 0;
+          return { x: Math.round(fallbackRect.left + pageX2 + fallbackRect.width / 2), y: Math.round(fallbackRect.top + pageY2 + fallbackRect.height / 2) };
+        } catch (ee) {
+          return null;
+        }
+      }
     }
 
     // email caret follow
@@ -144,6 +235,13 @@
         try {
           if (!openLeft || !openRight || !input) return;
           var c = getCaretPixelPos(input);
+          // diagnostic: log the first caret measurement to help debug if eyes don't move
+          try {
+            if (!window.__mascotFirstCaretLogged) {
+              window.__mascotFirstCaretLogged = true;
+              console.info('[mascot] first caret event for', input && input.id, 'caret=', c);
+            }
+          } catch (ee) {}
           if (!c) { resetOpenEyes(); return; }
           var leftRect = openLeft.getBoundingClientRect();
           var rightRect = openRight.getBoundingClientRect();
@@ -161,8 +259,15 @@
       function attachCaretFollower(input) {
         if (!input) return;
         try {
-          input.addEventListener('focus', function () { showEyes('open'); followCaretFor(input); });
-          input.addEventListener('input', function () { showEyes('open'); followCaretFor(input); });
+          try { console.info('[mascot] attachCaretFollower called for', input && input.id); } catch(e){}
+          // mark attached for diagnostics
+          try { input.dataset.mascotAttached = '1'; } catch(e){}
+          // Force-open the eyes when typing/focusing name/email fields so the
+          // mascot follows caret immediately even if a recent wrong_pass lock
+          // is still active. This prevents the 'double' effect where wrong_pass
+          // lingers until the toast times out while the user is typing elsewhere.
+          input.addEventListener('focus', function () { showEyes('open', true); followCaretFor(input); });
+          input.addEventListener('input', function () { showEyes('open', true); followCaretFor(input); });
           input.addEventListener('keyup', function () { followCaretFor(input); });
           input.addEventListener('click', function () { followCaretFor(input); });
           input.addEventListener('blur', function () { showEyes('open'); resetOpenEyes(); });
@@ -253,6 +358,9 @@
             if (!txt) return;
             foundAny = true;
             var isError = /invalid email|invalid password|invalid email or password|error/i.test(txt) || el.classList.contains('alert-danger') || el.classList.contains('flash-error');
+            // detect confirm-password mismatch messages specifically
+            var isConfirmMismatch = /confirm.*password|password.*confirm|confirm password did not match|passwords do not match/i.test(txt);
+            if (isConfirmMismatch) isError = true;
             var isSuccess = el.classList.contains('alert-success') || el.classList.contains('flash-success') || /success|registered|created|saved/i.test(txt);
             if (SwalToast) {
               try {
@@ -292,7 +400,13 @@
             }
             // hide the server-rendered flash to avoid duplicate messages on-screen
             try { el.style.display = 'none'; } catch (e) {}
-            if (isError && /invalid email|invalid password|invalid email or password/i.test(txt)) foundError = true;
+            if (isError) {
+              // if it's a confirm-mismatch, favor wrong_pass eyes
+              if (isConfirmMismatch) {
+                try { showEyes('wrong_pass', true); } catch(e){}
+              }
+              if (/invalid email|invalid password|invalid email or password/i.test(txt)) foundError = true;
+            }
           } catch(e){}
         });
 
@@ -338,20 +452,33 @@
       try {
         window.__mascotLog('showEyes', state, !!force, Date.now());
         var now = Date.now();
-        // If a state lock is active, do not change to a different state until it expires.
-        // Allow forced overrides (force === true) and always allow the 'open' state
-        // so pending can revert back to open when its timeout fires.
+  // If a state lock is active, do not change to a different state until it expires.
+        // Allow forced overrides (force === true). While locked, do NOT allow other
+        // states (including 'open') to override the locked state. This ensures
+        // expressions like 'wrong_pass' remain visible for the full duration.
         if (now < __mascotStateLockUntil && state !== __mascotCurrentEyeState) {
-          if (!force && state !== 'open') {
+          if (!force) {
             window.__mascotLog && window.__mascotLog('state locked, ignoring', state);
             return;
           }
         }
-        // No persistent force-peak window. Peak is shown immediately when toggled
+  // No persistent force-peak window. Peak is shown immediately when toggled
         // or when the password input is focused and revealed. Do not persist peak
         // after the user moves focus to another field.
         // If a temporary suppression is active, ignore requests to show 'open'
         if (state === 'open' && now < __mascotSuppressOpenUntil && !force) return;
+
+        // If caller forced an 'open' state, proactively hide any wrong_pass group
+        // and cancel the state lock so typing in name/email immediately restores
+        // the following/open eyes even while an error toast may still be visible.
+        if (state === 'open' && !!force) {
+          try {
+            if (wrongGroup) _hideGroup(wrongGroup);
+            if (container && container.classList) container.classList.remove('mascot-wrong');
+            // clear the lock so other states behave normally after the forced open
+            __mascotStateLockUntil = 0;
+          } catch (e) {}
+        }
 
         // avoid redundant transitions
         if (!force && __mascotCurrentEyeState === state) return;
@@ -366,8 +493,10 @@
               // hide others, show wrongGroup
               _hideGroup(openGroup); _hideGroup(closedGroup); _hideGroup(peakGroup);
               _showGroup(wrongG);
-              // revert to open after a short timeout
-              setTimeout(function(){ try{ _hideGroup(wrongG); showEyes('open'); }catch(e){} }, 700);
+              // lock other states for the duration so 'open' won't override prematurely
+              __mascotStateLockUntil = Date.now() + 3000;
+              // revert to open after a timeout matching error toasts (3000ms)
+              setTimeout(function(){ try{ _hideGroup(wrongG); showEyes('open'); }catch(e){} }, 3000);
               __mascotCurrentEyeState = state;
               return;
             }
@@ -375,7 +504,9 @@
           try {
             _hideGroup(openGroup); _hideGroup(peakGroup); _showGroup(closedGroup);
             if (container) container.classList.add('mascot-wrong');
-            setTimeout(function(){ try{ if (container) container.classList.remove('mascot-wrong'); showEyes('open'); }catch(e){} }, 700);
+            // lock other states for the duration so the fallback remains visible
+            __mascotStateLockUntil = Date.now() + 3000;
+            setTimeout(function(){ try{ if (container) container.classList.remove('mascot-wrong'); showEyes('open'); }catch(e){} }, 3000);
             __mascotCurrentEyeState = state;
             return;
           } catch (e) {
@@ -443,9 +574,12 @@
         }
 
         // Default behaviour for open/closed/peak
-        if (state === 'open') { _showGroup(openGroup); } else { _hideGroup(openGroup); }
-        if (state === 'closed') { _showGroup(closedGroup); } else { _hideGroup(closedGroup); }
-        if (state === 'peak') { _showGroup(peakGroup); } else { _hideGroup(peakGroup); }
+  if (state === 'open') { _showGroup(openGroup); } else { _hideGroup(openGroup); }
+  if (state === 'closed') { _showGroup(closedGroup); } else { _hideGroup(closedGroup); }
+  if (state === 'peak') { _showGroup(peakGroup); } else { _hideGroup(peakGroup); }
+  // Ensure any dedicated wrong_pass (or other special groups) are hidden
+  // when showing standard eye states so groups don't visually overlap.
+  try { _hideGroup(wrongGroup); _hideGroup(happyGroup); _hideGroup(pendingGroup); } catch (e) {}
 
         __mascotCurrentEyeState = state;
       } catch (e) {
@@ -567,26 +701,71 @@
             }
             // activate a short suppression window so other handlers do not briefly show 'open' eyes
             __mascotSuppressOpenUntil = Date.now() + 1200; // 1200ms suppression
+            // Toggle both password and confirm password fields if present
+            var confirmEl = document.getElementById('confirm_password');
+            var iconEl = toggleBtn.querySelector('i');
             if (password.type === 'password') {
               password.type = 'text';
+              if (confirmEl) confirmEl.type = 'text';
               // update icon if using mdi
-              var i = toggleBtn.querySelector('i'); if (i) { i.className = 'mdi mdi-eye-outline'; }
-                // immediately show peak eyes (no persistent force window)
-                showEyes('peak', true);
+              if (iconEl) { iconEl.className = 'mdi mdi-eye-outline'; }
+              // immediately show peak eyes (no persistent force window)
+              showEyes('peak', true);
             } else {
               password.type = 'password';
-              var i2 = toggleBtn.querySelector('i'); if (i2) { i2.className = 'mdi mdi-eye-off-outline'; }
+              if (confirmEl) confirmEl.type = 'password';
+              if (iconEl) { iconEl.className = 'mdi mdi-eye-off-outline'; }
               // after hiding, show closed eyes if still focused (or open otherwise)
               setTimeout(function(){ passwordStateRefresh(true); }, 10);
             }
             // keep focus on the password field
-            password.focus();
+            try { password.focus(); } catch(e){}
             // notify state change (ensure MutationObserver also catches it)
             passwordStateRefresh();
           } catch (err) { console.warn('toggle password failed', err); }
         });
       }
     }
+
+    // Password match indicator logic for register page
+    try {
+      var confirmPassword = document.getElementById('confirm_password');
+      var matchIndicator = document.getElementById('password-match-indicator');
+      function updatePasswordMatchIndicator() {
+        try {
+          if (!matchIndicator) return;
+          var a = password && password.value ? password.value : '';
+          var b = confirmPassword && confirmPassword.value ? confirmPassword.value : '';
+          // empty state
+          if (!a && !b) {
+            matchIndicator.innerHTML = '';
+            matchIndicator.className = 'password-match-indicator neutral';
+            if (confirmPassword) { confirmPassword.classList.remove('is-invalid'); confirmPassword.classList.remove('is-valid'); }
+            return;
+          }
+          // match
+          if (a === b) {
+            matchIndicator.innerHTML = '<i class="mdi mdi-check-circle-outline" aria-hidden="true"></i><span>Passwords match</span>';
+            matchIndicator.className = 'password-match-indicator success';
+            if (confirmPassword) { confirmPassword.classList.remove('is-invalid'); confirmPassword.classList.add('is-valid'); }
+          } else {
+            matchIndicator.innerHTML = '<i class="mdi mdi-close-circle-outline" aria-hidden="true"></i><span>Passwords do not match</span>';
+            matchIndicator.className = 'password-match-indicator danger';
+            if (confirmPassword) { confirmPassword.classList.remove('is-valid'); confirmPassword.classList.add('is-invalid'); }
+          }
+        } catch (e) {}
+      }
+      if (password) password.addEventListener('input', updatePasswordMatchIndicator);
+      if (confirmPassword) {
+        confirmPassword.addEventListener('input', updatePasswordMatchIndicator);
+        // Do NOT trigger wrong_pass on blur here. wrong_pass should only be shown
+        // when an actual alert/toast is presented (e.g., on submit prevention or
+        // when the server returns a confirm-password error). Submit handler will
+        // show the toast and trigger wrong_pass as needed.
+      }
+      // initialize state
+      updatePasswordMatchIndicator();
+    } catch (e) {}
 
     // Flash handling is managed earlier via detectAndHandleFlash()
 
@@ -655,6 +834,12 @@
     var container = document.getElementById('genta-mascot-container');
     if (!container) return;
   var svgUrl = '/GENTA/assets/images/mascot_head.svg';
+    // Global error hook to surface runtime errors to console for debugging (kept minimal)
+    try {
+      window.addEventListener && window.addEventListener('error', function(evt){
+        try { console.error && console.error('[mascot] runtime error', evt && evt.error ? evt.error : evt.message); } catch(e){}
+      });
+    } catch (e) {}
     function insertSvgText(text) {
       try {
         try { window.__mascotLog('insertSvgText', text && text.length); } catch (e) {}

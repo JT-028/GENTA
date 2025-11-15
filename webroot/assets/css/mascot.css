@@ -132,3 +132,31 @@
 	50% { opacity: 1; transform: translateY(-6px) scale(1.08); }
 	100% { opacity: 0.9; transform: translateY(0) scale(1); }
 }
+
+/* Password match indicator styles */
+.password-match-indicator {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	padding: 6px 8px;
+	border-radius: 8px;
+	font-weight: 600;
+	font-size: 0.92rem;
+}
+.password-match-indicator .mdi {
+	font-size: 1.05rem;
+	line-height: 1;
+}
+.password-match-indicator.neutral { color: #6b7280; background: rgba(99,102,241,0.04); }
+.password-match-indicator.success { color: #065f46; background: rgba(16,185,129,0.08); }
+.password-match-indicator.danger { color: #7f1d1d; background: rgba(254,226,226,0.08); }
+
+/* Add a subtle outline to confirm input when invalid (bootstrap compatible) */
+.form-control.is-invalid {
+	border-color: #f87171;
+	box-shadow: 0 0 0 0.125rem rgba(248,113,113,0.08);
+}
+.form-control.is-valid {
+	border-color: #34d399;
+	box-shadow: 0 0 0 0.125rem rgba(52,211,153,0.06);
+}
