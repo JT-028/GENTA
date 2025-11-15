@@ -453,8 +453,27 @@
       }
     }
 
-    // initialize to open eyes
-    showEyes('open');
+    // NOTE: DOM overlay fallback removed -- prefer SVG #pending_eyes vector group.
+
+    // If there's a server-side login failure, show wrong_pass immediately and suppress the brief open flash
+    var __initialError = detectAndHandleFlash();
+    if (__initialError) {
+      // show wrong_pass immediately; it will revert to open after a short delay
+      try { showEyes('wrong_pass', true); } catch(e) { showEyes('open'); }
+    } else {
+      // Prefer pending animation when present, otherwise prefer a registration-success
+      // happy expression (if detected). Only fall back to open if neither applies.
+      if (window.__mascotPendingFlash) {
+        try { showEyes('pending', true); } catch(e) { showEyes('open'); }
+        try { window.__mascotPendingFlash = false; } catch(e) {}
+      } else if (window.__mascotHappyFlash) {
+        try { showEyes('happy', true); } catch(e) { showEyes('open'); }
+        try { window.__mascotHappyFlash = false; } catch(e) {}
+      } else {
+        // initialize to open eyes
+        showEyes('open');
+      }
+    }
 
     if (email) attachCaretFollower(email);
 
