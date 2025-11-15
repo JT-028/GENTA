@@ -26,6 +26,31 @@
 }
 #genta-mascot svg { width:100%; height:auto; display:block; }
 
+.btn-loading {
+	position: relative;
+	pointer-events: none; /* disabled visually as well */
+}
+.btn-loading[aria-busy="true"] {
+	opacity: 0.9;
+}
+.btn-loading::after {
+	content: '';
+	position: absolute;
+	right: 12px;
+	top: 50%;
+	transform: translateY(-50%);
+	width: 14px;
+	height: 14px;
+	border-radius: 50%;
+	border: 2px solid rgba(255,255,255,0.85);
+	border-top-color: transparent;
+	box-sizing: border-box;
+	animation: genta-spinner 800ms linear infinite;
+}
+@keyframes genta-spinner {
+	from { transform: translateY(-50%) rotate(0deg); }
+	to { transform: translateY(-50%) rotate(360deg); }
+}
 /* Perfect circular frame behind the head. Uses aspect-ratio for responsiveness
 	 so the element stays a true circle regardless of size. Padding is inside
 	 the circle and the SVG is centered. */

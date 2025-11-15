@@ -202,7 +202,19 @@ class UsersController extends AppController
 
         if ($this->request->is('post'))
         {
-            $user = $usersTable->patchEntity($user, $this->request->getData());
+            $postedData = $this->request->getData() ?: [];
+            try {
+                \Cake\Log\Log::write('debug', 'UsersController::register POST received keys=' . implode(',', array_keys((array)$postedData)) . ' email=' . (isset($postedData['email']) ? $postedData['email'] : '<none>'));
+            } catch (\Throwable $_) { }
+
+            $user = $usersTable->patchEntity($user, $postedData);
+
+            try {
+                \Cake\Log\Log::write('debug', 'UsersController::register: after patchEntity hasErrors=' . ($user->hasErrors() ? '1' : '0') . ' terms_and_conditions=' . (isset($postedData['terms_and_conditions']) ? (string)$postedData['terms_and_conditions'] : '<missing>'));
+                if ($user->hasErrors()) {
+                    \Cake\Log\Log::write('debug', 'UsersController::register: validation_errors=' . json_encode($user->getErrors()));
+                }
+            } catch (\Throwable $_) { }
 
             if (!$user->hasErrors())
             {
@@ -273,6 +285,8 @@ class UsersController extends AppController
 
                             $this->Flash->success(__('You successfully registered a new account! Your account is pending admin approval and must be verified by an administrator before you can log in.'));
                             return $this->redirect(['controller' => 'Users', 'action' => 'login']);
+                        } else {
+                            \Cake\Log\Log::write('warning', 'UsersController::register: save returned false; validation_errors=' . json_encode($user->getErrors()));
                         }
                     } else {
                         $this->Flash->error(__('You need to agree with the Terms and Conditions.'));
