@@ -798,6 +798,11 @@ class DashboardController extends AppController
                     $possibleDirs = [
                         WWW_ROOT . 'uploads' . DS,
                         WWW_ROOT,
+                        // Prefer the developer's OneDrive IoT MAIN_SYSTEM uploads folder (requested new location)
+                        'C:\\Users\\vonti\\OneDrive\\Desktop\\GENTA_MAIN_SYSTEM_IoT\\MAIN_SYSTEM\\uploads\\',
+                        // Also check older IoT location (kept for compatibility)
+                        'C:\\Users\\vonti\\OneDrive\\Desktop\\GENTA_MAIN_SYSTEM_IoT\\uploads\\',
+                        // Legacy OneDrive location kept as fallback
                         'C:\\Users\\vonti\\OneDrive\\Desktop\\GENTA SYS\\MAIN_SYSTEM\\uploads\\'
                     ];
                     foreach ($possibleDirs as $d) {
@@ -883,6 +888,11 @@ class DashboardController extends AppController
         $possibleDirs = [
             WWW_ROOT . 'uploads' . DS,
             WWW_ROOT,
+            // Prefer the developer's OneDrive IoT MAIN_SYSTEM uploads folder (requested new location)
+            'C:\\Users\\vonti\\OneDrive\\Desktop\\GENTA_MAIN_SYSTEM_IoT\\MAIN_SYSTEM\\uploads\\',
+            // Also check older IoT location (kept for compatibility)
+            'C:\\Users\\vonti\\OneDrive\\Desktop\\GENTA_MAIN_SYSTEM_IoT\\uploads\\',
+            // Legacy OneDrive location kept as fallback
             'C:\\Users\\vonti\\OneDrive\\Desktop\\GENTA SYS\\MAIN_SYSTEM\\uploads\\'
         ];
         foreach ($possibleDirs as $d) {
@@ -965,6 +975,11 @@ class DashboardController extends AppController
         $possibleDirs = [
             WWW_ROOT . 'uploads' . DS,
             WWW_ROOT,
+            // Prefer the developer's OneDrive IoT MAIN_SYSTEM uploads folder (requested new location)
+            'C:\\Users\\vonti\\OneDrive\\Desktop\\GENTA_MAIN_SYSTEM_IoT\\MAIN_SYSTEM\\uploads\\',
+            // Also check older IoT location (kept for compatibility)
+            'C:\\Users\\vonti\\OneDrive\\Desktop\\GENTA_MAIN_SYSTEM_IoT\\uploads\\',
+            // Legacy OneDrive location kept as fallback
             'C:\\Users\\vonti\\OneDrive\\Desktop\\GENTA SYS\\MAIN_SYSTEM\\uploads\\'
         ];
 

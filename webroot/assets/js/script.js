@@ -38,6 +38,16 @@ function normalizeAppPath(path) {
 function initPage() {
     // DataTable init (idempotent)
     try {
+        // Prevent DataTables from showing browser alert() on Ajax errors.
+        // Instead route errors to console so users don't see a blocking modal.
+        try {
+            if ($ && $.fn && $.fn.DataTable && $.fn.DataTable.ext) {
+                $.fn.DataTable.ext.errMode = function (settings, helpPage, message) {
+                    try { console.error('[DataTables] ajax error', {settings: settings, helpPage: helpPage, message: message}); } catch (e) {}
+                    // do not show alert()
+                };
+            }
+        } catch (e) { /* ignore if DataTables not loaded yet */ }
         if ($.fn && $.fn.DataTable) {
             // Initialize or adjust each table individually to avoid race conditions
             $(".defaultDataTable").each(function () {
@@ -1877,33 +1887,161 @@ $(document).ready(function () {
                         try {
                             var $tr = $btn.closest('tr');
                             var $tbl = $tr.closest('table');
+                            // Helper to fall back to a full reload when we cannot reliably
+                            // update the client-side table (e.g., responsive child rows,
+                            // server-side processing, or other DataTables internals).
+                            function fallbackRefresh() {
+                                try {
+                                    // If DataTables is using ajax source, prefer reload to keep paging
+                                    if ($.fn && $.fn.DataTable) {
+                                        try {
+                                            var mainDt = $(".defaultDataTable").DataTable();
+                                            if (mainDt && mainDt.ajax && typeof mainDt.ajax.reload === 'function') {
+                                                mainDt.ajax.reload(null, false);
+                                                return;
+                                            }
+                                        } catch (e) {
+                                            /* ignore and fallback to page reload */
+                                        }
+                                    }
+                                    // As a last resort, reload the current page fragment via AJAX
+                                    if (typeof loadPage === 'function') {
+                                        loadPage(window.location.href);
+                                        return;
+                                    }
+                                    // Finally fallback to full reload
+                                    window.location.reload();
+                                } catch (ee) { window.location.reload(); }
+                            }
+
                             if (
                                 $.fn &&
                                 $.fn.DataTable &&
                                 $tbl.length &&
-                                $.fn.DataTable.isDataTable($tbl[0]
-                                    ? $tbl[0]
-                                    : $tbl
-                                )
+                                $.fn.DataTable.isDataTable($tbl[0] ? $tbl[0] : $tbl)
                             ) {
                                 var dt = $($tbl).DataTable();
-                                // Remove the row via DataTables API and redraw without resetting paging
-                                dt.row($tr[0]).remove().draw(false);
+                                // Attempt to remove the row via DataTables API and redraw without resetting paging
+                                try {
+                                    var rowApi = dt.row($tr[0]);
+                                    // If DataTables couldn't find the node (responsive child rows), try to locate by data-id
+                                    if (!rowApi || rowApi.node() === null) {
+                                        // try to find parent row node by searching for closest parent with data-id
+                                        var pid = $tr.attr('data-id') || $tr.data('id');
+                                        if (!pid) {
+                                            // try to find a parent row element two levels up (responsive child)
+                                            var parent = $tr.closest('table').find('tbody tr').has($tr).first();
+                                            if (parent && parent.length) {
+                                                rowApi = dt.row(parent[0]);
+                                            }
+                                        } else {
+                                            var bySelector = dt.rows().nodes().to$().filter(function() { return $(this).attr('data-id') == pid || $(this).data('id') == pid; });
+                                            if (bySelector && bySelector.length) rowApi = dt.row(bySelector[0]);
+                                        }
+                                    }
+
+                                    if (rowApi && rowApi.node() !== null) {
+                                        rowApi.remove();
+                                        dt.draw(false);
+                                        // If the row is still present in DOM after a short delay, fallback
+                                        setTimeout(function(){ if ($tr.closest('table').find('tbody').find($tr).length) fallbackRefresh(); }, 220);
+                                    } else {
+                                        // Could not find a matching DataTable row node; fallback
+                                        fallbackRefresh();
+                                    }
+                                } catch (e) {
+                                    // If remove fails, try a DOM-only fade removal then check
+                                    try {
+                                        $tr.fadeOut(300, function () { $(this).remove(); });
+                                        setTimeout(function(){ if ($tbl.find('tbody').find($tr).length) fallbackRefresh(); }, 400);
+                                    } catch (ee) { fallbackRefresh(); }
+                                }
                             } else {
-                                $tr.fadeOut(300, function () {
-                                    $(this).remove();
-                                });
+                                // Not a DataTable - remove DOM row and ensure it's gone
+                                try {
+                                    $tr.fadeOut(300, function () { $(this).remove(); });
+                                    setTimeout(function(){ if ($tbl.find('tbody').find($tr).length) fallbackRefresh(); }, 400);
+                                } catch (e) { fallbackRefresh(); }
                             }
                         } catch (e) {
-                            // Fallback to DOM removal if anything goes wrong
-                            try {
-                                $btn.closest("tr").fadeOut(300, function () {
-                                    $(this).remove();
-                                });
-                            } catch (ee) {
-                                console.warn('Failed to remove assessment row', ee);
-                            }
+                            console.warn('Failed to remove assessment row', e);
+                            // conservative fallback
+                            try { loadPage && loadPage(window.location.href); } catch (ee) { window.location.reload(); }
                         }
+                        // Diagnostic: indicate successful delete and which update path we used
+                        try { console.info('[deleteAssessments] deletion successful, attempting client-side update'); } catch(e) {}
+
+                        // If this table is managed by DataTables with an ajax source, prefer reloading
+                        try {
+                            var $tbl = $btn.closest('table');
+                            function conservativeFallbackAfterReload() {
+                                try {
+                                    if (typeof loadPage === 'function') {
+                                        loadPage(window.location.href);
+                                        return;
+                                    }
+                                } catch (e) {}
+                                try { window.location.reload(); } catch (e) {}
+                            }
+
+                            if ($.fn && $.fn.DataTable && $tbl.length && $.fn.DataTable.isDataTable($tbl[0] ? $tbl[0] : $tbl)) {
+                                var tableApi = $($tbl).DataTable();
+                                try {
+                                    // Only call ajax.reload if DataTables was configured with a valid ajax URL.
+                                    var canReload = false;
+                                    try {
+                                        if (tableApi && tableApi.ajax && typeof tableApi.ajax.reload === 'function') {
+                                            if (typeof tableApi.ajax.url === 'function') {
+                                                var url = tableApi.ajax.url();
+                                                canReload = !!url;
+                                            } else {
+                                                // If ajax.url() isn't available, be conservative and assume no remote source
+                                                canReload = false;
+                                            }
+                                        }
+                                    } catch (inner) { canReload = false; }
+
+                                    if (canReload) {
+                                        console.info('[deleteAssessments] reloading DataTable via ajax.reload');
+                                        // Attach a one-time error handler to catch DataTables Ajax failure
+                                        $tbl.one('error.dt', function (e, settings, techNote, message) {
+                                            console.warn('[deleteAssessments] DataTable ajax reload emitted error:', techNote, message);
+                                            conservativeFallbackAfterReload();
+                                        });
+                                        tableApi.ajax.reload(null, false);
+                                    } else {
+                                        // No ajax source configured for this table - draw to ensure internal state updated
+                                        try { tableApi.draw(false); } catch (ee) { /* ignore */ }
+                                    }
+                                } catch (e) {
+                                    console.info('[deleteAssessments] DataTable ajax.reload failed, drawing instead', e);
+                                    try { tableApi.draw(false); } catch (ee) {}
+                                }
+                            } else if ($.fn && $.fn.DataTable && $.fn.DataTable.isDataTable('.defaultDataTable')) {
+                                try {
+                                    var main = $('.defaultDataTable').DataTable();
+                                    var mainCanReload = false;
+                                    try {
+                                        if (main && main.ajax && typeof main.ajax.reload === 'function' && typeof main.ajax.url === 'function') {
+                                            mainCanReload = !!main.ajax.url();
+                                        }
+                                    } catch (inner) { mainCanReload = false; }
+                                    if (mainCanReload) {
+                                        console.info('[deleteAssessments] reloading main defaultDataTable via ajax.reload');
+                                        $('.defaultDataTable').one('error.dt', function (e, settings, techNote, message) {
+                                            console.warn('[deleteAssessments] main DataTable ajax reload error:', techNote, message);
+                                            conservativeFallbackAfterReload();
+                                        });
+                                        main.ajax.reload(null, false);
+                                    } else {
+                                        try { main.draw(false); } catch (e) { /* ignore */ }
+                                    }
+                                } catch (e) {
+                                    /* ignore */
+                                }
+                            }
+                        } catch (e) { console.warn('[deleteAssessments] table reload attempt failed', e); }
+
                         Swal.fire({
                             icon: "success",
                             title: "Deleted",
