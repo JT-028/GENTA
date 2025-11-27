@@ -833,7 +833,29 @@ try { window.__mascotScriptPresent = true; if (typeof console !== 'undefined' &&
   function loadMascotAndInit() {
     var container = document.getElementById('genta-mascot-container');
     if (!container) return;
-  var svgUrl = '/GENTA/assets/images/mascot_head.svg';
+  // Build the mascot SVG URL from the application's base so we don't accidentally
+  // request duplicate subpaths like '/GENTA/GENTA/...'. Prefer window.APP_BASE
+  // (injected by the layout). Fall back to document.baseURI or '/' when missing.
+  var svgUrl;
+  try {
+    var appBase = '/';
+    if (typeof window.APP_BASE !== 'undefined' && window.APP_BASE) {
+      appBase = String(window.APP_BASE);
+    } else if (document && document.baseURI) {
+      try { appBase = new URL(document.baseURI).pathname || '/'; } catch (ee) { appBase = '/'; }
+    }
+    if (appBase.slice(-1) !== '/') appBase += '/';
+    // If appBase contains an absolute origin (unlikely), strip it to get a root-relative path
+    try {
+      var origin = window.location.origin || (window.location.protocol + '//' + window.location.host);
+      if (appBase.indexOf(origin) === 0) appBase = appBase.slice(origin.length) || '/';
+    } catch (ee) {}
+    // Ensure leading slash
+    if (appBase.charAt(0) !== '/') appBase = '/' + appBase;
+    svgUrl = appBase.replace(/\/\/+$/, '/') + 'assets/images/mascot_head.svg';
+  } catch (e) {
+    svgUrl = '/assets/images/mascot_head.svg';
+  }
     // Global error hook to surface runtime errors to console for debugging (kept minimal)
     try {
       window.addEventListener && window.addEventListener('error', function(evt){

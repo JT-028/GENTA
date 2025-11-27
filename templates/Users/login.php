@@ -1,4 +1,4 @@
-<link rel="stylesheet" href="/GENTA/assets/css/mascot.css">
+<link rel="stylesheet" href="<?= $this->Url->build('/assets/css/mascot.css') ?>">
 
 <!-- Mascot centered above the original single-column form -->
 <div id="genta-mascot" class="genta-mascot" aria-hidden="true">
@@ -53,4 +53,4 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
-<script src="/GENTA/assets/js/mascot.js" defer></script>
+<script src="<?= $this->Url->build('/assets/js/mascot.js') ?>" defer></script>

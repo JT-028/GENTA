@@ -1,4 +1,4 @@
-<link rel="stylesheet" href="/GENTA/assets/css/mascot.css">
+<link rel="stylesheet" href="<?= $this->Url->build('/assets/css/mascot.css') ?>">
 
 <?php $fieldErrors = $this->Field->errors($user ?? null, ['first_name', 'last_name', 'email', 'password']); ?>
 
@@ -48,4 +48,4 @@
     </div>
 <?= $this->Form->end() ?>
 
-<script src="/GENTA/assets/js/mascot.js" defer></script>
+<script src="<?= $this->Url->build('/assets/js/mascot.js') ?>" defer></script>

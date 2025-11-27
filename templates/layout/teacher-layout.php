@@ -28,6 +28,31 @@
                 '/assets/css/custom',
             ])
         ?>
+        <script>
+            // Normalize any relative asset hrefs that would resolve incorrectly
+            (function(){
+                try {
+                    var base = (typeof window.APP_BASE !== 'undefined' && window.APP_BASE) ? String(window.APP_BASE) : '/';
+                    var appTrim = base.replace(/^\/+|\/+$/g, '');
+                    if (base.slice(-1) !== '/') base += '/';
+                    var links = document.getElementsByTagName('link');
+                    Array.prototype.forEach.call(links, function(l){
+                        try {
+                            var h = l.getAttribute('href');
+                            if (!h) return;
+                            if (/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(h)) return; // absolute
+                            if (h.charAt(0) === '/') return; // root-relative OK
+                            // If path already begins with appTrim (e.g. 'GENTA/...'), ensure single-leading slash
+                            if (appTrim && h.indexOf(appTrim + '/') === 0) {
+                                l.setAttribute('href', '/' + h.replace(/^\/+/, ''));
+                            } else {
+                                l.setAttribute('href', base + h.replace(/^\/+/, ''));
+                            }
+                        } catch(e){}
+                    });
+                } catch(e) { console.warn('asset href normalizer head failed', e); }
+            })();
+        </script>
 
     <!-- ICONS -->
     <?= $this->Html->meta('icon', '/assets/images/mascot_head.svg') ?>
@@ -49,6 +74,20 @@
     <script>
         // Base path for the app (includes subdirectory like /GENTA/ when deployed in a folder)
         window.APP_BASE = <?= json_encode($this->Url->build('/')) ?>;
+    </script>
+    <script>
+        // Collapse accidental duplicated app base segments in already-emitted asset tags.
+        (function(){
+            try {
+                var base = (typeof window.APP_BASE !== 'undefined' && window.APP_BASE) ? String(window.APP_BASE) : '/';
+                if (base.slice(-1) !== '/') base += '/';
+                var norm = function(v){ if(!v) return v; try{ return v.replace(new RegExp('('+base.replace(/\//g,'\\/')+')+','g'), base); }catch(e){} return v; };
+                // Fix link[href], script[src], img[src]
+                Array.prototype.forEach.call(document.querySelectorAll('link[rel="stylesheet"]'), function(l){ try{ var h=l.getAttribute('href'); if(h){ h = norm(h); if(h.charAt(0)!=='/') h = '/' + h.replace(/^\/+/, ''); l.setAttribute('href', h); } }catch(e){} });
+                Array.prototype.forEach.call(document.querySelectorAll('script[src]'), function(s){ try{ var v=s.getAttribute('src'); if(v){ v = norm(v); if(v.charAt(0)!=='/') v = '/' + v.replace(/^\/+/, ''); s.setAttribute('src', v); } }catch(e){} });
+                Array.prototype.forEach.call(document.querySelectorAll('img[src]'), function(i){ try{ var v=i.getAttribute('src'); if(v){ v = norm(v); if(v.charAt(0)!=='/') v = '/' + v.replace(/^\/+/, ''); i.setAttribute('src', v); } }catch(e){} });
+            } catch (e) { console.warn('collapse duplicate app base failed', e); }
+        })();
     </script>
     
     <!-- PAGE LOADER STYLES (critical) - moved to head so loader appears immediately -->
@@ -185,7 +224,7 @@
                                             if (substr($src, 0, 1) !== '/') $src = '/' . $src;
                                             echo '<img src="' . h($src) . '" alt="profile">';
                                         } else {
-                                            echo $this->Html->image($this->Url->build('/assets/images/faces-clipart/pic-1.png'), ['alt' => 'profile']);
+                                                                    echo $this->Html->image('/assets/images/faces-clipart/pic-1.png', ['alt' => 'profile']);
                                         }
                                     ?>
                                 </div>
@@ -301,6 +340,36 @@
         <?php
             // Only load the latest jQuery (webroot/assets/js/jquery.js) and ensure correct order.
             // Pass only string paths to HtmlHelper::script() to avoid UrlHelper receiving non-string values.
+            // Before emitting script tags, normalize any relative src/src-less paths so
+            // upcoming script tags load from the correct application base.
+            $script = <<<'JS'
+(function(){
+    try{
+        var base=(typeof window.APP_BASE!=='undefined'&&window.APP_BASE)?String(window.APP_BASE):'/';
+        if(base.slice(-1)!=='/') base += '/';
+        var appTrim = base.replace(/^\/+|\/+$/g,'');
+        var fix = function(el, attr){
+            try{
+                var v = el.getAttribute(attr);
+                if(!v) return;
+                if(/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(v)) return;
+                if(v.charAt(0)=='/') return;
+                if(appTrim && v.indexOf(appTrim + '/')===0){
+                    el.setAttribute(attr, '/' + v.replace(/^\/+/, ''));
+                } else {
+                    el.setAttribute(attr, base + v.replace(/^\/+/, ''));
+                }
+            }catch(e){}
+        };
+        var scripts=document.getElementsByTagName('script');
+        for(var i=0;i<scripts.length;i++) fix(scripts[i], 'src');
+        var imgs=document.getElementsByTagName('img');
+        for(var j=0;j<imgs.length;j++) fix(imgs[j], 'src');
+    }catch(e){}
+})();
+JS;
+            echo $this->Html->scriptBlock($script);
+
             echo $this->Html->script([
                 '/assets/vendors/js/vendor.bundle.base.js',
                 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min',

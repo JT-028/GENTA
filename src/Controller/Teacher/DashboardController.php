@@ -1340,4 +1340,22 @@ class DashboardController extends AppController
 
         $this->set(compact('user'));
     }
+
+    /**
+     * Temporary debug endpoint to show detected host info and Router fullBaseUrl.
+     * Use only for debugging and remove when done.
+     */
+    public function debugHost()
+    {
+        $this->request->allowMethod(['get']);
+        $data = [
+            'router_fullBaseUrl' => \Cake\Routing\Router::fullBaseUrl(),
+            'http_host' => isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : null,
+            'server_name' => isset($_SERVER['SERVER_NAME']) ? $_SERVER['SERVER_NAME'] : null,
+            'server_addr' => isset($_SERVER['SERVER_ADDR']) ? $_SERVER['SERVER_ADDR'] : null,
+            'request_uri' => isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : null,
+        ];
+
+        return $this->response->withType('application/json')->withStringBody(json_encode($data));
+    }
 }
