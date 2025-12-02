@@ -237,10 +237,13 @@
                         </li>
                         <?php 
                         $currentAction = $this->request->getParam('action');
+                        $currentController = $this->request->getParam('controller');
                         $dashboardActive = in_array($currentAction, ['index', 'studentQuiz']) ? 'active' : '';
                         $studentsActive = in_array($currentAction, ['students', 'student', 'createEditStudent']) ? 'active' : '';
                         $questionsActive = in_array($currentAction, ['questions', 'createEditQuestion']) ? 'active' : '';
                         $profileActive = ($currentAction === 'profile') ? 'active' : '';
+                        // MELCs sidebar active when controller is Melcs
+                        $melcsActive = ($currentController === 'Melcs') ? 'active' : '';
                         ?>
                         <li class="nav-item">
                             <a class="nav-link <?= $dashboardActive ?>" href="<?= $this->Url->build(['controller' => 'Dashboard', 'action' => 'index', 'prefix' => 'Teacher']) ?>">
@@ -266,6 +269,12 @@
                                 <i class="mdi mdi-account menu-icon"></i>
                             </a>
                         </li>
+                            <li class="nav-item">
+                                <a class="nav-link <?= $melcsActive ?>" href="<?= $this->Url->build(['prefix' => 'Teacher', 'controller' => 'Melcs', 'action' => 'index']) ?>">
+                                    <span class="menu-title">MELCs</span>
+                                    <i class="mdi mdi-book-open-page-variant menu-icon"></i>
+                                </a>
+                            </li>
                         <li class="nav-item">
                             <!-- Force a non-prefixed logout URL so we hit App\Controller\UsersController::logout() and not a missing Teacher\UsersController -->
                             <a class="nav-link" href="<?= $this->Url->build('/users/logout') ?>" data-no-ajax="true">
@@ -370,7 +379,10 @@
 JS;
             echo $this->Html->scriptBlock($script);
 
-            echo $this->Html->script([
+            // Cache-busting for local script files: use filemtime when available so
+            // browsers reload updated JS after our edits. This helps during development
+            // and ensures users get the latest walkthrough code.
+            $assetFiles = [
                 '/assets/vendors/js/vendor.bundle.base.js',
                 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min',
                 '/assets/vendors/chart.js/Chart.min',
@@ -379,12 +391,25 @@ JS;
                 '/assets/vendors/js/dataTables.responsive.min',
                 '/assets/vendors/js/responsive.bootstrap5.min',
                 'https://cdn.jsdelivr.net/npm/inputmask@5.0.8/dist/jquery.inputmask.min.js',
-                '/assets/js/off-canvas',
-                '/assets/js/hoverable-collapse',
-                '/assets/vendors/js/jquery.cookie',
-                '/assets/js/misc',
-                '/assets/js/script'
-            ]);
+                '/assets/js/off-canvas.js',
+                '/assets/js/hoverable-collapse.js',
+                '/assets/vendors/js/jquery.cookie.js',
+                '/assets/js/misc.js',
+            ];
+            // Helper to append ?v=<mtime> for local files
+            $appendVersion = function($path) {
+                if (strpos($path, '://') !== false) return $path;
+                $local = WWW_ROOT . ltrim($path, '/');
+                if (file_exists($local)) {
+                    return $path . '?v=' . filemtime($local);
+                }
+                return $path;
+            };
+            $assetFiles[] = $appendVersion('/assets/js/script.js');
+            $assetFiles[] = $appendVersion('/assets/js/shepherd-loader.js');
+            $assetFiles[] = $appendVersion('/assets/js/shepherd-init.js');
+
+            echo $this->Html->script($assetFiles);
 
             // Inline: force window.jQuery to reference the latest jQuery instance
             echo $this->Html->scriptBlock('window.jQuery = window.$ = jQuery;');

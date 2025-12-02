@@ -34,6 +34,8 @@ function normalizeAppPath(path) {
     // Use buildUrl to ensure proper final prefixing
     return buildUrl(p);
 }
+// Expose a placeholder so other scripts (shepherd-init) can detect WalkthroughSystem presence
+if (!window.WalkthroughSystem) window.WalkthroughSystem = {};
 // Helper: initialize page-specific behaviors that need to run after AJAX page swaps
 function initPage() {
     // DataTable init (idempotent)
@@ -459,7 +461,260 @@ function initPage() {
     } catch (e) {
         /* ignore */
     }
+
+    // ============================================================
+    // QUESTIONS SUBJECT DROPDOWN HANDLER (AJAX reload)
+    // Intercept the subject dropdown change and reload via AJAX
+    // ============================================================
+    $(document).on('change', '#questionsSubject', function(e) {
+        e.preventDefault();
+        var selectedSubject = $(this).val();
+        var $form = $('#questionsSubjectForm');
+        
+        if (!$form.length) return;
+        
+        // Build URL with query parameter
+        var formAction = $form.attr('action');
+        var url = formAction + (formAction.indexOf('?') > -1 ? '&' : '?') + 'questionsSubject=' + encodeURIComponent(selectedSubject);
+        
+        console.info('[Questions] Loading questions for subject via AJAX:', selectedSubject);
+        
+        // Use loadPage if available for AJAX navigation
+        if (typeof loadPage === 'function') {
+            loadPage(url, true);
+        } else {
+            // Fallback to manual AJAX
+            $.ajax({
+                url: url,
+                method: 'GET',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                success: function(html) {
+                    try {
+                        var $newContent = $(html);
+                        var $contentWrapper = $('#content-wrapper');
+                        if ($contentWrapper.length) {
+                            $contentWrapper.html($newContent.html());
+                            initPage();
+                        }
+                    } catch (err) {
+                        console.error('[Questions] Failed to update content', err);
+                    }
+                },
+                error: function() {
+                    console.error('[Questions] AJAX load failed');
+                }
+            });
+        }
+    });
 }
+
+    // ============================================================
+    // MELC MODAL HANDLERS (global)
+    // Add / Edit MELC using modal patterned after students
+    // ============================================================
+
+    window.openMelcFormModal = function (url, title) {
+        var $modal = $("#melcModal");
+        if ($modal.length === 0) {
+            console.error("MELC modal not found");
+            return;
+        }
+
+        $modal.find(".modal-title").text(title || "MELC");
+        $modal
+            .find(".modal-body")
+            .html(
+                '<div class="text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>'
+            );
+        // Show modal (Bootstrap or fallback)
+        if (typeof bootstrap !== "undefined" && bootstrap.Modal) {
+            try {
+                var inst = new bootstrap.Modal($modal[0]);
+                inst.show();
+                $modal.data("bs.instance", inst);
+            } catch (e) {
+                $modal.addClass("show").css("display", "block");
+                if ($(".modal-backdrop").length === 0)
+                    $('<div class="modal-backdrop fade show"></div>').appendTo(
+                        document.body
+                    );
+            }
+        } else {
+            $modal.addClass("show").css("display", "block");
+            if ($(".modal-backdrop").length === 0)
+                $('<div class="modal-backdrop fade show"></div>').appendTo(
+                    document.body
+                );
+        }
+
+        if (!url) return;
+        $.ajax({
+            url: url,
+            method: "GET",
+            headers: { "X-Requested-With": "XMLHttpRequest" },
+            cache: false,
+        })
+            .done(function (html) {
+                try {
+                    if (
+                        typeof html === "string" &&
+                        /<form[^>]+action=["']?[^"'>]*\/users?\/login["']?/i.test(html)
+                    ) {
+                        window.location.reload();
+                        return;
+                    }
+                } catch (err) {
+                    /* ignore */
+                }
+                $modal.find(".modal-body").html(html);
+
+                // Attach AJAX submit for form inside modal
+                $modal
+                    .find("form")
+                    .off("submit")
+                    .on("submit", function (e) {
+                        e.preventDefault();
+                        var $form = $(this);
+                        $form.find(".is-invalid").removeClass("is-invalid");
+                        $form
+                            .find(".invalid-feedback")
+                            .addClass("d-none")
+                            .text("");
+
+                        // Client-side guard: ensure a subject is selected
+                        var $subject = $form.find('[name="subject_id"]');
+                        var subjVal = $subject.val();
+                        if (!subjVal) {
+                            $subject.addClass('is-invalid');
+                            var $fb = $form.find('.invalid-feedback[data-field="subject_id"]');
+                            if ($fb && $fb.length) {
+                                $fb.removeClass('d-none').text('Please select a subject.');
+                            } else {
+                                alert('Please select a subject.');
+                            }
+                            return;
+                        }
+
+                        var method = ($form.attr("method") || "POST").toUpperCase();
+                        var csrf = $("meta[name=csrfToken]").attr("content") || "";
+                        $.ajax({
+                            url: $form.attr("action"),
+                            method: method,
+                            data: $form.serialize(),
+                            dataType: "json",
+                            headers: { "X-CSRF-Token": csrf },
+                        })
+                            .done(function (res) {
+                                if (res && res.success) {
+                                    // Close modal then refresh the page fragment to update the list
+                                    try {
+                                        var inst = $modal.data("bs.instance");
+                                        if (inst && typeof inst.hide === "function") inst.hide();
+                                        else {
+                                            $modal.removeClass("show").css("display", "none");
+                                            $(".modal-backdrop").remove();
+                                        }
+                                    } catch (e) {}
+                                    // Prefer reloading the current fragment via AJAX loader if available
+                                    try {
+                                        if (typeof loadPage === "function") {
+                                            loadPage(window.location.href);
+                                        } else {
+                                            window.location.reload();
+                                        }
+                                    } catch (e) {
+                                        window.location.reload();
+                                    }
+                                } else {
+                                    if (res && res.errors) {
+                                        $.each(res.errors, function (field, errs) {
+                                            var $input = $modal.find('[name="' + field + '"]');
+                                            $input.addClass("is-invalid");
+                                            $modal
+                                                .find('.invalid-feedback[data-field="' + field + '"]')
+                                                .removeClass("d-none")
+                                                .text(errs && errs.join ? errs.join(", ") : errs);
+                                        });
+                                    } else {
+                                        var msg = res && res.message ? res.message : "Please check the form for errors.";
+                                        if (window.Swal && typeof Swal.fire === "function") Swal.fire({ icon: "error", title: "Error", text: msg });
+                                        else alert(msg);
+                                    }
+                                }
+                            })
+                            .fail(function (jqXHR) {
+                                console.error("MELC form submit failed", jqXHR.status, jqXHR.responseText);
+                                if (window.Swal && typeof Swal.fire === "function") Swal.fire({ icon: "error", title: "Error", text: "Server error" });
+                                else alert("Server error");
+                            });
+                    });
+            })
+            .fail(function (jqXHR) {
+                var resp = jqXHR.responseText || "";
+                if (resp && resp.length > 50) {
+                    $modal.find(".modal-body").html(resp);
+                } else {
+                    $modal
+                        .find(".modal-body")
+                        .html('<div class="text-danger text-center">Failed to load form. (' + jqXHR.status + ")</div>");
+                }
+            });
+    };
+
+    // Delegated handlers for Add/Edit MELC buttons
+    $(document).on("click", ".btn-add-melc, .btn-edit-melc", function (e) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        var raw = $(this).data("href") || $(this).attr("href") || "";
+        var href = raw && raw !== "#" && raw !== "javascript:void(0)" ? raw : $(this).data("href");
+        var title = $(this).hasClass("btn-add-melc") ? "Add MELC" : "Edit MELC";
+        window.openMelcFormModal(href, title);
+    });
+
+    // Close handlers for MELC modal (data-bs-dismiss & backdrop & ESC)
+    $(document).on("click", '#melcModal [data-bs-dismiss="modal"], #melcModal .btn-close', function (e) {
+        e.preventDefault();
+        var $m = $("#melcModal");
+        try {
+            var inst = $m.data("bs.instance");
+            if (inst && typeof inst.hide === "function") {
+                inst.hide();
+                return;
+            }
+        } catch (err) {}
+        $m.removeClass("show").css("display", "none");
+        $(".modal-backdrop").remove();
+    });
+
+    $(document).on("click", ".modal-backdrop", function (e) {
+        var $m = $("#melcModal");
+        if ($m.length && $m.hasClass("show")) {
+            try {
+                var inst = $m.data("bs.instance");
+                if (inst && typeof inst.hide === "function") {
+                    inst.hide();
+                    return;
+                }
+            } catch (e) {}
+            $m.removeClass("show").css("display", "none");
+            $(".modal-backdrop").remove();
+        }
+    });
+
+    $(document).on("keydown", function (e) {
+        var $m = $("#melcModal");
+        if ($m.length && $m.hasClass("show") && (e.key === "Escape" || e.key === "Esc" || e.keyCode === 27)) {
+            try {
+                var inst = $m.data("bs.instance");
+                if (inst && typeof inst.hide === "function") {
+                    inst.hide();
+                    return;
+                }
+            } catch (e) {}
+            $m.removeClass("show").css("display", "none");
+            $(".modal-backdrop").remove();
+        }
+    });
 
 // Update the sidebar navigation active state to reflect the current URL
 function updateActiveNav() {
@@ -507,6 +762,14 @@ function updateActiveNav() {
 // PJAX-like page loader: fetches URL, replaces .content-wrapper, updates title and csrf meta
 function loadPage(url, pushState = true) {
     if (!url) return;
+    
+    // Prevent concurrent loadPage calls (debounce)
+    if (window._loadPageInProgress) {
+        console.warn("[loadPage] already in progress, skipping duplicate call", url);
+        return;
+    }
+    window._loadPageInProgress = true;
+    
     // Ensure the initial full-page loader (Lottie) does not re-appear on AJAX navigation.
     try {
         var pageLoader = document.getElementById("page-loader");
@@ -671,6 +934,40 @@ function loadPage(url, pushState = true) {
                                 /* ignore */
                             }
 
+                            // Trigger walkthrough resume check after AJAX navigation
+                            try {
+                                if (window.WalkthroughSystem && typeof WalkthroughSystem.checkResume === 'function') {
+                                    // Wait for content to settle before checking resume
+                                    setTimeout(function() {
+                                        try {
+                                            // Check if there's a resume marker
+                                            var hasResume = false;
+                                            try {
+                                                if (window.sessionStorage) {
+                                                    hasResume = !!sessionStorage.getItem('genta_walkthrough_resume');
+                                                }
+                                            } catch(e) {}
+                                            
+                                            // Only resume if: there's a marker AND (it's tour navigation OR no active tour)
+                                            var shouldResume = hasResume && (window._tourNavigating || !window._activeShepherdTour);
+                                            
+                                            if (shouldResume) {
+                                                console.info('[loadPage] Calling checkResume', { hasResume: hasResume, tourNavigating: !!window._tourNavigating });
+                                                // Clear the navigation flag before resuming
+                                                window._tourNavigating = false;
+                                                WalkthroughSystem.checkResume();
+                                            } else {
+                                                console.info('[loadPage] Skipping checkResume', { hasResume: hasResume, tourNavigating: !!window._tourNavigating, hasActiveTour: !!window._activeShepherdTour });
+                                            }
+                                        } catch(e) {
+                                            console.warn('[loadPage] walkthrough resume check failed', e);
+                                        }
+                                    }, 900);
+                                }
+                            } catch(e) {
+                                /* ignore */
+                            }
+
                             // Allow a short settling time for fonts/CSS and DataTables to initialize
                             setTimeout(function () {
                                 try {
@@ -716,6 +1013,7 @@ function loadPage(url, pushState = true) {
                     }, 220);
                 } else {
                     // Fallback to full page navigation if selector not found
+                    window._loadPageInProgress = false;
                     window.location.href = url;
                     return;
                 }
@@ -751,12 +1049,19 @@ function loadPage(url, pushState = true) {
                         /* ignore */
                     }
                 }
+                
+                // Clear the in-progress flag after successful load
+                setTimeout(function() {
+                    window._loadPageInProgress = false;
+                }, 100);
             } catch (e) {
                 console.error("AJAX page load failed, falling back", e);
+                window._loadPageInProgress = false;
                 window.location.href = url;
             }
         })
         .catch(function () {
+            window._loadPageInProgress = false;
             window.location.href = url;
         });
 }
@@ -791,18 +1096,105 @@ $(document).ready(function () {
         currentTour: null,
         isActive: false,
         overlay: null,
+        // Handlers that run before attempting to resolve a step's target.
+        // Each handler should accept the step object and return true if it opened/handled UI.
+        preOpenHandlers: {},
+
+        // Register a named preOpen handler: WalkthroughSystem.registerPreOpenHandler('openStudents', fn)
+        registerPreOpenHandler(name, fn){
+            if(!this.preOpenHandlers) this.preOpenHandlers = {};
+            try{ this.preOpenHandlers[name] = fn; }catch(e){}
+        },
+
+        // Default handlers: try to open common navigation destinations or UI elements.
+        // These are intentionally conservative and attempt clicks only when a reasonable match is found.
+        // You can override or add handlers with registerPreOpenHandler.
+        _defaultPreOpenHandlersRegistered: false,
+        _registerDefaultPreOpenHandlers: function(){
+            if(this._defaultPreOpenHandlersRegistered) return; this._defaultPreOpenHandlersRegistered = true;
+            var self = this;
+
+            this.preOpenHandlers.openStudentsSidebar = function(step){
+                try{
+                    var current = (window.location.pathname || '').toLowerCase();
+                    // If already on students list, don't navigate
+                    if(current.indexOf('/students') !== -1) return false;
+                    var links = document.querySelectorAll('#sidebar a.nav-link, a.nav-link');
+                    for(var i=0;i<links.length;i++){
+                        var a = links[i];
+                        var t = (a.textContent||a.innerText||'').trim().toLowerCase();
+                        if(t.indexOf('student') !== -1){ try{ a.click(); return true; }catch(e){} }
+                    }
+                }catch(e){}
+                return false;
+            };
+
+            this.preOpenHandlers.openQuestionsMenu = function(step){
+                try{
+                    var current = (window.location.pathname || '').toLowerCase();
+                    if(current.indexOf('/questions') !== -1 || current.indexOf('/quiz') !== -1) return false;
+                    var links = document.querySelectorAll('#sidebar a.nav-link, a.nav-link');
+                    for(var i=0;i<links.length;i++){
+                        var a = links[i];
+                        var t = (a.textContent||a.innerText||'').trim().toLowerCase();
+                        if(t.indexOf('question') !== -1 || t.indexOf('quiz') !== -1){ try{ a.click(); return true; }catch(e){} }
+                    }
+                }catch(e){}
+                return false;
+            };
+
+            this.preOpenHandlers.openProfile = function(step){
+                try{
+                    // Prefer explicit profile nav if present
+                    var current = (window.location.pathname || '').toLowerCase();
+                    if(current.indexOf('/profile') !== -1) return false;
+                    var prof = document.querySelector('#sidebar .nav-profile a.nav-link, .nav-profile a.nav-link');
+                    if(prof){ try{ prof.click(); return true; }catch(e){} }
+                    var links = document.querySelectorAll('#sidebar a.nav-link, a.nav-link');
+                    for(var i=0;i<links.length;i++){
+                        var a = links[i];
+                        var t = (a.textContent||a.innerText||'').trim().toLowerCase();
+                        if(t.indexOf('profile') !== -1 || t.indexOf('account') !== -1){ try{ a.click(); return true; }catch(e){} }
+                    }
+                }catch(e){}
+                return false;
+            };
+
+            this.preOpenHandlers.openAddStudent = function(step){
+                try{
+                    // Only try if we're on the students page
+                    var current = (window.location.pathname || '').toLowerCase();
+                    if(current.indexOf('/students') === -1) return false;
+                    // Find obvious Add Student buttons
+                    var sel = 'button, a';
+                    var elems = document.querySelectorAll(sel);
+                    for(var i=0;i<elems.length;i++){
+                        var e = elems[i];
+                        var txt = (e.textContent||'').trim().toLowerCase();
+                        if(txt.indexOf('add student') !== -1 || txt.indexOf('add new student') !== -1){ try{ e.click(); return true; }catch(e){} }
+                    }
+                    // Try a class-based fallback
+                    var btn = document.querySelector('.btn-add-student, .add-student, .btn-add');
+                    if(btn){ try{ btn.click(); return true; }catch(e){} }
+                }catch(e){}
+                return false;
+            };
+        },
 
         // Page-specific tour definitions
         tours: {
             dashboard: [
                 {
+                    id: 'dashboard-welcome',
                     title: "👋 Welcome to GENTA!",
                     text: "Welcome to your Dashboard! Let's take a quick tour to help you get started with the platform.",
                     target: null,
+                    navigateTo: '/GENTA/teacher',
                     position: "center",
                     icon: "🎓",
                 },
                 {
+                    id: 'dashboard-overview',
                     title: "Dashboard Overview",
                     text: "This is your main dashboard where you can see important statistics and quick access to key features.",
                     target: ".page-header, .row.grid-margin",
@@ -810,6 +1202,7 @@ $(document).ready(function () {
                     icon: "📊",
                 },
                 {
+                    id: 'dashboard-sidebar',
                     title: "Sidebar Navigation",
                     text: "Use this sidebar to navigate between different sections: Dashboard, Students, Quiz Management, and your Profile.",
                     target: ".sidebar",
@@ -817,6 +1210,7 @@ $(document).ready(function () {
                     icon: "🧭",
                 },
                 {
+                    id: 'dashboard-profile',
                     title: "Your Profile",
                     text: "Click here to view and edit your profile information, change your password, or update your profile picture.",
                     target: ".nav-profile",
@@ -824,6 +1218,7 @@ $(document).ready(function () {
                     icon: "👤",
                 },
                 {
+                    id: 'dashboard-help-btn',
                     title: "Help Button",
                     text: "Need help anytime? Click the help button in the top navigation to restart this walkthrough.",
                     target: "#help-walkthrough-btn",
@@ -833,353 +1228,192 @@ $(document).ready(function () {
             ],
             students: [
                 {
+                    id: 'students-management',
                     title: "👥 Students Management",
                     text: "This page allows you to manage all your students. You can add, edit, view details, and track their progress.",
                     target: null,
+                    // keep navigation only on the first step so we land on the students page if starting elsewhere
+                    navigateTo: '/GENTA/teacher/dashboard/students',
                     position: "center",
                     icon: "🎓",
                 },
                 {
+                    id: 'students-add-new',
                     title: "Add New Student",
                     text: "Click this button to add a new student to your class. You'll need to provide their basic information.",
-                    target: 'button:contains("Add Student"), a:contains("Add Student")',
+                    // Prefer class-based selectors; jQuery :contains is a fallback resolved at runtime
+                    target: '.btn-add-student, .add-student, .btn-add, button.add-student, a.add-student, button:contains("Add Student"), a:contains("Add Student")',
+                    preOpen: 'openStudentsSidebar',
                     position: "bottom",
                     icon: "➕",
                 },
                 {
+                    id: 'students-search-filter',
                     title: "Search & Filter",
                     text: "Use the search box to quickly find students by name, email, or other details.",
-                    target: '#student-search, input[type="search"], .dataTables_filter input',
+                    target: '#student-search, input[type="search"], .dataTables_filter input, .dataTables_filter input',
                     position: "bottom",
                     icon: "🔍",
                 },
                 {
+                    id: 'students-actions',
                     title: "Student Actions",
                     text: "For each student, you can view their detailed profile, edit their information, or remove them from your class.",
-                    target: "tbody tr:first .action-buttons, tbody tr:first td:last",
+                    target: "tbody tr:first .action-buttons, tbody tr:first td:last, table.defaultDataTable tbody tr:first .action-buttons, .card .table tbody tr:first .action-buttons",
+                    preOpen: 'openStudentsSidebar',
                     position: "left",
                     icon: "⚙️",
                 },
                 {
+                    id: 'students-performance',
                     title: "Student Performance",
                     text: "Click on any student to view their quiz performance, grades, and progress over time.",
-                    target: "tbody tr:first",
+                    // Attach to the first row if present, otherwise fall back to the page header
+                    target: "tbody tr:first, .defaultDataTable tbody tr:first, .page-header, .content-wrapper",
                     position: "right",
                     icon: "📈",
+                },
+                {
+                    id: 'students-export',
+                    title: "Export / Bulk Actions",
+                    text: "Use export or bulk action controls to manage many students at once.",
+                    target: '.export-students, .btn-export, button:contains("Export"), a:contains("Export")',
+                    position: 'bottom',
+                    icon: '📤'
                 },
             ],
             questions: [
                 {
+                    id: 'questions-management',
                     title: "❓ Quiz Management",
                     text: "Welcome to Quiz Management! Here you can create, edit, and organize all your quiz questions.",
                     target: null,
+                    navigateTo: '/GENTA/teacher/dashboard/questions',
                     position: "center",
                     icon: "📝",
                 },
                 {
+                    id: 'questions-add-new',
                     title: "Add New Question",
                     text: "Click here to create a new quiz question. You can add multiple choice, true/false, or other question types.",
-                    target: 'button:contains("Add Question"), a:contains("Add Question"), .btn-primary:contains("Add")',
+                    target: '.btn-add-question, .add-question, .btn-primary.add-question, button:contains("Add Question"), a:contains("Add Question")',
+                    preOpen: 'openQuestionsMenu',
                     position: "bottom",
                     icon: "➕",
                 },
                 {
+                    id: 'questions-list',
                     title: "Question List",
                     text: "All your questions are listed here. You can see the question text, type, difficulty level, and status at a glance.",
-                    target: ".card .table, .questions-table",
+                    target: ".card .table, .questions-table, table.defaultDataTable",
                     position: "top",
                     icon: "📋",
                 },
                 {
+                    id: 'questions-edit-delete',
                     title: "Edit & Delete",
                     text: "Use these action buttons to edit question details or remove questions you no longer need.",
-                    target: "tbody tr:first .action-buttons, tbody tr:first .btn-group",
+                    target: "tbody tr:first .action-buttons, tbody tr:first .btn-group, table.defaultDataTable tbody tr:first .action-buttons",
                     position: "left",
                     icon: "✏️",
                 },
                 {
+                    id: 'questions-toggle-status',
                     title: "Toggle Status",
                     text: "Quickly enable or disable questions using the toggle switch. Disabled questions won't appear in active quizzes.",
-                    target: 'tbody tr:first .toggle-status, tbody tr:first input[type="checkbox"]',
+                    target: 'tbody tr:first .toggle-status, tbody tr:first input[type="checkbox"], .toggleQuestionStatusBtn',
                     position: "left",
                     icon: "🔄",
+                },
+                {
+                    id: 'questions-search',
+                    title: 'Search & Filters',
+                    text: 'Use the search box and filters to find questions quickly.',
+                    target: '.dataTables_filter input, input[type="search"], #question-search',
+                    position: 'bottom',
+                    icon: '🔎'
                 },
             ],
             profile: [
                 {
+                    id: 'profile-overview',
                     title: "👤 Your Profile",
                     text: "This is your profile page where you can manage your personal information and account settings.",
                     target: null,
+                    navigateTo: '/GENTA/teacher/dashboard/profile',
                     position: "center",
                     icon: "⚙️",
                 },
                 {
+                    id: 'profile-picture',
                     title: "Profile Picture",
                     text: "Upload or change your profile picture here. This image will be displayed throughout the platform.",
-                    target: '.profile-image, #profileForm .form-group:first, input[type="file"]',
+                    target: '.profile-image, #profileForm .form-group:first, input[type="file"], .nav-profile-image img',
+                    preOpen: 'openProfile',
                     position: "right",
                     icon: "📷",
                 },
                 {
+                    id: 'profile-personal-info',
                     title: "Personal Information",
                     text: "Update your name, email, and other personal details. Make sure to save your changes after editing.",
-                    target: "#profileForm",
+                    target: "#profileForm, form#profileForm",
                     position: "right",
                     icon: "📝",
                 },
                 {
+                    id: 'profile-change-password',
                     title: "Change Password",
                     text: "For security, you can change your password here. You'll need to enter your current password first.",
-                    target: "#passwordForm",
+                    target: "#passwordForm, form#passwordForm",
                     position: "right",
                     icon: "🔒",
                 },
                 {
+                    id: 'profile-save-changes',
                     title: "Save Changes",
                     text: "Don't forget to click the Edit or Save button after making any changes to update your profile.",
-                    target: 'button[type="submit"]:contains("Edit"), button:contains("Save")',
+                    target: 'button[type="submit"], button.save-profile, button:contains("Save"), button:contains("Edit")',
                     position: "top",
                     icon: "💾",
                 },
+                {
+                    id: 'profile-notifications',
+                    title: 'Notifications & Preferences',
+                    text: 'Adjust notification settings and other preferences here.',
+                    target: '.profile-settings, .notification-settings, #notificationForm',
+                    position: 'left',
+                    icon: '🔔'
+                }
             ],
         },
 
         init() {
             this.injectStyles();
             this.createOverlay();
+            // Ensure default preOpen handlers are registered so steps can request UI pre-opening
+            try{ this._registerDefaultPreOpenHandlers(); }catch(e){}
         },
 
         injectStyles() {
+            // Minimal placeholder for compatibility. Shepherd will provide the primary
+            // overlay, spotlight, and popup styling. Keep a tiny rule to ensure the
+            // highlighted class used by the legacy code doesn't break layout if applied.
             if (document.getElementById("walkthrough-styles")) return;
-
             const style = document.createElement("style");
             style.id = "walkthrough-styles";
             style.innerHTML = `
-                /* Walkthrough Overlay */
-                .walkthrough-overlay {
-                    position: fixed;
-                    top: 0;
-                    left: 0;
-                    width: 100%;
-                    height: 100%;
-                    background: rgba(0, 0, 0, 0.85);
-                    z-index: 9998;
-                    opacity: 0;
-                    transition: opacity 0.4s ease;
-                    pointer-events: none;
-                    display: none;
-                }
-                .walkthrough-overlay.active {
-                    opacity: 1;
-                    pointer-events: auto;
-                    display: block;
-                }
-                
-                /* Highlighted Element - Bright and prominent */
-                .walkthrough-highlight {
-                    position: relative !important;
-                    z-index: 9999 !important;
-                    border-radius: 12px;
-                    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-                    animation: pulse-highlight 2s ease-in-out infinite;
-                    box-shadow: 0 0 0 5px var(--brand-primary), 
-                                0 0 30px rgba(var(--brand-primary-rgba-18), 0.8),
-                                0 0 60px rgba(var(--brand-primary-rgba-18), 0.4) !important;
-                    background-color: white !important;
-                }
-                
-                /* Brighten the highlighted element */
-                .walkthrough-highlight::before {
-                    content: '';
-                    position: absolute;
-                    top: -5px;
-                    left: -5px;
-                    right: -5px;
-                    bottom: -5px;
-                    background: rgba(255, 255, 255, 0.95);
-                    border-radius: 12px;
-                    z-index: -1;
-                    pointer-events: none;
-                }
-                
-                /* Make all child elements visible */
-                .walkthrough-highlight,
-                .walkthrough-highlight * {
-                    position: relative;
-                }
-                
-                @keyframes pulse-highlight {
-                    0%, 100% { 
-                        box-shadow: 0 0 0 5px var(--brand-primary), 
-                                    0 0 30px rgba(var(--brand-primary-rgba-18), 0.8),
-                                    0 0 60px rgba(var(--brand-primary-rgba-18), 0.4);
-                    }
-                    50% { 
-                        box-shadow: 0 0 0 8px var(--brand-primary), 
-                                    0 0 50px rgba(var(--brand-primary-rgba-18), 1),
-                                    0 0 100px rgba(var(--brand-primary-rgba-18), 0.6);
-                    }
-                }
-                
-                /* Arrow pointing from dialog to highlighted element */
-                .walkthrough-arrow {
-                    position: fixed;
-                    width: 0;
-                    height: 0;
-                    border: 25px solid transparent;
-                    z-index: 10001;
-                    transition: all 0.3s ease;
-                    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
-                }
-                
-                .walkthrough-arrow.arrow-right {
-                    border-left-color: white;
-                    border-width: 18px 0 18px 25px;
-                }
-                
-                .walkthrough-arrow.arrow-left {
-                    border-right-color: white;
-                    border-width: 18px 25px 18px 0;
-                }
-                
-                .walkthrough-arrow.arrow-top {
-                    border-bottom-color: white;
-                    border-width: 0 18px 25px 18px;
-                }
-                
-                .walkthrough-arrow.arrow-bottom {
-                    border-top-color: white;
-                    border-width: 25px 18px 0 18px;
-                }
-                
-                /* Custom Walkthrough Popup */
-                .swal2-container.walkthrough-container {
-                    z-index: 10000 !important;
-                }
-                
-                .swal2-popup.walkthrough-popup {
-                    border-radius: 16px;
-                    padding: 2rem;
-                    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-                    border: 2px solid var(--brand-primary);
-                    animation: slideIn 0.3s ease-out;
-                    max-width: 500px;
-                }
-                
-                @keyframes slideIn {
-                    from {
-                        opacity: 0;
-                        transform: scale(0.9) translateY(-20px);
-                    }
-                    to {
-                        opacity: 1;
-                        transform: scale(1) translateY(0);
-                    }
-                }
-                
-                .walkthrough-popup .swal2-title {
-                    font-size: 1.5rem;
-                    color: var(--brand-primary);
-                    margin-bottom: 1rem;
-                    font-weight: 600;
-                }
-                
-                .walkthrough-popup .swal2-html-container {
-                    font-size: 1rem;
-                    line-height: 1.6;
-                    color: #333;
-                    text-align: left;
-                }
-                
-                .walkthrough-progress {
-                    margin-top: 1.5rem;
-                    padding-top: 1rem;
-                    border-top: 1px solid #eee;
-                }
-                
-                .walkthrough-progress-bar {
-                    width: 100%;
-                    height: 8px;
-                    background: #f0f0f0;
-                    border-radius: 4px;
-                    overflow: hidden;
-                    margin-bottom: 0.5rem;
-                }
-                
-                .walkthrough-progress-fill {
-                    height: 100%;
-                    background: linear-gradient(90deg, var(--brand-primary), var(--vivid-sky));
-                    border-radius: 4px;
-                    transition: width 0.3s ease;
-                }
-                
-                .walkthrough-progress-text {
-                    font-size: 0.875rem;
-                    color: #666;
-                    text-align: center;
-                }
-                
-                .walkthrough-popup .swal2-actions {
-                    margin-top: 1.5rem;
-                    gap: 0.5rem;
-                }
-                
-                .walkthrough-popup .swal2-confirm {
-                    background: linear-gradient(135deg, var(--brand-primary), var(--vivid-sky)) !important;
-                    border: none !important;
-                    border-radius: 8px;
-                    padding: 0.75rem 2rem;
-                    font-weight: 600;
-                    transition: transform 0.2s;
-                    pointer-events: auto !important;
-                    cursor: pointer !important;
-                }
-                
-                .walkthrough-popup .swal2-confirm:hover {
-                    transform: translateY(-2px);
-                    box-shadow: 0 4px 12px rgba(var(--brand-primary-rgba-18), 0.4);
-                }
-                
-                .walkthrough-popup .swal2-cancel {
-                    background: #e0e0e0 !important;
-                    color: #666 !important;
-                    border: none !important;
-                    border-radius: 8px;
-                    padding: 0.75rem 2rem;
-                    font-weight: 600;
-                    pointer-events: auto !important;
-                    cursor: pointer !important;
-                }
-                
-                .walkthrough-popup .swal2-actions {
-                    pointer-events: auto !important;
-                }
-                
-                .walkthrough-icon {
-                    font-size: 3rem;
-                    margin-bottom: 1rem;
-                    display: block;
-                    text-align: center;
-                }
-                
-                /* Arrow pointing to element */
-                .walkthrough-arrow {
-                    position: fixed;
-                    width: 0;
-                    height: 0;
-                    border: 15px solid transparent;
-                    z-index: 10000;
-                    transition: all 0.3s ease;
-                }
+                /* Legacy compatibility: minimal highlight rule */
+                .walkthrough-highlight { outline: 3px solid rgba(0,0,0,0.06); }
             `;
             document.head.appendChild(style);
         },
 
         createOverlay() {
+            // No-op: Shepherd will manage the modal overlay/spotlight. Keep method
+            // to preserve API expected by other parts of the system.
             if (this.overlay) return;
-            this.overlay = document.createElement("div");
-            this.overlay.className = "walkthrough-overlay";
-            document.body.appendChild(this.overlay);
+            this.overlay = null;
         },
 
         detectCurrentPage() {
@@ -1200,12 +1434,19 @@ $(document).ready(function () {
             this.isActive = true;
             this.isHelpMode = isHelp;
 
-            // Don't activate overlay - we're removing the dark overlay
-            // this.overlay.classList.add('active');
+            // If Shepherd is available and the initializer created a mapping, prefer it.
+            try {
+                if (typeof WalkthroughSystem.startShepherd === "function") {
+                    // Shepherd will handle overlay, spotlight, scrolling, and buttons.
+                    WalkthroughSystem.startShepherd(page);
+                    return;
+                }
+            } catch (e) {
+                console.warn("Shepherd start failed, falling back to legacy walkthrough", e);
+            }
 
-            // Disable scrolling during walkthrough
+            // Fallback: legacy Swal-based walkthrough
             this.disableScroll();
-
             this.showStep();
         },
 
@@ -1273,347 +1514,67 @@ $(document).ready(function () {
                 this.complete();
                 return;
             }
-
             const step = this.currentTour[this.currentStep];
 
-            // Remove previous highlights and arrows
+            // Remove previous highlights
             $(".walkthrough-highlight").removeClass("walkthrough-highlight");
-            $(".walkthrough-arrow").remove();
 
             // Find and validate target
             let $target = null;
             if (step.target) {
                 $target = $(step.target).first();
 
-                // Skip if target doesn't exist
-                if ($target.length === 0) {
-                    console.log(
-                        "Skipping step, target not found:",
-                        step.target
-                    );
-                    this.currentStep++;
-                    this.showStep();
-                    return;
+                // If target exists, highlight it. If not, continue without highlight.
+                if ($target && $target.length) {
+                    $target.addClass("walkthrough-highlight");
+                } else {
+                    console.debug("Walkthrough target not found, showing dialog centered:", step.target);
                 }
-
-                // Highlight target (no scrolling during walkthrough)
-                $target.addClass("walkthrough-highlight");
             }
 
             // Build popup HTML
-            const progress = Math.round(
-                ((this.currentStep + 1) / this.currentTour.length) * 100
-            );
-            const html = `
-                ${
-                    step.icon
-                        ? `<div class="walkthrough-icon">${step.icon}</div>`
-                        : ""
-                }
-                <div style="text-align: left; margin-bottom: 1rem;">
-                    ${step.text}
-                </div>
+            const progress = Math.round(((this.currentStep + 1) / this.currentTour.length) * 100);
+            const html = `${step.icon ? `<div class="walkthrough-icon">${step.icon}</div>` : ``}
+                <div style="text-align: left; margin-bottom: 1rem;">${step.text}</div>
                 <div class="walkthrough-progress">
-                    <div class="walkthrough-progress-bar">
-                        <div class="walkthrough-progress-fill" style="width: ${progress}%"></div>
-                    </div>
-                    <div class="walkthrough-progress-text">
-                        Step ${this.currentStep + 1} of ${
-                this.currentTour.length
-            }
-                    </div>
-                </div>
-            `;
+                    <div class="walkthrough-progress-bar"><div class="walkthrough-progress-fill" style="width: ${progress}%"></div></div>
+                    <div class="walkthrough-progress-text">Step ${this.currentStep + 1} of ${this.currentTour.length}</div>
+                </div>`;
 
-            // Configure Swal
-            const self = this;
             const swalConfig = {
                 title: step.title,
                 html: html,
                 showCancelButton: this.currentStep > 0,
-                confirmButtonText:
-                    this.currentStep === this.currentTour.length - 1
-                        ? "✓ Finish"
-                        : "Next →",
+                confirmButtonText: this.currentStep === this.currentTour.length - 1 ? "✓ Finish" : "Next →",
                 cancelButtonText: "← Back",
                 allowOutsideClick: true,
                 allowEscapeKey: true,
                 showCloseButton: true,
-                width: "400px", // Smaller dialog width for better positioning
-                // Removed customClass - it was blocking button interactions
-                position: step.target
-                    ? this.calculatePosition($target, step.position)
-                    : "center",
-                didOpen: () => {
-                    if (step.target && $target && $target.length > 0) {
-                        this.positionPopup($target, step.position);
-                    }
-                },
+                width: "420px",
+                position: "center",
                 willClose: () => {
                     // Clean up when dialog is about to close
-                    $(".walkthrough-highlight").removeClass(
-                        "walkthrough-highlight"
-                    );
-                    $(".walkthrough-arrow").remove();
-                },
+                    $(".walkthrough-highlight").removeClass("walkthrough-highlight");
+                }
             };
 
             Swal.fire(swalConfig).then((result) => {
                 if (result.isConfirmed) {
                     this.currentStep++;
                     this.showStep();
-                } else if (
-                    result.dismiss === Swal.DismissReason.cancel &&
-                    this.currentStep > 0
-                ) {
+                } else if (result.dismiss === Swal.DismissReason.cancel && this.currentStep > 0) {
                     this.currentStep--;
                     this.showStep();
                 } else {
-                    // Any dismiss (close button, ESC, backdrop) - end tour
+                    // Dismiss -> end tour
                     this.isActive = false;
-                    $(".walkthrough-highlight").removeClass(
-                        "walkthrough-highlight"
-                    );
-                    $(".walkthrough-arrow").remove();
-                    this.enableScroll(); // Re-enable scrolling when tour is dismissed
+                    $(".walkthrough-highlight").removeClass("walkthrough-highlight");
+                    this.enableScroll();
                 }
             });
         },
 
-        calculatePosition($target, preferredPosition) {
-            if (!$target || $target.length === 0) return "center";
-
-            const rect = $target[0].getBoundingClientRect();
-            const viewportHeight = window.innerHeight;
-            const viewportWidth = window.innerWidth;
-            const popupWidth = 420; // Smaller estimated popup width
-            const popupHeight = 350; // Smaller estimated popup height
-            const spacing = 40; // Add spacing for arrow and padding
-
-            // Determine best position based on available space
-            if (
-                preferredPosition === "right" &&
-                rect.right + popupWidth + spacing < viewportWidth
-            ) {
-                return "right";
-            } else if (
-                preferredPosition === "left" &&
-                rect.left - popupWidth - spacing > 0
-            ) {
-                return "left";
-            } else if (
-                preferredPosition === "bottom" &&
-                rect.bottom + popupHeight + spacing < viewportHeight
-            ) {
-                return "bottom";
-            } else if (
-                preferredPosition === "top" &&
-                rect.top - popupHeight - spacing > 0
-            ) {
-                return "top";
-            }
-
-            // If preferred position doesn't fit, try alternatives
-            if (rect.right + popupWidth + spacing < viewportWidth) {
-                return "right";
-            } else if (rect.left - popupWidth - spacing > 0) {
-                return "left";
-            } else if (rect.bottom + popupHeight + spacing < viewportHeight) {
-                return "bottom";
-            } else if (rect.top - popupHeight - spacing > 0) {
-                return "top";
-            }
-
-            return "center";
-        },
-
-        positionPopup($target, position) {
-            setTimeout(() => {
-                const popup = document.querySelector(".swal2-popup");
-                if (!popup || !$target || $target.length === 0) return;
-
-                const rect = $target[0].getBoundingClientRect();
-                const popupRect = popup.getBoundingClientRect();
-                const spacing = 30;
-
-                let top, left;
-                let arrowPosition = "";
-
-                switch (position) {
-                    case "right":
-                        left = rect.right + spacing;
-                        top = rect.top + rect.height / 2 - popupRect.height / 2;
-                        arrowPosition = "arrow-left";
-                        if (left + popupRect.width > window.innerWidth) {
-                            left = rect.left - popupRect.width - spacing;
-                            arrowPosition = "arrow-right";
-                        }
-                        break;
-                    case "left":
-                        left = rect.left - popupRect.width - spacing;
-                        top = rect.top + rect.height / 2 - popupRect.height / 2;
-                        arrowPosition = "arrow-right";
-                        if (left < 0) {
-                            left = rect.right + spacing;
-                            arrowPosition = "arrow-left";
-                        }
-                        break;
-                    case "bottom":
-                        top = rect.bottom + spacing;
-                        left = rect.left + rect.width / 2 - popupRect.width / 2;
-                        arrowPosition = "arrow-top";
-                        if (top + popupRect.height > window.innerHeight) {
-                            top = rect.top - popupRect.height - spacing;
-                            arrowPosition = "arrow-bottom";
-                        }
-                        break;
-                    case "top":
-                        top = rect.top - popupRect.height - spacing;
-                        left = rect.left + rect.width / 2 - popupRect.width / 2;
-                        arrowPosition = "arrow-bottom";
-                        if (top < 0) {
-                            top = rect.bottom + spacing;
-                            arrowPosition = "arrow-top";
-                        }
-                        break;
-                    default:
-                        return; // Keep center position, no arrow
-                }
-
-                // Ensure popup stays within viewport
-                top = Math.max(
-                    10,
-                    Math.min(top, window.innerHeight - popupRect.height - 10)
-                );
-                left = Math.max(
-                    10,
-                    Math.min(left, window.innerWidth - popupRect.width - 10)
-                );
-
-                popup.style.position = "fixed";
-                popup.style.top = top + "px";
-                popup.style.left = left + "px";
-                popup.style.margin = "0";
-                popup.style.transform = "none";
-
-                // Create and position arrow
-                this.createArrow(
-                    popup,
-                    rect,
-                    arrowPosition,
-                    top,
-                    left,
-                    popupRect
-                );
-            }, 50);
-        },
-
-        createArrow(
-            popup,
-            targetRect,
-            arrowPosition,
-            popupTop,
-            popupLeft,
-            popupRect
-        ) {
-            // Remove existing arrow
-            const existingArrow = document.querySelector(".walkthrough-arrow");
-            if (existingArrow) existingArrow.remove();
-
-            if (!arrowPosition) return; // No arrow for center position
-
-            // Create arrow element
-            const arrow = document.createElement("div");
-            arrow.className = `walkthrough-arrow ${arrowPosition}`;
-
-            // Calculate target center point
-            const targetCenterX = targetRect.left + targetRect.width / 2;
-            const targetCenterY = targetRect.top + targetRect.height / 2;
-
-            // Position arrow
-            let arrowTop, arrowLeft;
-
-            switch (arrowPosition) {
-                case "arrow-left": // Arrow points left (popup is on the right of target)
-                    // Position arrow at the left edge of popup, pointing toward target
-                    arrowTop = popupTop + popupRect.height / 2 - 18;
-                    arrowLeft = popupLeft - 25;
-                    // Adjust vertically to point more accurately at target center
-                    if (
-                        Math.abs(
-                            targetCenterY - (popupTop + popupRect.height / 2)
-                        ) > 50
-                    ) {
-                        arrowTop = Math.max(
-                            popupTop + 20,
-                            Math.min(
-                                popupTop + popupRect.height - 50,
-                                targetCenterY - 18
-                            )
-                        );
-                    }
-                    break;
-                case "arrow-right": // Arrow points right (popup is on the left of target)
-                    arrowTop = popupTop + popupRect.height / 2 - 18;
-                    arrowLeft = popupLeft + popupRect.width;
-                    // Adjust vertically to point more accurately at target center
-                    if (
-                        Math.abs(
-                            targetCenterY - (popupTop + popupRect.height / 2)
-                        ) > 50
-                    ) {
-                        arrowTop = Math.max(
-                            popupTop + 20,
-                            Math.min(
-                                popupTop + popupRect.height - 50,
-                                targetCenterY - 18
-                            )
-                        );
-                    }
-                    break;
-                case "arrow-top": // Arrow points up (popup is below target)
-                    arrowTop = popupTop - 25;
-                    arrowLeft = popupLeft + popupRect.width / 2 - 18;
-                    // Adjust horizontally to point more accurately at target center
-                    if (
-                        Math.abs(
-                            targetCenterX - (popupLeft + popupRect.width / 2)
-                        ) > 50
-                    ) {
-                        arrowLeft = Math.max(
-                            popupLeft + 20,
-                            Math.min(
-                                popupLeft + popupRect.width - 50,
-                                targetCenterX - 18
-                            )
-                        );
-                    }
-                    break;
-                case "arrow-bottom": // Arrow points down (popup is above target)
-                    arrowTop = popupTop + popupRect.height;
-                    arrowLeft = popupLeft + popupRect.width / 2 - 18;
-                    // Adjust horizontally to point more accurately at target center
-                    if (
-                        Math.abs(
-                            targetCenterX - (popupLeft + popupRect.width / 2)
-                        ) > 50
-                    ) {
-                        arrowLeft = Math.max(
-                            popupLeft + 20,
-                            Math.min(
-                                popupLeft + popupRect.width - 50,
-                                targetCenterX - 18
-                            )
-                        );
-                    }
-                    break;
-            }
-
-            arrow.style.top = arrowTop + "px";
-            arrow.style.left = arrowLeft + "px";
-
-            document.body.appendChild(arrow);
-        },
+        // Removed calculatePosition/positionPopup/createArrow helpers — Shepherd handles positioning.
 
         complete() {
             // Clean up immediately
@@ -1674,6 +1635,9 @@ $(document).ready(function () {
         },
     };
 
+    // Make the full object available on window for external initializers (shepherd-init.js)
+    try{ window.WalkthroughSystem = WalkthroughSystem; console.info('WalkthroughSystem attached to window'); }catch(e){ console.warn('Failed to attach WalkthroughSystem to window', e); }
+
     // Initialize walkthrough system
     WalkthroughSystem.init();
 
@@ -1688,10 +1652,155 @@ $(document).ready(function () {
         }, 800);
     }
 
-    // Help button handler
+    // Help button: show a chooser so the teacher can pick a specific tour
+    function showTourChooser() {
+        var options = {
+            dashboard: 'Dashboard — Overview & quick actions',
+            students: 'Students — Manage students',
+            questions: 'Quiz — Manage questions and questions bank',
+            profile: 'Profile — Update your account'
+        };
+
+        Swal.fire({
+            title: 'Which walkthrough do you want to run?',
+            input: 'select',
+            inputOptions: options,
+            inputPlaceholder: 'Select a walkthrough',
+            showCancelButton: true,
+            confirmButtonText: 'Start',
+            width: '520px'
+        }).then(function(result){
+            if (!result.isConfirmed || !result.value) return;
+
+            console.info('Walkthrough chooser selected:', result.value, 'startShepherd available?', typeof WalkthroughSystem.startShepherd);
+
+            // If Shepherd isn't ready, show a non-blocking toast so the user knows
+            // we will fall back to the lightweight dialog experience.
+            if (typeof WalkthroughSystem.startShepherd !== 'function') {
+                try {
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            toast: true,
+                            position: 'top-end',
+                            icon: 'info',
+                            title: 'Advanced tour unavailable — starting simple walkthrough',
+                            showConfirmButton: false,
+                            timer: 2200
+                        });
+                    }
+                } catch (e) {
+                    /* ignore toast failure */
+                }
+            }
+
+            // Ensure we can re-run tours immediately by clearing the cookie/local marker
+            if (typeof $.removeCookie === 'function') {
+                try { $.removeCookie('walkthrough_shown', { path: '/' }); } catch(e){}
+            } else {
+                try { document.cookie = 'walkthrough_shown=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;'; } catch(e){}
+            }
+
+            var key = result.value;
+            
+            // Pre-check: if we're already on the target page for this tour, mark first step as navigated
+            // to prevent unnecessary page refresh
+            try {
+                if (window.WalkthroughSystem && WalkthroughSystem.tours && WalkthroughSystem.tours[key]) {
+                    var firstStep = WalkthroughSystem.tours[key][0];
+                    if (firstStep && firstStep.navigateTo) {
+                        var currentPath = window.location.pathname + (window.location.search || '');
+                        var targetPath = firstStep.navigateTo;
+                        // Check if we're already on the target page using strict matching
+                        // Normalize paths to avoid false positives (e.g., /students shouldn't match /dashboard)
+                        var currentNorm = currentPath.toLowerCase().replace(/\/+$/, '');
+                        var targetNorm = targetPath.toLowerCase().replace(/\/+$/, '');
+                        var alreadyOnPage = (currentNorm === targetNorm) ||
+                                           (currentNorm === targetNorm + '/') ||
+                                           (currentNorm + '/' === targetNorm);
+                        if (alreadyOnPage) {
+                            console.info('Already on target page for tour, pre-marking navigation as complete', { tour: key, step: firstStep.id, targetPath: targetPath, currentPath: currentPath });
+                            if (window.sessionStorage && firstStep.id) {
+                                var navKey = 'genta_nav_' + key + '_' + firstStep.id;
+                                sessionStorage.setItem(navKey, 'true');
+                                console.info('Set navigation flag BEFORE starting tour:', navKey);
+                            }
+                        } else {
+                            console.info('Not on target page, tour will navigate', { current: currentNorm, target: targetNorm });
+                        }
+                    }
+                }
+            } catch(e) {
+                console.warn('Pre-check navigation failed', e);
+            }
+            
+            // Small delay to ensure sessionStorage write completes before tour starts
+            setTimeout(function() {
+                // Check if navigation is needed for first step
+                var needsNavigation = false;
+                try {
+                    if (window.WalkthroughSystem && WalkthroughSystem.tours && WalkthroughSystem.tours[key]) {
+                        var firstStep = WalkthroughSystem.tours[key][0];
+                        if (firstStep && firstStep.navigateTo) {
+                            var currentPath = window.location.pathname + (window.location.search || '');
+                            var currentNorm = currentPath.toLowerCase().replace(/\/+$/, '');
+                            var targetNorm = firstStep.navigateTo.toLowerCase().replace(/\/+$/, '');
+                            var alreadyOnPage = (currentNorm === targetNorm) ||
+                                               (currentNorm === targetNorm + '/') ||
+                                               (currentNorm + '/' === targetNorm);
+                            needsNavigation = !alreadyOnPage;
+                        }
+                    }
+                } catch(e) {
+                    console.warn('Navigation check failed', e);
+                }
+
+                // If navigation is needed, navigate first THEN start tour via resume mechanism
+                if (needsNavigation) {
+                    console.info('Tour requires navigation, navigating first before showing tour', key);
+                    try {
+                        var firstStep = WalkthroughSystem.tours[key][0];
+                        var navUrl = firstStep.navigateTo;
+                        
+                        // Store resume marker so tour starts after navigation
+                        if (window.sessionStorage) {
+                            var resume = { key: key, stepId: firstStep.id, expectedPath: navUrl };
+                            sessionStorage.setItem('genta_walkthrough_resume', JSON.stringify(resume));
+                            console.info('Set resume marker before navigation', resume);
+                            
+                            // Mark navigation flag
+                            var navKey = 'genta_nav_' + key + '_' + firstStep.id;
+                            sessionStorage.setItem(navKey, 'true');
+                        }
+                        
+                        // Navigate using loadPage
+                        window._tourNavigating = true;
+                        if (typeof loadPage === 'function') {
+                            loadPage(navUrl);
+                        } else {
+                            window.location.href = navUrl;
+                        }
+                        return;
+                    } catch(e) {
+                        console.warn('Pre-navigation failed, starting tour anyway', e);
+                    }
+                }
+
+                // No navigation needed or fallback - start tour normally
+                // Prefer Shepherd if available
+                if (typeof WalkthroughSystem.startShepherd === 'function') {
+                    try { console.info('Starting Shepherd tour for', key); WalkthroughSystem.startShepherd(key); return; } catch(e){ console.warn('Shepherd start failed', e); }
+                } else {
+                    console.info('Shepherd not available, falling back to legacy WalkthroughSystem.start');
+                }
+                // Fallback to legacy start
+                try { WalkthroughSystem.start(key, true); } catch(e){ console.error(e); }
+            }, 50);
+        });
+    }
+
     $(document).on("click", "#help-walkthrough-btn", function (e) {
         e.preventDefault();
-        WalkthroughSystem.start(null, true);
+        showTourChooser();
     }); // Add walkthrough highlight CSS
     if (!document.getElementById("walkthrough-highlight-style")) {
         const style = document.createElement("style");
@@ -1726,18 +1835,7 @@ $(document).ready(function () {
         }, 600); // Delay to ensure page is ready
     }
 
-    // HELP BUTTON: allow user to re-trigger walkthrough at any time
-    $(document).on("click", "#help-walkthrough-btn", function (e) {
-        e.preventDefault();
-        // Remove walkthrough cookie so walkthrough always shows
-        if (typeof $.removeCookie === "function") {
-            $.removeCookie("walkthrough_shown", { path: "/" });
-        } else {
-            document.cookie =
-                "walkthrough_shown=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
-        }
-        showAnchoredWalkthrough(true); // Pass true to indicate help mode
-    });
+    // Deprecated legacy handler removed. The help button now opens the chooser above.
     // Run page initializers
     initPage();
 

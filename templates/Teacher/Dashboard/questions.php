@@ -15,8 +15,8 @@
                     </div>
 
                     <div class="col-xl-4 col-lg-6 col-sm-8">
-                        <?= $this->Form->create(NULL, ['url' => ['controller' => 'Dashboard', 'action' => 'questions', 'prefix' => 'Teacher'], 'method' => 'get']) ?>
-                            <?= $this->Form->select('questionsSubject', $subjectOptions, ['class' => 'form-select mb-3', 'id' => 'questionsSubject', 'onchange' => 'this.form.submit()', 'value' => $quesSubjectSel]) ?>
+                        <?= $this->Form->create(NULL, ['url' => ['controller' => 'Dashboard', 'action' => 'questions', 'prefix' => 'Teacher'], 'method' => 'get', 'id' => 'questionsSubjectForm']) ?>
+                            <?= $this->Form->select('questionsSubject', $subjectOptions, ['class' => 'form-select mb-3', 'id' => 'questionsSubject', 'value' => $quesSubjectSel]) ?>
                         <?= $this->Form->end() ?>
                     </div>
                 </div>

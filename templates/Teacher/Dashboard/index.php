@@ -239,7 +239,9 @@
                                         <?php
                                             // Build a lightweight array of attempts for the modal
                                             $quizItems = [];
-                                            $attemptNum = 1;
+                                            // Number attempts correctly: most recent gets highest number
+                                            $totalAttempts = count($assessment['all_quizzes']);
+                                            $attemptNum = $totalAttempts;
                                             foreach($assessment['all_quizzes'] as $quiz) {
                                                 // Prefer numeric fields provided by the entity: studentScore and totalScore
                                                 $studentScore = isset($quiz->score['studentScore']) ? (int)$quiz->score['studentScore'] : 0;
@@ -296,7 +298,7 @@
                                                     'created_by_name' => $creatorName
                                                 ];
 
-                                                $attemptNum++;
+                                                $attemptNum--;
                                             }
                                             $jsonQuizzes = h(json_encode($quizItems));
                                         ?>
