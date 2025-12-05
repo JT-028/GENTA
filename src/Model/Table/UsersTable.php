@@ -62,6 +62,14 @@ class UsersTable extends Table
             ->maxLength('email', 255)
             ->requirePresence('email', 'create')
             ->notEmptyString('email', __('Email is required.'));
+            // TEMPORARILY DISABLED: DepEd email restriction
+            // TODO: UNCOMMENT THE LINES BELOW when you have @deped.gov.ph email access
+            // ->add('email', 'depedDomain', [
+            //     'rule' => function($value, $context) {
+            //         return preg_match('/@deped\.gov\.ph$/i', $value) === 1;
+            //     },
+            //     'message' => __('Only DepEd email addresses (@deped.gov.ph) are allowed.')
+            // ]);
 
         $validator
             ->scalar('password')
@@ -74,6 +82,19 @@ class UsersTable extends Table
         $validator
             ->scalar('token')
             ->allowEmptyString('token');
+
+        $validator
+            ->boolean('email_verified')
+            ->allowEmptyString('email_verified');
+
+        $validator
+            ->scalar('verification_token')
+            ->maxLength('verification_token', 255)
+            ->allowEmptyString('verification_token');
+
+        $validator
+            ->dateTime('verification_token_expires')
+            ->allowEmptyDateTime('verification_token_expires');
 
         $validator
             ->scalar('first_name')

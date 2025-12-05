@@ -66,6 +66,9 @@ return function (RouteBuilder $routes): void {
     $builder->redirect('/', '/users/login');
         // Route for walkthrough AJAX endpoint
     $builder->connect('/users/set-walkthrough-shown', ['controller' => 'Users', 'action' => 'setWalkthroughShown', 'plugin' => null]);
+        // Route for email verification
+    $builder->connect('/users/verify-email/{token}', ['controller' => 'Users', 'action' => 'verifyEmail', 'plugin' => null])
+        ->setPass(['token']);
 
         /*
          * Connect catchall routes for all controllers.

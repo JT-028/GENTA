@@ -21,8 +21,11 @@
         <div class="invalid-feedback"><?= $fieldErrors['last_name']['message'] ?? '' ?></div>
     </div>
     <div class="form-group">
-        <?= $this->Form->email('email', ['class' => 'form-control form-control-lg ' . ($fieldErrors['email']['class'] ?? ''), 'id' => 'email', 'placeholder' => 'Email Address', 'required' => 'required']) ?>
+        <?php // TEMPORARILY ACCEPTING ALL EMAILS - Remove pattern attribute to allow Gmail
+              // TODO: Restore pattern='.*@deped\.gov\.ph$' when DepEd email is available ?>
+        <?= $this->Form->email('email', ['class' => 'form-control form-control-lg ' . ($fieldErrors['email']['class'] ?? ''), 'id' => 'email', 'placeholder' => 'Email Address', 'required' => 'required', 'title' => 'Enter your email address']) ?>
         <div class="invalid-feedback"><?= $fieldErrors['email']['message'] ?? '' ?></div>
+        <small class="form-text text-muted">You will need to verify your email address. (Currently accepting all email addresses for testing)</small>
     </div>
     <div class="form-group position-relative">
         <?= $this->Form->password('password', ['class' => 'form-control form-control-lg ' . ($fieldErrors['password']['class'] ?? ''), 'id' => 'password', 'placeholder' => 'Password (8-16 alphanumeric)', 'required' => 'required', 'maxlength' => '16', 'pattern' => '[a-zA-Z0-9]{8,16}']) ?>

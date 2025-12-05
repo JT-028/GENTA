@@ -222,68 +222,54 @@ class UsersController extends AppController
                 {
                     if ($this->request->getData('terms_and_conditions'))
                     {
-                        // Ensure newly registered accounts are created in a "pending" state
-                        // so an admin must explicitly approve them before they can be used.
-                        // If you only want this for teacher accounts, change this to set
-                        // status to 0 when $this->request->getData('type') indicates teacher.
+                        // Generate email verification token
+                        $verificationToken = bin2hex(random_bytes(32));
+                        $user->email_verified = 0;
+                        $user->verification_token = $verificationToken;
+                        $user->verification_token_expires = new \DateTime('+24 hours');
+                        
+                        // Set account to pending status (unverified)
                         $user->status = 0;
 
                         if ($usersTable->save($user))
                         {
-                            // Notify Flask admin panel about new teacher registration (server-to-server)
-                            // Configure FLASK_PENDING_URL and FLASK_API_KEY in environment for production
+                            // Send email verification
                             try {
-                                $flaskUrl = getenv('FLASK_PENDING_URL') ?: 'http://127.0.0.1:5000/api/pending_teachers';
-                                $flaskKey = getenv('FLASK_API_KEY') ?: '';
-                                $http = new Client();
-                                // Build a full absolute callback URL. Prefer explicit APP_BASE_URL env var,
-                                // otherwise derive from the current request so Flask can POST back.
-                                $envBase = getenv('APP_BASE_URL') ?: '';
-                                // Prefer CakePHP configured fullBaseUrl when available
-                                if (empty($envBase)) {
-                                    $cfg = Configure::read('App.fullBaseUrl');
-                                    if (!empty($cfg)) { $envBase = $cfg; }
+                                $mailer = new \Cake\Mailer\Mailer('default');
+                                
+                                // Build verification URL
+                                $uri = $this->request->getUri();
+                                $scheme = $uri->getScheme() ?: 'http';
+                                $host = $uri->getHost();
+                                $port = $uri->getPort();
+                                $baseUrl = $scheme . '://' . $host;
+                                if ($port && !in_array($port, [80, 443])) {
+                                    $baseUrl .= ':' . $port;
                                 }
-                                if (!empty($envBase)) {
-                                    $baseUrl = rtrim($envBase, '\/');
-                                } else {
-                                    // Derive scheme://host[:port] from the incoming request URI
-                                    try {
-                                        $uri = $this->request->getUri();
-                                        $scheme = $uri->getScheme() ?: 'http';
-                                        $host = $uri->getHost();
-                                        $port = $uri->getPort();
-                                        $baseUrl = $scheme . '://' . $host;
-                                        if ($port && !in_array($port, [80, 443])) {
-                                            $baseUrl .= ':' . $port;
-                                        }
-                                    } catch (\Throwable $_) {
-                                        // Fallback to localhost if derivation fails
-                                        $baseUrl = 'http://127.0.0.1';
-                                    }
-                                }
-
-                                // Ensure the callback URL includes the application's base path
-                                // when the app is hosted under a subdirectory (e.g. /GENTA).
-                                // Use Configure::read('App.base') when available and append it
-                                // to the derived base URL so Flask receives an absolute URL.
                                 $appBase = Configure::read('App.base') ?: '';
-                                $callbackBase = rtrim($baseUrl, '\\/') . ($appBase ? rtrim($appBase, '/') : '');
-                                $payload = [
-                                    'teacher_id' => (string)$user->id,
-                                    'email' => $user->email,
-                                    'name' => trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')),
-                                    'callback_url' => $callbackBase . '/users/approvalCallback'
-                                ];
-                                $headers = ['Content-Type' => 'application/json'];
-                                if (!empty($flaskKey)) { $headers['X-API-Key'] = $flaskKey; }
-                                $resp = $http->post($flaskUrl, json_encode($payload), ['headers' => $headers, 'timeout' => 5]);
-                                \Cake\Log\Log::write('debug', 'Notified Flask pending_teachers: ' . $flaskUrl . ' -> ' . $resp->getStatusCode());
+                                $verificationUrl = rtrim($baseUrl, '\\/') . ($appBase ? rtrim($appBase, '/') : '') . '/users/verify-email/' . $verificationToken;
+                                
+                                $mailer
+                                    ->setTo($user->email)
+                                    ->setSubject('GENTA - Verify Your DepEd Email Address')
+                                    ->setViewVars([
+                                        'firstName' => $user->first_name,
+                                        'lastName' => $user->last_name,
+                                        'verificationUrl' => $verificationUrl
+                                    ])
+                                    ->viewBuilder()
+                                        ->setTemplate('verify_email')
+                                        ->setLayout('default');
+                                
+                                $mailer->deliver();
+                                
+                                \Cake\Log\Log::write('debug', 'Verification email sent to: ' . $user->email);
                             } catch (\Throwable $e) {
-                                \Cake\Log\Log::write('warning', 'Failed to notify Flask about new teacher: ' . $e->getMessage());
+                                \Cake\Log\Log::write('error', 'Failed to send verification email: ' . $e->getMessage());
+                                // Don't stop registration if email fails, user can request resend
                             }
 
-                            $this->Flash->success(__('You successfully registered a new account! Your account is pending admin approval and must be verified by an administrator before you can log in.'));
+                            $this->Flash->success(__('Registration successful! Please check your DepEd email inbox to verify your email address. The verification link will expire in 24 hours.'));
                             return $this->redirect(['controller' => 'Users', 'action' => 'login']);
                         } else {
                             \Cake\Log\Log::write('warning', 'UsersController::register: save returned false; validation_errors=' . json_encode($user->getErrors()));
@@ -453,6 +439,100 @@ class UsersController extends AppController
             return $this->response;
         }
         throw new \Cake\Http\Exception\UnauthorizedException('Not logged in');
+    }
+
+    /**
+     * Email verification endpoint
+     * 
+     * @param string|null $token Verification token from email
+     * @return \Cake\Http\Response|null
+     */
+    public function verifyEmail($token = null)
+    {
+        $this->viewBuilder()->setLayout('login');
+        
+        if (!$token) {
+            $this->Flash->error(__('Invalid verification link.'));
+            return $this->redirect(['action' => 'login']);
+        }
+
+        $usersTable = $this->loadModel('Users');
+        $user = $usersTable->find()
+            ->where([
+                'verification_token' => $token,
+                'email_verified' => 0
+            ])
+            ->first();
+
+        if (!$user) {
+            $this->Flash->error(__('Invalid or expired verification link.'));
+            return $this->redirect(['action' => 'login']);
+        }
+
+        // Check if token is expired
+        $now = new \DateTime();
+        if ($user->verification_token_expires && $user->verification_token_expires < $now) {
+            $this->Flash->error(__('Verification link has expired. Please request a new one.'));
+            return $this->redirect(['action' => 'login']);
+        }
+
+        // Verify the email
+        $user->email_verified = 1;
+        $user->verification_token = null;
+        $user->verification_token_expires = null;
+
+        if ($usersTable->save($user)) {
+            // Now notify Flask admin panel about verified teacher registration
+            try {
+                $flaskUrl = getenv('FLASK_PENDING_URL') ?: 'http://127.0.0.1:5000/api/pending_teachers';
+                $flaskKey = getenv('FLASK_API_KEY') ?: '';
+                $http = new Client();
+                
+                $envBase = getenv('APP_BASE_URL') ?: '';
+                if (empty($envBase)) {
+                    $cfg = Configure::read('App.fullBaseUrl');
+                    if (!empty($cfg)) { $envBase = $cfg; }
+                }
+                if (!empty($envBase)) {
+                    $baseUrl = rtrim($envBase, '\/');
+                } else {
+                    try {
+                        $uri = $this->request->getUri();
+                        $scheme = $uri->getScheme() ?: 'http';
+                        $host = $uri->getHost();
+                        $port = $uri->getPort();
+                        $baseUrl = $scheme . '://' . $host;
+                        if ($port && !in_array($port, [80, 443])) {
+                            $baseUrl .= ':' . $port;
+                        }
+                    } catch (\Throwable $_) {
+                        $baseUrl = 'http://127.0.0.1';
+                    }
+                }
+
+                $appBase = Configure::read('App.base') ?: '';
+                $callbackBase = rtrim($baseUrl, '\\/') . ($appBase ? rtrim($appBase, '/') : '');
+                $payload = [
+                    'teacher_id' => (string)$user->id,
+                    'email' => $user->email,
+                    'name' => trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')),
+                    'callback_url' => $callbackBase . '/users/approvalCallback'
+                ];
+                $headers = ['Content-Type' => 'application/json'];
+                if (!empty($flaskKey)) { $headers['X-API-Key'] = $flaskKey; }
+                $resp = $http->post($flaskUrl, json_encode($payload), ['headers' => $headers, 'timeout' => 5]);
+                \Cake\Log\Log::write('debug', 'Notified Flask pending_teachers: ' . $flaskUrl . ' -> ' . $resp->getStatusCode());
+            } catch (\Throwable $e) {
+                \Cake\Log\Log::write('warning', 'Failed to notify Flask about verified teacher: ' . $e->getMessage());
+            }
+
+            $this->Flash->success(__('Email verified successfully! Your account has been sent to the administrator for approval. You will receive an email once approved.'));
+            $this->set('verified', true);
+        } else {
+            $this->Flash->error(__('Unable to verify email. Please try again or contact support.'));
+        }
+
+        return $this->redirect(['action' => 'registrationPending']);
     }
 }
 
