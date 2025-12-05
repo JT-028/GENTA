@@ -534,13 +534,12 @@ class UsersController extends AppController
                 \Cake\Log\Log::write('warning', 'Failed to notify Flask about verified teacher: ' . $e->getMessage());
             }
 
-            $this->Flash->success(__('Email verified successfully! Your account has been sent to the administrator for approval. You will receive an email once approved.'));
-            $this->set('verified', true);
+            $this->Flash->success(__('✓ Email verified successfully! Your account has been sent to the administrator for approval. You will receive an email once your account is approved and you can login.'));
         } else {
             $this->Flash->error(__('Unable to verify email. Please try again or contact support.'));
         }
 
-        return $this->redirect(['action' => 'registrationPending']);
+        return $this->redirect(['action' => 'login']);
     }
 
     /**
