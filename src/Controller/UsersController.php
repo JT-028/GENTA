@@ -290,14 +290,22 @@ class UsersController extends AppController
         \Cake\Event\EventInterface $event
     ) {
         parent::beforeFilter($event);
-        // Allow this callback endpoint to be called without authentication
-        // (server-to-server from the Flask admin). Also ensure JSON bodies are accepted.
+        // Allow these endpoints to be called without authentication:
+        // - approvalCallback: server-to-server from Flask admin
+        // - verifyEmail: users clicking verification link in email
+        // - register: new user registration
+        // - registrationPending: status page after registration
         try {
             if (isset($this->Authentication)) {
-                $this->Authentication->addUnauthenticatedActions(['approvalCallback']);
+                $this->Authentication->addUnauthenticatedActions([
+                    'approvalCallback',
+                    'verifyEmail',
+                    'register',
+                    'registrationPending'
+                ]);
             }
         } catch (\Throwable $_) {
-            \Cake\Log\Log::write('error', 'Failed to register approvalCallback as unauthenticated: ' . $_->getMessage());
+            \Cake\Log\Log::write('error', 'Failed to register unauthenticated actions: ' . $_->getMessage());
         }
     }
 
