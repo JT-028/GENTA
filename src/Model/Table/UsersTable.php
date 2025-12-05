@@ -65,7 +65,9 @@ class UsersTable extends Table
 
         $validator
             ->scalar('password')
-            ->minLength('password', 8, __('Minimum of 8 characters is required.'))
+            ->minLength('password', 8, __('Password must be 8-16 characters.'))
+            ->maxLength('password', 16, __('Password must be 8-16 characters.'))
+            ->alphaNumeric('password', __('Password must contain only letters and numbers.'))
             ->requirePresence('password', 'create')
             ->notEmptyString('password',  __('Password is required.'));
 
@@ -76,12 +78,25 @@ class UsersTable extends Table
         $validator
             ->scalar('first_name')
             ->maxLength('first_name', 255)
+            ->alphaNumeric('first_name', __('First name must contain only letters.'))
+            ->add('first_name', 'lettersOnly', [
+                'rule' => function($value, $context) {
+                    return preg_match('/^[a-zA-Z\s]+$/', $value) === 1;
+                },
+                'message' => __('First name must contain only letters.')
+            ])
             ->requirePresence('first_name', 'create')
             ->notEmptyString('first_name', __('First Name is required.'));
 
         $validator
             ->scalar('last_name')
             ->maxLength('last_name', 255)
+            ->add('last_name', 'lettersOnly', [
+                'rule' => function($value, $context) {
+                    return preg_match('/^[a-zA-Z\s]+$/', $value) === 1;
+                },
+                'message' => __('Last name must contain only letters.')
+            ])
             ->requirePresence('last_name', 'create')
             ->notEmptyString('last_name', __('Last Name is required.'));
 
