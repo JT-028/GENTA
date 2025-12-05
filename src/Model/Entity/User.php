@@ -43,6 +43,9 @@ class User extends Entity
         'modified' => true,
         'profile_image' => true,
         'walkthrough_shown' => true,
+        'email_verified' => true,
+        'verification_token' => true,
+        'verification_token_expires' => true,
     ];
 
     /**
@@ -53,6 +56,7 @@ class User extends Entity
     protected $_hidden = [
         'password',
         'token',
+        'verification_token',
     ];
 
     protected function _setEmail(string $email) : ?string
