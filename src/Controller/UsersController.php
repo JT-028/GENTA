@@ -542,6 +542,16 @@ class UsersController extends AppController
 
         return $this->redirect(['action' => 'registrationPending']);
     }
+
+    /**
+     * Registration pending page - shown after email verification
+     * 
+     * @return void
+     */
+    public function registrationPending()
+    {
+        $this->viewBuilder()->setLayout('login');
+    }
 }
 
 
