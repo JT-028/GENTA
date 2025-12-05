@@ -65,18 +65,3 @@
 </div>
 
 <?= $this->element('modal/confirm_delete_question') ?>
-
-<!-- Question Form Modal -->
-<div class="modal fade" id="questionModal" tabindex="-1" role="dialog" aria-labelledby="questionModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="questionModalLabel">Add Question</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <!-- Form will be loaded here via AJAX -->
-            </div>
-        </div>
-    </div>
-</div>

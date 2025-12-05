@@ -1,0 +1,2 @@
+# This file ensures the profile_images directory is tracked in Git
+# even when it's empty. The actual uploaded images are ignored via .gitignore

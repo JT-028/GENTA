@@ -335,6 +335,37 @@
                         <?= $this->fetch('content') ?>
                     </div>
 
+                    <!-- Global Modal Placeholders -->
+                    <!-- Student Modal (Add/Edit Student) -->
+                    <div class="modal fade" id="studentModal" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog modal-lg modal-dialog-centered">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Student</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body py-3">
+                                    <div class="text-center">Loading...</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Question Modal (Add/Edit Question) -->
+                    <div class="modal fade" id="questionModal" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog modal-lg modal-dialog-centered">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Question</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body py-3">
+                                    <div class="text-center">Loading...</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- FOOTER -->
                     <footer class="footer">
                         <div class="container-fluid d-flex justify-content-between">

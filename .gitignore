@@ -2,9 +2,12 @@
 ##########################
 /config/app_local.php
 /config/.env
+/.env
 /logs/*
 /tmp/*
 /vendor/*
+/webroot/uploads/profile_images/*
+!webroot/uploads/profile_images/.gitkeep
 
 # OS generated files #
 ######################

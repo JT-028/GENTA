@@ -588,7 +588,11 @@
         };
 
         // Expose a function to check and resume tours after AJAX navigation
-        WalkthroughSystem.checkResume = function() {
+        WalkthroughSystem.checkResume = function(force) {
+            if (window.DISABLE_SHEPHERD_AUTO_RESUME && !force) {
+                console.info('shepherd-init: auto-resume disabled by flag');
+                return;
+            }
             try{
                 if(window.sessionStorage){
                     var raw = sessionStorage.getItem('genta_walkthrough_resume');
@@ -622,7 +626,16 @@
                                                 }catch(e){}
                                                 // Wait for page content to fully render (especially DataTables)
                                                 setTimeout(function(){
-                                                    try{ if(obj.stepId){ WalkthroughSystem.startShepherd(obj.key, obj.stepId); } else if(typeof obj.step === 'number'){ WalkthroughSystem.startShepherd(obj.key, obj.step); } }catch(e){ console.warn('shepherd-init: resume failed', e); }
+                                                    try{ 
+                                                        var t = null;
+                                                        if(obj.stepId){ t = WalkthroughSystem.startShepherd(obj.key, obj.stepId); } 
+                                                        else if(typeof obj.step === 'number'){ t = WalkthroughSystem.startShepherd(obj.key, obj.step); } 
+                                                        
+                                                        if(t && window.jQuery) {
+                                                            // Fire event so sequential runner can re-hook
+                                                            jQuery(window).trigger('genta:shepherd:resumed', [window._activeShepherdTour, obj.key]);
+                                                        }
+                                                    }catch(e){ console.warn('shepherd-init: resume failed', e); }
                                                 }, 800);
                                             }
                                         }catch(e){ console.warn('shepherd-init: resume path check error', e); }
@@ -638,7 +651,16 @@
                                         }catch(e){}
                                         // Wait for page content to fully render
                                         setTimeout(function(){
-                                            try{ if(obj.stepId){ WalkthroughSystem.startShepherd(obj.key, obj.stepId); } else if(typeof obj.step === 'number'){ WalkthroughSystem.startShepherd(obj.key, obj.step); } }catch(e){ console.warn('shepherd-init: resume failed', e); }
+                                            try{ 
+                                                var t = null;
+                                                if(obj.stepId){ t = WalkthroughSystem.startShepherd(obj.key, obj.stepId); } 
+                                                else if(typeof obj.step === 'number'){ t = WalkthroughSystem.startShepherd(obj.key, obj.step); } 
+                                                
+                                                if(t && window.jQuery) {
+                                                    // Fire event so sequential runner can re-hook
+                                                    jQuery(window).trigger('genta:shepherd:resumed', [window._activeShepherdTour, obj.key]);
+                                                }
+                                            }catch(e){ console.warn('shepherd-init: resume failed', e); }
                                         }, 800);
                                     }
                                 }catch(e){ console.warn('shepherd-init: resume check failed', e); }

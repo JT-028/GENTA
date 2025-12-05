@@ -955,7 +955,8 @@ function loadPage(url, pushState = true) {
                                                 console.info('[loadPage] Calling checkResume', { hasResume: hasResume, tourNavigating: !!window._tourNavigating });
                                                 // Clear the navigation flag before resuming
                                                 window._tourNavigating = false;
-                                                WalkthroughSystem.checkResume();
+                                                // Force resume even if auto-resume is disabled, to handle sequential tour AJAX transitions
+                                                WalkthroughSystem.checkResume(true);
                                             } else {
                                                 console.info('[loadPage] Skipping checkResume', { hasResume: hasResume, tourNavigating: !!window._tourNavigating, hasActiveTour: !!window._activeShepherdTour });
                                             }
@@ -1259,7 +1260,7 @@ $(document).ready(function () {
                     id: 'students-actions',
                     title: "Student Actions",
                     text: "For each student, you can view their detailed profile, edit their information, or remove them from your class.",
-                    target: "tbody tr:first .action-buttons, tbody tr:first td:last, table.defaultDataTable tbody tr:first .action-buttons, .card .table tbody tr:first .action-buttons",
+                    target: "tbody tr:first .action-buttons, tbody tr:first td:last-child",
                     preOpen: 'openStudentsSidebar',
                     position: "left",
                     icon: "⚙️",
@@ -1272,14 +1273,6 @@ $(document).ready(function () {
                     target: "tbody tr:first, .defaultDataTable tbody tr:first, .page-header, .content-wrapper",
                     position: "right",
                     icon: "📈",
-                },
-                {
-                    id: 'students-export',
-                    title: "Export / Bulk Actions",
-                    text: "Use export or bulk action controls to manage many students at once.",
-                    target: '.export-students, .btn-export, button:contains("Export"), a:contains("Export")',
-                    position: 'bottom',
-                    icon: '📤'
                 },
             ],
             questions: [
@@ -1313,7 +1306,7 @@ $(document).ready(function () {
                     id: 'questions-edit-delete',
                     title: "Edit & Delete",
                     text: "Use these action buttons to edit question details or remove questions you no longer need.",
-                    target: "tbody tr:first .action-buttons, tbody tr:first .btn-group, table.defaultDataTable tbody tr:first .action-buttons",
+                    target: "tbody tr:first .action-buttons, .btn-edit-question",
                     position: "left",
                     icon: "✏️",
                 },
@@ -1373,18 +1366,10 @@ $(document).ready(function () {
                     id: 'profile-save-changes',
                     title: "Save Changes",
                     text: "Don't forget to click the Edit or Save button after making any changes to update your profile.",
-                    target: 'button[type="submit"], button.save-profile, button:contains("Save"), button:contains("Edit")',
+                    target: 'button[type="submit"], button.save-profile',
                     position: "top",
                     icon: "💾",
                 },
-                {
-                    id: 'profile-notifications',
-                    title: 'Notifications & Preferences',
-                    text: 'Adjust notification settings and other preferences here.',
-                    target: '.profile-settings, .notification-settings, #notificationForm',
-                    position: 'left',
-                    icon: '🔔'
-                }
             ],
         },
 
@@ -1642,14 +1627,299 @@ $(document).ready(function () {
     WalkthroughSystem.init();
 
     // Auto-start for first-time users
-    var walkthroughShown =
-        typeof window.walkthrough_shown !== "undefined"
-            ? window.walkthrough_shown
-            : false;
-    if (typeof Swal !== "undefined" && !walkthroughShown) {
-        setTimeout(function () {
-            WalkthroughSystem.start(null, false);
-        }, 800);
+    // Function to run all tours sequentially for first-time users
+    function runAllToursSequentially() {
+        // Disable Shepherd's auto-resume so we can control the sequence manually
+        window.DISABLE_SHEPHERD_AUTO_RESUME = true;
+
+        var tourKeys = ['dashboard', 'students', 'questions', 'profile'];
+        var currentIndex = 0;
+        var isRunningSequence = true; // Flag to prevent premature completion
+
+        // Check for resume state
+        try {
+            var resumeRaw = sessionStorage.getItem('genta_walkthrough_resume');
+            if (resumeRaw) {
+                var resume = JSON.parse(resumeRaw);
+                var idx = tourKeys.indexOf(resume.key);
+                if (idx !== -1) {
+                    currentIndex = idx;
+                    console.info('Resuming sequence at tour:', resume.key, 'index:', idx);
+                    // We DO NOT consume the marker here, because we need it to know the stepId
+                    // But we must ensure we start the tour correctly below
+                }
+            }
+        } catch(e) {}
+
+        // Ensure this is not treated as help mode so it gets marked as complete
+        if (WalkthroughSystem) {
+            WalkthroughSystem.isHelpMode = false;
+            // Temporarily override complete() to prevent premature completion
+            WalkthroughSystem._originalComplete = WalkthroughSystem.complete;
+            WalkthroughSystem.complete = function() {
+                if (isRunningSequence) {
+                    console.info('WalkthroughSystem.complete() called during sequence - ignoring');
+                    return;
+                }
+                // Call original complete when sequence is done
+                if (WalkthroughSystem._originalComplete) {
+                    WalkthroughSystem._originalComplete.call(WalkthroughSystem);
+                }
+            };
+        }
+
+        function runNextTour() {
+            if (currentIndex >= tourKeys.length) {
+                // All tours completed - mark walkthrough as shown
+                console.info('All tours completed - marking walkthrough as complete');
+                isRunningSequence = false;
+                window.DISABLE_SHEPHERD_AUTO_RESUME = false; // Reset flag
+                
+                // Restore original complete function and call it
+                if (WalkthroughSystem) {
+                    if (WalkthroughSystem._originalComplete) {
+                        WalkthroughSystem.complete = WalkthroughSystem._originalComplete;
+                        delete WalkthroughSystem._originalComplete;
+                    }
+                    if (typeof WalkthroughSystem.complete === 'function') {
+                        WalkthroughSystem.complete();
+                    }
+                    // Explicitly ensure scroll is enabled
+                    if (typeof WalkthroughSystem.enableScroll === 'function') {
+                        WalkthroughSystem.enableScroll();
+                    }
+                }
+                return;
+            }
+
+            var key = tourKeys[currentIndex];
+            console.info('=== Starting tour ' + (currentIndex + 1) + ' of ' + tourKeys.length + ': ' + key + ' ===');
+
+            // Helper to attach sequence hooks to a tour instance
+            function attachSequenceHooks(tour) {
+                if (!tour) return;
+                
+                // Remove ALL existing event handlers to prevent default behavior
+                if (tour._events) {
+                    tour._events.complete = [];
+                    tour._events.cancel = [];
+                }
+                // Also try removing via off() if supported, to be safe
+                try { tour.off('complete'); tour.off('cancel'); } catch(e) {}
+                
+                // Track if this specific tour instance has completed
+                var tourCompleted = false;
+                
+                // Add our chaining handler for complete
+                tour.on('complete', function() {
+                    if (tourCompleted) {
+                        console.warn('Tour already completed, ignoring duplicate complete event');
+                        return;
+                    }
+                    tourCompleted = true;
+                    console.info('=== Tour ' + key + ' completed successfully ===');
+                    
+                    // Clean up
+                    window._activeShepherdTour = null;
+                    if (WalkthroughSystem) {
+                        WalkthroughSystem.isActive = false;
+                    }
+                    
+                    // Clean up resume listener
+                    $(window).off('genta:shepherd:resumed.sequence');
+                    
+                    currentIndex++;
+                    // Delay before starting next tour
+                    setTimeout(function() {
+                        runNextTour();
+                    }, 800);
+                });
+                
+                // Add cancel handler to stop sequence
+                tour.on('cancel', function() {
+                    console.info('=== Tour sequence cancelled by user at: ' + key + ' ===');
+                    isRunningSequence = false;
+                    window.DISABLE_SHEPHERD_AUTO_RESUME = false; // Reset flag
+                    
+                    // Clean up resume listener
+                    $(window).off('genta:shepherd:resumed.sequence');
+                    
+                    // Restore original complete function
+                    if (WalkthroughSystem && WalkthroughSystem._originalComplete) {
+                        WalkthroughSystem.complete = WalkthroughSystem._originalComplete;
+                        delete WalkthroughSystem._originalComplete;
+                    }
+                    
+                    // Clean up
+                    window._activeShepherdTour = null;
+                    if (WalkthroughSystem) {
+                        WalkthroughSystem.isActive = false;
+                        if (typeof WalkthroughSystem.enableScroll === 'function') {
+                            WalkthroughSystem.enableScroll();
+                        }
+                    }
+                });
+            }
+
+            // Listener for AJAX resume events
+            function onTourResumed(e, resumedTour, resumedKey) {
+                if (resumedKey === key && resumedTour) {
+                    console.info('Caught resume event for ' + key + ' - re-attaching sequence hooks');
+                    attachSequenceHooks(resumedTour);
+                }
+            }
+            // Remove any previous listener first
+            $(window).off('genta:shepherd:resumed.sequence');
+            $(window).on('genta:shepherd:resumed.sequence', onTourResumed);
+
+            // PRE-FLIGHT NAVIGATION CHECK
+            // Before we even attempt to start the tour, check if the first step requires navigation
+            // and if we are currently on a different page.
+            if (WalkthroughSystem && WalkthroughSystem.tours && WalkthroughSystem.tours[key]) {
+                var firstStep = WalkthroughSystem.tours[key][0];
+                if (firstStep && firstStep.navigateTo) {
+                    var targetPath = firstStep.navigateTo;
+                    // Normalize paths for comparison
+                    var currentPath = window.location.pathname;
+                    
+                    // Simple normalization: strip trailing slashes and ensure lowercase
+                    var curNorm = currentPath.toLowerCase().replace(/\/+$/, '');
+                    var tgtNorm = targetPath.toLowerCase().replace(/\/+$/, '');
+                    
+                    // Check if target is absolute URL or relative
+                    if (targetPath.indexOf('http') === 0) {
+                        try {
+                            var urlObj = new URL(targetPath);
+                            tgtNorm = urlObj.pathname.toLowerCase().replace(/\/+$/, '');
+                        } catch(e) {}
+                    }
+
+                    // Check if we are already there
+                    // If target is /GENTA/teacher/dashboard/students and current is /GENTA/teacher
+                    // They are different.
+                    var isSame = (curNorm === tgtNorm) || (curNorm.endsWith(tgtNorm));
+                    
+                    if (!isSame && curNorm.indexOf(tgtNorm) === -1) {
+                         console.info('runNextTour: Pre-flight navigation required to', targetPath);
+                         
+                         // Set resume marker so it auto-starts after load
+                         var resume = { 
+                             key: key, 
+                             stepId: firstStep.id, 
+                             expectedPath: targetPath 
+                         };
+                         sessionStorage.setItem('genta_walkthrough_resume', JSON.stringify(resume));
+                         
+                         // Set flag so checkResume knows to run
+                         window._tourNavigating = true;
+                         
+                         // Navigate
+                         if (typeof loadPage === 'function') {
+                             loadPage(targetPath);
+                         } else {
+                             window.location.href = targetPath;
+                         }
+                         return; // STOP HERE. The resume logic will pick it up.
+                    }
+                }
+            }
+
+            // Wait for Shepherd to be ready before attempting to start tour
+            function attemptStartTour(retries) {
+                if (retries === undefined) retries = 0;
+                
+                if (typeof WalkthroughSystem.startShepherd === 'function' && 
+                    typeof WalkthroughSystem._createShepherdFrom === 'function') {
+                    try {
+                        // Debug: log the steps we are about to create
+                        if (WalkthroughSystem.tours && WalkthroughSystem.tours[key]) {
+                            console.info('Creating tour for ' + key + ' with ' + WalkthroughSystem.tours[key].length + ' steps');
+                        }
+
+                        var tour = WalkthroughSystem._createShepherdFrom(key);
+                        if (tour) {
+                            attachSequenceHooks(tour);
+                            
+                            console.info('Starting Shepherd tour instance for:', key);
+                            
+                            // Check if we need to resume to a specific step
+                            var startStepId = null;
+                            try {
+                                var resumeRaw = sessionStorage.getItem('genta_walkthrough_resume');
+                                if (resumeRaw) {
+                                    var resume = JSON.parse(resumeRaw);
+                                    if (resume.key === key && resume.stepId) {
+                                        startStepId = resume.stepId;
+                                        // Consume the marker now that we are using it
+                                        sessionStorage.removeItem('genta_walkthrough_resume');
+                                    }
+                                }
+                            } catch(e) {}
+
+                            if (startStepId) {
+                                console.info('Resuming tour ' + key + ' at step ' + startStepId);
+                                // Manually trigger start event for WalkthroughSystem integration
+                                try{ 
+                                    if(WalkthroughSystem && typeof WalkthroughSystem.disableScroll === 'function'){ 
+                                        WalkthroughSystem.disableScroll(); 
+                                    } 
+                                    WalkthroughSystem.isActive = true;
+                                    window._activeShepherdTour = tour;
+                                }catch(e){}
+                                
+                                // Show the specific step directly
+                                setTimeout(function(){
+                                    try{
+                                        if(typeof tour.show === 'function'){
+                                            tour.show(startStepId);
+                                        }
+                                    }catch(e){ console.warn('Failed to show step', e); }
+                                }, 100);
+                            } else {
+                                tour.start();
+                            }
+                        } else {
+                            console.warn('Failed to create tour:', key, '- skipping to next');
+                            currentIndex++;
+                            runNextTour();
+                        }
+                    } catch(e) {
+                        console.error('Error starting tour:', key, e);
+                        currentIndex++;
+                        runNextTour();
+                    }
+                } else if (retries < 20) {
+                    // Shepherd not ready yet, wait and retry
+                    console.info('Waiting for Shepherd to be ready... (attempt ' + (retries + 1) + ')');
+                    setTimeout(function() {
+                        attemptStartTour(retries + 1);
+                    }, 200);
+                } else {
+                    console.error('Shepherd did not become ready in time - aborting tour sequence');
+                    isRunningSequence = false;
+                    
+                    // Restore original complete function
+                    if (WalkthroughSystem && WalkthroughSystem._originalComplete) {
+                        WalkthroughSystem.complete = WalkthroughSystem._originalComplete;
+                        delete WalkthroughSystem._originalComplete;
+                    }
+                    
+                    // Show a fallback message
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            title: 'Unable to load walkthrough',
+                            text: 'The interactive tour could not be loaded. Please refresh the page and try again.',
+                            icon: 'error',
+                            confirmButtonText: 'OK'
+                        });
+                    }
+                }
+            }
+
+            attemptStartTour();
+        }
+
+        runNextTour();
     }
 
     // Help button: show a chooser so the teacher can pick a specific tour
@@ -1829,10 +2099,15 @@ $(document).ready(function () {
             : typeof $.cookie === "function"
             ? $.cookie("walkthrough_shown")
             : document.cookie.indexOf("walkthrough_shown=1") !== -1;
-    if (typeof Swal !== "undefined" && !walkthroughShown) {
+    if (!walkthroughShown) {
+        // Disable auto-resume immediately to prevent race conditions with the sequential tour
+        window.DISABLE_SHEPHERD_AUTO_RESUME = true;
+        
         setTimeout(function () {
-            showAnchoredWalkthrough(false);
-        }, 600); // Delay to ensure page is ready
+            // Auto-start all tours sequentially for first-time users
+            console.info('First-time user detected - starting complete tour sequence');
+            runAllToursSequentially();
+        }, 1500); // Delay to ensure page and Shepherd are fully ready
     }
 
     // Deprecated legacy handler removed. The help button now opens the chooser above.
