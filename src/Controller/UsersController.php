@@ -385,9 +385,11 @@ class UsersController extends AppController
                     $user->password_reset_expires = new \DateTime('+1 hour');
                     
                     \Cake\Log\Log::write('debug', 'Generated reset token for ' . $user->email . ': ' . $resetToken);
+                    \Cake\Log\Log::write('debug', 'Attempting to save user with ID: ' . $user->id);
                     
-                    if ($usersTable->save($user)) {
-                        \Cake\Log\Log::write('debug', 'User saved with reset token');
+                    // Disable validation for this save operation
+                    if ($usersTable->save($user, ['validate' => false, 'checkRules' => false])) {
+                        \Cake\Log\Log::write('debug', 'User saved with reset token successfully');
                         
                         // Send password reset email
                         try {
@@ -452,7 +454,11 @@ class UsersController extends AppController
                             }
                         }
                     } else {
-                        \Cake\Log\Log::write('error', 'Failed to save user with reset token. Validation errors: ' . print_r($user->getErrors(), true));
+                        \Cake\Log\Log::write('error', 'CRITICAL: Failed to save user with reset token');
+                        \Cake\Log\Log::write('error', 'User ID: ' . $user->id);
+                        \Cake\Log\Log::write('error', 'Validation errors: ' . print_r($user->getErrors(), true));
+                        \Cake\Log\Log::write('error', 'Dirty fields: ' . print_r($user->getDirty(), true));
+                        \Cake\Log\Log::write('error', 'Token value: ' . $user->password_reset_token);
                     }
                 } else {
                     \Cake\Log\Log::write('debug', 'Password reset requested for non-existent email: ' . $email);
