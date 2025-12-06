@@ -614,8 +614,17 @@ class UsersController extends AppController
             }
             
             \Cake\Log\Log::write('debug', 'Token found! User: ' . $result['email']);
-            
-            // Load the full user entity
+
+            // Use the direct SQL result's expiry value for validation. In some
+            // environments the ORM schema may not include the recently-added
+            // `password_reset_expires` column, causing the loaded Entity to
+            // have a NULL value for that field. Use the raw SQL result here
+            // to reliably check expiration before attempting to load the
+            // full entity.
+            $dbExpiresRaw = $result['password_reset_expires'] ?? null;
+
+            // Load the full user entity (we'll use this for saving on POST),
+            // but don't rely on it for the expiry check.
             $user = $usersTable->get($result['id']);
             
         } catch (\Exception $e) {
@@ -632,8 +641,9 @@ class UsersController extends AppController
         
         \Cake\Log\Log::write('debug', 'User found for reset token: ' . $user->email);
         
-        // Check if token is expired - use the same timezone as when we created it
-        $expiresAt = $user->password_reset_expires;
+        // Check if token is expired - prefer the raw DB expiry we fetched earlier
+        // (see comment above about potential ORM schema mismatch).
+        $expiresAt = $dbExpiresRaw ?? $user->password_reset_expires;
         $now = new \DateTime('now');
         
         \Cake\Log\Log::write('debug', 'Token expires at: ' . ($expiresAt ? $expiresAt->format('Y-m-d H:i:s') : 'NULL'));
