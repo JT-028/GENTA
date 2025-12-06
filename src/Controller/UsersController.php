@@ -381,12 +381,16 @@ class UsersController extends AppController
                 if ($user) {
                     // Generate password reset token
                     $resetToken = bin2hex(random_bytes(32));
-                    // Set expiration to 1 hour from now, store as UTC for database
-                    $expiresAt = new \DateTime('+1 hour', new \DateTimeZone('UTC'));
-                    $expiresFormatted = $expiresAt->format('Y-m-d H:i:s');
+                    
+                    // Calculate expiration using timestamp (1 hour = 3600 seconds from now)
+                    $currentTimestamp = time();
+                    $expiresTimestamp = $currentTimestamp + 3600;
+                    $expiresFormatted = gmdate('Y-m-d H:i:s', $expiresTimestamp); // Use gmdate for UTC
                     
                     \Cake\Log\Log::write('debug', 'Generated reset token for ' . $user->email . ': ' . $resetToken);
-                    \Cake\Log\Log::write('debug', 'Token expires at: ' . $expiresFormatted);
+                    \Cake\Log\Log::write('debug', 'Current timestamp: ' . $currentTimestamp);
+                    \Cake\Log\Log::write('debug', 'Expires timestamp: ' . $expiresTimestamp);
+                    \Cake\Log\Log::write('debug', 'Expires formatted (UTC): ' . $expiresFormatted);
                     \Cake\Log\Log::write('debug', 'User ID: ' . $user->id);
                     
                     // Use direct SQL update to bypass ORM issues
