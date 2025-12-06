@@ -410,17 +410,8 @@ try { window.__mascotScriptPresent = true; if (typeof console !== 'undefined' &&
           } catch(e){}
         });
 
-        if (!foundAny) {
-          var bodyText = (document.body && document.body.textContent) ? document.body.textContent : '';
-          if (/Invalid email or password\.|invalid email or password/i.test(bodyText)) {
-            foundError = true;
-            if (SwalToast) {
-              try {
-                Swal.fire({ icon: 'error', toast: true, position: 'top-end', showConfirmButton: false, timer: 3000, title: 'Invalid email or password.' });
-              } catch(e){}
-            } else { _showFallbackToast('Invalid email or password.', 'error'); }
-          }
-        }
+        // Removed body text scanning as it incorrectly triggers on JavaScript code
+        // that contains error message strings. Flash messages are already handled above.
         return foundError;
       } catch (e) { return false; }
     }
@@ -774,60 +765,8 @@ try { window.__mascotScriptPresent = true; if (typeof console !== 'undefined' &&
 
     window.addEventListener('pageshow', function () { showEyes('open'); });
     
-    // Intercept login form submissions to show happy mascot on successful login before redirecting
-    try {
-      var loginForm = document.getElementById('loginForm') || document.querySelector('form[action*="/Users/login"], form[action*="/users/login"]');
-      if (loginForm) {
-        loginForm.addEventListener('submit', function (ev) {
-          try {
-            // If user agent doesn't support fetch, allow normal submit
-            if (typeof fetch !== 'function') return;
-            ev.preventDefault();
-            var fd = new FormData(loginForm);
-            fetch(loginForm.action || window.location.href, { method: 'POST', credentials: 'same-origin', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-              .then(function (res) {
-                return res.text().then(function(text){ return { url: res.url, text: text }; });
-              }).then(function (obj) {
-                try {
-                  var text = obj.text || '';
-                  // If the response contains the invalid credentials message -> show error
-                    if (/invalid email|invalid password|invalid email or password/i.test(text)) {
-                    // show toast and wrong-pass
-                    try { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', toast: true, position: 'top-end', showConfirmButton: false, timer: 3000, title: (text.match(/Invalid email or password\.|invalid email or password/i) || ['Invalid email or password.'])[0] }); } catch(e) {}
-                    try { showEyes('wrong_pass', true); } catch(e) {}
-                    return;
-                  }
-                    // If the response contains a pending/unverified account message -> show pending state
-                    var isRegistrationResponse = /registered|you successfully registered|successfully registered a new account/i.test(text);
-                    if (/not active|pending admin approval|pending approval|account is not active|awaiting approval/i.test(text) && !isRegistrationResponse) {
-                      try { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'info', toast: true, position: 'top-end', showConfirmButton: false, timer: 4000, title: (text.match(/Your account is not active\.|pending admin approval|pending approval|awaiting approval/i) || [text.trim()])[0] }); } catch(e) {}
-                      try { showEyes('pending', true); } catch(e) {}
-                      return;
-                    }
-                  // Otherwise assume successful login (server redirected to dashboard)
-                  try { showEyes('happy', true); } catch(e) {}
-                  // Show a success toast matching the happy expression before redirecting
-                  try {
-                    if (typeof Swal !== 'undefined') {
-                      Swal.fire({ icon: 'success', toast: true, position: 'top-end', showConfirmButton: false, timer: 900, title: 'Logged in successfully' });
-                    } else {
-                      _showFallbackToast('Logged in successfully', 'success');
-                    }
-                  } catch (e) {}
-                  // Delay to let the user see the happy expression and toast, then navigate to the final URL
-                  setTimeout(function(){ try{ window.location.href = obj.url || '/'; }catch(e){ window.location.reload(); } }, 900);
-                } catch (e) {
-                  // Fallback to normal submit on error
-                  loginForm.submit && loginForm.submit();
-                }
-              }).catch(function(err){
-                // On network error, fallback to normal submit so server handles
-                loginForm.submit && loginForm.submit();
-              });
-          } catch (e) {}
-        });
-      }
-    } catch (e) {}
+    // Login form AJAX handling has been moved to login.php template
+    // Mascot expressions are now triggered by that handler via helper functions
   }
 
   function loadMascotAndInit() {

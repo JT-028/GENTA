@@ -65,7 +65,7 @@ class AppController extends Controller
         // UNAUTHENTICATED PAGES
         // Allow the approvalCallback endpoint to be called by the Flask admin (server-to-server)
         // without an authenticated session. Keep login/register public as well.
-        $this->Authentication->addUnauthenticatedActions(['login', 'register', 'approvalCallback']);
+        $this->Authentication->addUnauthenticatedActions(['login', 'register', 'approvalCallback', 'checkLoginStatus']);
 
         // Check session timeout for authenticated users
         $identity = $this->Authentication->getIdentity();
