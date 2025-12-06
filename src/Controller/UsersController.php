@@ -389,17 +389,12 @@ class UsersController extends AppController
                         try {
                             $mailer = new \Cake\Mailer\Mailer('default');
                             
-                            // Build reset URL
-                            $uri = $this->request->getUri();
-                            $scheme = $uri->getScheme() ?: 'http';
-                            $host = $uri->getHost();
-                            $port = $uri->getPort();
-                            $baseUrl = $scheme . '://' . $host;
-                            if ($port && !in_array($port, [80, 443])) {
-                                $baseUrl .= ':' . $port;
-                            }
-                            $appBase = Configure::read('App.base') ?: '';
-                            $resetUrl = rtrim($baseUrl, '\\/') . ($appBase ? rtrim($appBase, '/') : '') . '/users/reset-password/' . $resetToken;
+                            // Build reset URL using Router
+                            $resetUrl = \Cake\Routing\Router::url([
+                                'controller' => 'Users',
+                                'action' => 'resetPassword',
+                                '?' => ['token' => $resetToken]
+                            ], true);
                             
                             $mailer
                                 ->setTo($user->email)
@@ -412,11 +407,12 @@ class UsersController extends AppController
                                     ->setTemplate('password_reset')
                                     ->setLayout('default');
                             
-                            $mailer->deliver();
+                            $result = $mailer->deliver();
                             
-                            \Cake\Log\Log::write('info', 'Password reset email sent to: ' . $user->email);
+                            \Cake\Log\Log::write('info', 'Password reset email sent to: ' . $user->email . ' with URL: ' . $resetUrl);
                         } catch (\Throwable $e) {
-                            \Cake\Log\Log::write('error', 'Failed to send password reset email: ' . $e->getMessage());
+                            \Cake\Log\Log::write('error', 'Failed to send password reset email to ' . $user->email . ': ' . $e->getMessage() . ' | Trace: ' . $e->getTraceAsString());
+                            // Still show success message for security (don't reveal email exists)
                         }
                     }
                 }
