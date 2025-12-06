@@ -381,6 +381,7 @@ class UsersController extends AppController
                 if ($user) {
                     // Generate password reset token
                     $resetToken = bin2hex(random_bytes(32));
+                    // Use server's default timezone
                     $expiresAt = new \DateTime('+1 hour');
                     $expiresFormatted = $expiresAt->format('Y-m-d H:i:s');
                     
@@ -579,23 +580,27 @@ class UsersController extends AppController
         
         \Cake\Log\Log::write('debug', 'User found for reset token: ' . $user->email);
         
-        // Check if token is expired
+        // Check if token is expired - use string comparison to avoid timezone issues
         $expiresAt = $user->password_reset_expires;
-        $now = new \DateTime('now', new \DateTimeZone('UTC'));
+        $now = new \DateTime('now');
         
         \Cake\Log\Log::write('debug', 'Token expires at: ' . ($expiresAt ? $expiresAt->format('Y-m-d H:i:s') : 'NULL'));
-        \Cake\Log\Log::write('debug', 'Current time (UTC): ' . $now->format('Y-m-d H:i:s'));
+        \Cake\Log\Log::write('debug', 'Current server time: ' . $now->format('Y-m-d H:i:s'));
         \Cake\Log\Log::write('debug', 'Server timezone: ' . date_default_timezone_get());
         
         if ($expiresAt) {
-            // Convert to DateTime if it's a string
+            // Convert to DateTime if it's a CakePHP Time object or string
             if (is_string($expiresAt)) {
-                $expiresAt = new \DateTime($expiresAt);
+                $expiresDateTime = new \DateTime($expiresAt);
+            } elseif ($expiresAt instanceof \Cake\I18n\FrozenTime) {
+                $expiresDateTime = $expiresAt->toNative();
+            } else {
+                $expiresDateTime = $expiresAt;
             }
             
-            // Get timestamps for comparison
-            $expiresTimestamp = $expiresAt->getTimestamp();
-            $nowTimestamp = time();
+            // Compare using timestamps (timezone-independent)
+            $expiresTimestamp = $expiresDateTime->getTimestamp();
+            $nowTimestamp = $now->getTimestamp();
             
             \Cake\Log\Log::write('debug', 'Expires timestamp: ' . $expiresTimestamp);
             \Cake\Log\Log::write('debug', 'Now timestamp: ' . $nowTimestamp);
