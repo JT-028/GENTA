@@ -381,15 +381,38 @@ class UsersController extends AppController
                 if ($user) {
                     // Generate password reset token
                     $resetToken = bin2hex(random_bytes(32));
-                    $user->password_reset_token = $resetToken;
-                    $user->password_reset_expires = new \DateTime('+1 hour');
+                    $expiresAt = new \DateTime('+1 hour');
                     
                     \Cake\Log\Log::write('debug', 'Generated reset token for ' . $user->email . ': ' . $resetToken);
+                    \Cake\Log\Log::write('debug', 'Token expires at: ' . $expiresAt->format('Y-m-d H:i:s'));
                     \Cake\Log\Log::write('debug', 'Attempting to save user with ID: ' . $user->id);
                     
-                    // Disable validation for this save operation
-                    if ($usersTable->save($user, ['validate' => false, 'checkRules' => false])) {
+                    // Patch the entity with new data
+                    $user = $usersTable->patchEntity($user, [
+                        'password_reset_token' => $resetToken,
+                        'password_reset_expires' => $expiresAt
+                    ], ['validate' => false]);
+                    
+                    // Mark fields as dirty to ensure they're saved
+                    $user->setDirty('password_reset_token', true);
+                    $user->setDirty('password_reset_expires', true);
+                    
+                    \Cake\Log\Log::write('debug', 'Dirty fields before save: ' . print_r($user->getDirty(), true));
+                    
+                    // Save with validation disabled
+                    if ($usersTable->save($user, ['validate' => false, 'checkRules' => false, 'atomic' => false])) {
                         \Cake\Log\Log::write('debug', 'User saved with reset token successfully');
+                        \Cake\Log\Log::write('debug', 'Verifying save - querying database for token...');
+                        
+                        // Verify the token was actually saved
+                        $verifyUser = $usersTable->get($user->id);
+                        if ($verifyUser->password_reset_token === $resetToken) {
+                            \Cake\Log\Log::write('debug', 'VERIFICATION SUCCESS: Token found in database');
+                        } else {
+                            \Cake\Log\Log::write('error', 'VERIFICATION FAILED: Token NOT in database after save');
+                            \Cake\Log\Log::write('error', 'Expected: ' . $resetToken);
+                            \Cake\Log\Log::write('error', 'Got: ' . ($verifyUser->password_reset_token ?: 'NULL'));
+                        }
                         
                         // Send password reset email
                         try {
