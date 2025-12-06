@@ -559,6 +559,7 @@ class UsersController extends AppController
         
         if (!$token) {
             \Cake\Log\Log::write('warning', 'No token provided in request');
+            try { file_put_contents(WWW_ROOT . 'reset_token_debug.log', date('c') . ' | redirect_reason=NO_TOKEN' . PHP_EOL, FILE_APPEND | LOCK_EX); } catch (\Exception $_e) {}
             $this->Flash->error(__('Invalid password reset link. Please request a new one.'));
             return $this->redirect(['action' => 'forgotPassword']);
         }
@@ -592,6 +593,7 @@ class UsersController extends AppController
             
             if (!$result) {
                 \Cake\Log\Log::write('warning', 'Token NOT found via direct SQL: ' . substr($token, 0, 20) . '...');
+                try { file_put_contents(WWW_ROOT . 'reset_token_debug.log', date('c') . ' | redirect_reason=SQL_NOT_FOUND | token_prefix=' . substr($token,0,20) . PHP_EOL, FILE_APPEND | LOCK_EX); } catch (\Exception $_e) {}
                 
                 // Check recent tokens for debugging
                 $recentTokens = $connection->execute(
@@ -623,6 +625,7 @@ class UsersController extends AppController
         }
         
         if (!$user) {
+            try { file_put_contents(WWW_ROOT . 'reset_token_debug.log', date('c') . ' | redirect_reason=NO_USER_ENTITY | user_id_lookup=' . ($result['id'] ?? 'NULL') . PHP_EOL, FILE_APPEND | LOCK_EX); } catch (\Exception $_e) {}
             $this->Flash->error(__('Invalid or expired password reset link. Please request a new one.'));
             return $this->redirect(['action' => 'forgotPassword']);
         }
@@ -657,11 +660,13 @@ class UsersController extends AppController
             
             if ($expiresTimestamp < $nowTimestamp) {
                 \Cake\Log\Log::write('warning', 'Token expired for user: ' . $user->email);
+                try { file_put_contents(WWW_ROOT . 'reset_token_debug.log', date('c') . ' | redirect_reason=EXPIRED | user=' . $user->email . ' | expires=' . $expiresDateTime->format('c') . ' | now=' . $now->format('c') . PHP_EOL, FILE_APPEND | LOCK_EX); } catch (\Exception $_e) {}
                 $this->Flash->error(__('Password reset link has expired. Please request a new one.'));
                 return $this->redirect(['action' => 'forgotPassword']);
             }
         } else {
             \Cake\Log\Log::write('error', 'Token expiry is NULL for user: ' . $user->email);
+            try { file_put_contents(WWW_ROOT . 'reset_token_debug.log', date('c') . ' | redirect_reason=EXPIRES_NULL | user=' . $user->email . PHP_EOL, FILE_APPEND | LOCK_EX); } catch (\Exception $_e) {}
             $this->Flash->error(__('Invalid password reset link. Please request a new one.'));
             return $this->redirect(['action' => 'forgotPassword']);
         }
