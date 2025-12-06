@@ -357,7 +357,7 @@ try { window.__mascotScriptPresent = true; if (typeof console !== 'undefined' &&
             var txt = (el.textContent || '').trim();
             if (!txt) return;
             foundAny = true;
-            var isError = /invalid email|invalid password|invalid email or password|error/i.test(txt) || el.classList.contains('alert-danger') || el.classList.contains('flash-error');
+            var isError = /invalid email|invalid password|invalid email or password|not registered|please register first|error/i.test(txt) || el.classList.contains('alert-danger') || el.classList.contains('flash-error');
             // detect confirm-password mismatch messages specifically
             var isConfirmMismatch = /confirm.*password|password.*confirm|confirm password did not match|passwords do not match/i.test(txt);
             if (isConfirmMismatch) isError = true;

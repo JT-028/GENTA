@@ -294,30 +294,34 @@ class UsersController extends AppController
                 $lockoutUntil = new \DateTime('now');
                 $lockoutUntil->modify('+15 minutes');
                 $user->account_locked_until = $lockoutUntil->format('Y-m-d H:i:s');
-                $this->Flash->error(__('Account locked due to too many failed attempts. Please try again in 15 minutes.'));
                 $usersTable->save($user);
+                
+                $this->Flash->error(__('Account locked due to too many failed attempts. Please try again in 15 minutes.'));
                 $this->set('remainingAttempts', 0);
-                return;
-            }
-            
-            // Save incremented attempts
-            $usersTable->save($user);
-            
-            $remainingAttempts = max(0, 5 - $user->failed_login_attempts);
-            
-            if ($remainingAttempts <= 3 && $remainingAttempts > 0) {
-                $this->Flash->error(__('Invalid email or password. {0} attempts remaining.', $remainingAttempts));
-                // Generate CAPTCHA for next attempt
-                $challenge = $this->Captcha->generateChallenge();
-                $this->set('captchaChallenge', $challenge['question']);
-                $this->set('showCaptcha', true);
-                $this->set('remainingAttempts', $remainingAttempts);
+                $this->set('rateLimited', true);
+                $this->set('lockoutMinutes', 15);
+                \Cake\Log\Log::write('warning', 'Account locked for: ' . $email . ' until ' . $user->account_locked_until);
+                // Don't return here - let the view render
             } else {
-                $this->Flash->error(__('Invalid email or password.'));
-                $this->set('remainingAttempts', $remainingAttempts);
+                // Save incremented attempts
+                $usersTable->save($user);
+                
+                $remainingAttempts = max(0, 5 - $user->failed_login_attempts);
+                
+                if ($remainingAttempts <= 3 && $remainingAttempts > 0) {
+                    $this->Flash->error(__('Invalid email or password. {0} attempts remaining.', $remainingAttempts));
+                    // Generate CAPTCHA for next attempt
+                    $challenge = $this->Captcha->generateChallenge();
+                    $this->set('captchaChallenge', $challenge['question']);
+                    $this->set('showCaptcha', true);
+                    $this->set('remainingAttempts', $remainingAttempts);
+                } else {
+                    $this->Flash->error(__('Invalid email or password.'));
+                    $this->set('remainingAttempts', $remainingAttempts);
+                }
+                
+                \Cake\Log\Log::write('warning', 'Failed login attempt for: ' . $email . ' (Attempt ' . $user->failed_login_attempts . '/5)');
             }
-            
-            \Cake\Log\Log::write('warning', 'Failed login attempt for: ' . $email . ' (Attempt ' . $user->failed_login_attempts . '/5)');
         }
         
         // Generate CAPTCHA if needed for GET request
