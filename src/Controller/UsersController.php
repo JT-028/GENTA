@@ -237,6 +237,20 @@ class UsersController extends AppController
         // IF WRONG CREDENTIALS
         if ($this->request->is('post') && !$result->isValid())
         {
+            // First check if the account exists in the database
+            $usersTable = $this->loadModel('Users');
+            $userExists = $usersTable->find()
+                ->where(['email' => strtolower($email)])
+                ->count() > 0;
+            
+            // If account doesn't exist, show registration prompt without tracking attempts
+            if (!$userExists) {
+                $this->Flash->error(__('This account is not registered. Please register first before attempting to login.'));
+                \Cake\Log\Log::write('info', 'Login attempt with unregistered email: ' . $email);
+                return;
+            }
+            
+            // Account exists - proceed with normal failed attempt tracking
             // Record failed attempt
             $this->Security->recordFailedAttempt($email, $clientIp);
             
