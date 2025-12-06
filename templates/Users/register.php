@@ -209,28 +209,17 @@
     }
     
     // Prevent checkbox from being checked directly - force modal interaction
-    let checkboxWasChecked = false;
-    
     if (termsCheckbox) {
-        // Use mousedown to capture state BEFORE the click changes it
-        termsCheckbox.addEventListener('mousedown', function(e) {
-            checkboxWasChecked = this.checked;
-        });
-        
-        termsCheckbox.addEventListener('click', function(e) {
-            // Always prevent default behavior
-            e.preventDefault();
-            e.stopPropagation();
-            
-            // If it was unchecked before click, show modal (keep it unchecked)
-            if (!checkboxWasChecked) {
+        termsCheckbox.addEventListener('change', function(e) {
+            // If checkbox is being checked (not via modal), prevent it and show modal
+            if (this.checked && !this.dataset.acceptedViaModal) {
+                e.preventDefault();
                 this.checked = false;
                 showTermsModal();
             }
-            // If it was already checked, allow unchecking
-            else {
-                this.checked = false;
-                checkboxWasChecked = false;
+            // If unchecking, allow it and clear the flag
+            else if (!this.checked) {
+                delete this.dataset.acceptedViaModal;
             }
         });
     }
@@ -342,8 +331,8 @@
         });
         
         acceptBtn.addEventListener('click', function() {
+            termsCheckbox.dataset.acceptedViaModal = 'true';
             termsCheckbox.checked = true;
-            checkboxWasChecked = true; // Update the tracking variable
             closeModal();
         });
     }
