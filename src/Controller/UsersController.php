@@ -694,6 +694,41 @@ class UsersController extends AppController
             $confirmPassword = $this->request->getData('password_confirm');
             
             if ($password && $confirmPassword && $password === $confirmPassword) {
+                // Check if new password matches current password
+                $hasher = new \Authentication\PasswordHasher\DefaultPasswordHasher();
+                if ($hasher->check($password, $user->password)) {
+                    $this->Flash->error(__('New password cannot be the same as your current password. Please choose a different password.'));
+                    $this->set(compact('token'));
+                    return;
+                }
+                
+                // Check password history (prevent reuse of last 5 passwords within 90 days)
+                $passwordHistoryTable = $this->loadModel('PasswordHistory');
+                $recentPasswords = $passwordHistoryTable->find()
+                    ->where([
+                        'user_id' => $user->id,
+                        'created >=' => new \DateTime('-90 days')
+                    ])
+                    ->order(['created' => 'DESC'])
+                    ->limit(5)
+                    ->all();
+                
+                foreach ($recentPasswords as $oldPassword) {
+                    if ($hasher->check($password, $oldPassword->password_hash)) {
+                        $this->Flash->error(__('You have used this password recently. Please choose a different password that you haven\'t used in the last 90 days.'));
+                        $this->set(compact('token'));
+                        return;
+                    }
+                }
+                
+                // Save current password to history before changing it
+                $passwordHistory = $passwordHistoryTable->newEntity([
+                    'user_id' => $user->id,
+                    'password_hash' => $user->password
+                ]);
+                $passwordHistoryTable->save($passwordHistory);
+                
+                // Update user password
                 $user->password = $password;
                 $user->password_reset_token = null;
                 $user->password_reset_expires = null;
@@ -704,6 +739,9 @@ class UsersController extends AppController
                 $user->setDirty('password', true);
                 
                 if ($usersTable->save($user, ['validate' => 'default'])) {
+                    // Clean up old password history (keep only last 5)
+                    $passwordHistoryTable->cleanupOldPasswords($user->id, 5);
+                    
                     $this->Flash->success(__('Password has been reset successfully. You can now login with your new password.'));
                     return $this->redirect(['action' => 'login']);
                 } else {
