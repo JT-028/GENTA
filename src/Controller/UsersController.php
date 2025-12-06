@@ -568,12 +568,26 @@ class UsersController extends AppController
         // Search for user with this token using direct SQL to avoid any ORM issues
         $connection = $usersTable->getConnection();
         try {
-            $result = $connection->execute(
+            // Temporary debug: log the SQL parameter before executing
+            try {
+                $pre = date('c') . ' | SQL lookup for token param: ' . ($token ?? 'NONE') . PHP_EOL;
+                file_put_contents(WWW_ROOT . 'reset_token_debug.log', $pre, FILE_APPEND | LOCK_EX);
+            } catch (\Exception $_e) {}
+
+            $stmt = $connection->execute(
                 'SELECT id, email, password_reset_token, password_reset_expires FROM users WHERE password_reset_token = ? LIMIT 1',
                 [$token],
                 ['string']
-            )->fetch('assoc');
-            
+            );
+
+            $result = $stmt->fetch('assoc');
+
+            // Temporary debug: log the SQL result
+            try {
+                $post = date('c') . ' | SQL result: ' . var_export($result, true) . PHP_EOL;
+                file_put_contents(WWW_ROOT . 'reset_token_debug.log', $post, FILE_APPEND | LOCK_EX);
+            } catch (\Exception $_e) {}
+
             \Cake\Log\Log::write('debug', 'Direct SQL query executed for token');
             
             if (!$result) {
