@@ -378,8 +378,9 @@ try { window.__mascotScriptPresent = true; if (typeof console !== 'undefined' &&
               _showFallbackToast(txt, isError ? 'error' : (isSuccess ? 'success' : 'info'));
             }
             // If this is a success flash (e.g., registration or profile saved), show happy eyes
+            // But don't show happy if wrong_pass was triggered
             var isRegistrationSuccess = isSuccess && /registered|you successfully registered|successfully registered a new account/i.test(txt);
-            if (isSuccess) {
+            if (isSuccess && !window.__mascotWrongPassTriggered) {
               try {
                 // For registration-specific success messages, set a flag so
                 // initialization won't immediately reset the mascot to 'open'.
@@ -405,12 +406,19 @@ try { window.__mascotScriptPresent = true; if (typeof console !== 'undefined' &&
               if (isConfirmMismatch) {
                 try { showEyes('wrong_pass', true); } catch(e){}
               }
-              // Check for unregistered account message
+              // Check for unregistered account message - force wrong_pass and mark as error
               if (/not registered|please register first/i.test(txt)) {
+                try { 
+                  showEyes('wrong_pass', true);
+                  // Set flag to prevent happy eyes from showing
+                  window.__mascotWrongPassTriggered = true;
+                } catch(e){}
+                foundError = true;
+              }
+              if (/invalid email|invalid password|invalid email or password/i.test(txt)) {
                 try { showEyes('wrong_pass', true); } catch(e){}
                 foundError = true;
               }
-              if (/invalid email|invalid password|invalid email or password/i.test(txt)) foundError = true;
             }
           } catch(e){}
         });

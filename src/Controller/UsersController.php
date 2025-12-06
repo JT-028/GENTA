@@ -82,35 +82,59 @@ class UsersController extends AppController
     {
         $this->request->allowMethod(['get', 'post']);
 
-        // Get client IP for rate limiting
-        $clientIp = $this->Security->getClientIp();
         $email = null;
+        $usersTable = $this->loadModel('Users');
         
-        // Check rate limiting before processing
+        // Check per-account rate limiting before processing
         if ($this->request->is('post')) {
-            $email = $this->request->getData('email');
-            $rateLimitCheck = $this->Security->checkRateLimit($email, $clientIp);
+            $email = strtolower($this->request->getData('email'));
             
-            if (!$rateLimitCheck['allowed']) {
-                $minutes = ceil(($rateLimitCheck['lockoutTime'] - time()) / 60);
-                $this->Flash->error(__('Too many failed login attempts. Please try again in {0} minutes.', $minutes));
-                $this->set('rateLimited', true);
-                $this->set('lockoutMinutes', $minutes);
-                return;
-            }
+            // Check if account exists and if it's locked
+            $user = $usersTable->find()
+                ->where(['email' => $email])
+                ->first();
             
-            // Check CAPTCHA if it was required and shown
-            $captchaRequired = $rateLimitCheck['remainingAttempts'] <= 3;
-            if ($captchaRequired && $this->request->getData('captcha') !== null) {
-                $captchaAnswer = $this->request->getData('captcha');
-                if (!$this->Captcha->verify($captchaAnswer)) {
-                    $this->Flash->error(__('Invalid CAPTCHA answer. Please try again.'));
-                    $this->Security->recordFailedAttempt($email, $clientIp);
-                    $challenge = $this->Captcha->generateChallenge();
-                    $this->set('captchaChallenge', $challenge['question']);
-                    $this->set('showCaptcha', true);
-                    $this->set('remainingAttempts', $rateLimitCheck['remainingAttempts'] - 1);
+            if ($user) {
+                // Check if account is locked
+                if ($user->account_locked_until && new \DateTime($user->account_locked_until) > new \DateTime('now')) {
+                    $lockoutTime = new \DateTime($user->account_locked_until);
+                    $now = new \DateTime('now');
+                    $diff = $now->diff($lockoutTime);
+                    $minutes = ($diff->days * 24 * 60) + ($diff->h * 60) + $diff->i + 1;
+                    
+                    $this->Flash->error(__('This account is temporarily locked due to too many failed login attempts. Please try again in {0} minutes.', $minutes));
+                    $this->set('rateLimited', true);
+                    $this->set('lockoutMinutes', $minutes);
+                    $this->set('remainingAttempts', 0);
                     return;
+                }
+                
+                // Check CAPTCHA if required (after 2 failed attempts)
+                $captchaRequired = $user->failed_login_attempts >= 2;
+                if ($captchaRequired && $this->request->getData('captcha') !== null) {
+                    $captchaAnswer = $this->request->getData('captcha');
+                    if (!$this->Captcha->verify($captchaAnswer)) {
+                        $this->Flash->error(__('Invalid CAPTCHA answer. Please try again.'));
+                        
+                        // Increment failed attempts
+                        $user->failed_login_attempts = ($user->failed_login_attempts ?? 0) + 1;
+                        
+                        // Lock account if max attempts reached
+                        if ($user->failed_login_attempts >= 5) {
+                            $lockoutUntil = new \DateTime('now');
+                            $lockoutUntil->modify('+15 minutes');
+                            $user->account_locked_until = $lockoutUntil->format('Y-m-d H:i:s');
+                            $this->Flash->error(__('Account locked due to too many failed attempts. Please try again in 15 minutes.'));
+                        }
+                        
+                        $usersTable->save($user);
+                        
+                        $challenge = $this->Captcha->generateChallenge();
+                        $this->set('captchaChallenge', $challenge['question']);
+                        $this->set('showCaptcha', true);
+                        $this->set('remainingAttempts', max(0, 5 - $user->failed_login_attempts));
+                        return;
+                    }
                 }
             }
         }
@@ -220,7 +244,17 @@ class UsersController extends AppController
             }
 
             // Clear failed attempts on successful login
-            $this->Security->clearFailedAttempts($email, $clientIp);
+            if ($userId) {
+                try {
+                    $usersTable = $this->loadModel('Users');
+                    $userEntity = $usersTable->get($userId);
+                    $userEntity->failed_login_attempts = 0;
+                    $userEntity->account_locked_until = null;
+                    $usersTable->save($userEntity);
+                } catch (\Throwable $e) {
+                    \Cake\Log\Log::write('error', 'Error clearing failed attempts: ' . $e->getMessage());
+                }
+            }
             
             // Regenerate session for security
             $this->Security->regenerateSession();
@@ -239,24 +273,37 @@ class UsersController extends AppController
         {
             // First check if the account exists in the database
             $usersTable = $this->loadModel('Users');
-            $userExists = $usersTable->find()
+            $user = $usersTable->find()
                 ->where(['email' => strtolower($email)])
-                ->count() > 0;
+                ->first();
             
             // If account doesn't exist, show registration prompt without tracking attempts
-            if (!$userExists) {
+            if (!$user) {
                 $this->Flash->error(__('This account is not registered. Please register first before attempting to login.'));
                 \Cake\Log\Log::write('info', 'Login attempt with unregistered email: ' . $email);
+                $this->set('showUnregisteredAlert', true);
                 return;
             }
             
             // Account exists - proceed with normal failed attempt tracking
-            // Record failed attempt
-            $this->Security->recordFailedAttempt($email, $clientIp);
+            // Increment failed attempts
+            $user->failed_login_attempts = ($user->failed_login_attempts ?? 0) + 1;
             
-            // Check remaining attempts
-            $rateLimitCheck = $this->Security->checkRateLimit($email, $clientIp);
-            $remainingAttempts = $rateLimitCheck['remainingAttempts'];
+            // Lock account if max attempts reached (5 attempts)
+            if ($user->failed_login_attempts >= 5) {
+                $lockoutUntil = new \DateTime('now');
+                $lockoutUntil->modify('+15 minutes');
+                $user->account_locked_until = $lockoutUntil->format('Y-m-d H:i:s');
+                $this->Flash->error(__('Account locked due to too many failed attempts. Please try again in 15 minutes.'));
+                $usersTable->save($user);
+                $this->set('remainingAttempts', 0);
+                return;
+            }
+            
+            // Save incremented attempts
+            $usersTable->save($user);
+            
+            $remainingAttempts = max(0, 5 - $user->failed_login_attempts);
             
             if ($remainingAttempts <= 3 && $remainingAttempts > 0) {
                 $this->Flash->error(__('Invalid email or password. {0} attempts remaining.', $remainingAttempts));
@@ -269,17 +316,13 @@ class UsersController extends AppController
                 $this->Flash->error(__('Invalid email or password.'));
                 $this->set('remainingAttempts', $remainingAttempts);
             }
+            
+            \Cake\Log\Log::write('warning', 'Failed login attempt for: ' . $email . ' (Attempt ' . $user->failed_login_attempts . '/5)');
         }
         
         // Generate CAPTCHA if needed for GET request
         if ($this->request->is('get')) {
-            $rateLimitCheck = $this->Security->checkRateLimit(null, $clientIp);
-            if ($rateLimitCheck['remainingAttempts'] <= 3) {
-                $challenge = $this->Captcha->generateChallenge();
-                $this->set('captchaChallenge', $challenge['question']);
-                $this->set('showCaptcha', true);
-            }
-            $this->set('remainingAttempts', $rateLimitCheck['remainingAttempts']);
+            $this->set('remainingAttempts', 5);
         }
     }
     /**
