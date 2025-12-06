@@ -209,9 +209,9 @@
     }
     
     // Prevent checkbox from being checked directly - force modal interaction
+    let checkboxWasChecked = false;
+    
     if (termsCheckbox) {
-        let checkboxWasChecked = false;
-        
         // Use mousedown to capture state BEFORE the click changes it
         termsCheckbox.addEventListener('mousedown', function(e) {
             checkboxWasChecked = this.checked;
@@ -230,7 +230,6 @@
             // If it was already checked, allow unchecking
             else {
                 this.checked = false;
-                // Update the tracking variable
                 checkboxWasChecked = false;
             }
         });
@@ -344,8 +343,7 @@
         
         acceptBtn.addEventListener('click', function() {
             termsCheckbox.checked = true;
-            // Trigger change event to update UI
-            termsCheckbox.dispatchEvent(new Event('change', { bubbles: true }));
+            checkboxWasChecked = true; // Update the tracking variable
             closeModal();
         });
     }
