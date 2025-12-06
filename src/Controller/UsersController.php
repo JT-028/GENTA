@@ -83,7 +83,7 @@ class UsersController extends AppController
         $this->request->allowMethod(['get', 'post']);
 
         // Get client IP for rate limiting
-        $clientIp = $this->Security->_getClientIp();
+        $clientIp = $this->Security->getClientIp();
         $email = null;
         
         // Check rate limiting before processing
@@ -102,13 +102,14 @@ class UsersController extends AppController
             // Check CAPTCHA if required
             $requireCaptcha = $rateLimitCheck['remainingAttempts'] <= 3;
             if ($requireCaptcha) {
-                $captchaAnswer = $this->request->getData('captcha_answer');
+                $captchaAnswer = $this->request->getData('captcha');
                 if (!$this->Captcha->verify($captchaAnswer)) {
                     $this->Flash->error(__('Invalid CAPTCHA answer. Please try again.'));
                     $this->Security->recordFailedAttempt($email, $clientIp);
-                    $captcha = $this->Captcha->generateChallenge();
-                    $this->set('captcha', $captcha);
+                    $captchaChallenge = $this->Captcha->generateChallenge();
+                    $this->set('captchaChallenge', $captchaChallenge);
                     $this->set('showCaptcha', true);
+                    $this->set('remainingAttempts', $rateLimitCheck['remainingAttempts']);
                     return;
                 }
             }
@@ -246,22 +247,25 @@ class UsersController extends AppController
             if ($remainingAttempts <= 3 && $remainingAttempts > 0) {
                 $this->Flash->error(__('Invalid email or password. {0} attempts remaining.', $remainingAttempts));
                 // Generate CAPTCHA for next attempt
-                $captcha = $this->Captcha->generateChallenge();
-                $this->set('captcha', $captcha);
+                $captchaChallenge = $this->Captcha->generateChallenge();
+                $this->set('captchaChallenge', $captchaChallenge);
                 $this->set('showCaptcha', true);
+                $this->set('remainingAttempts', $remainingAttempts);
             } else {
                 $this->Flash->error(__('Invalid email or password.'));
             }
+            $this->set('remainingAttempts', $remainingAttempts);
         }
         
         // Generate CAPTCHA if needed for GET request
         if ($this->request->is('get')) {
             $rateLimitCheck = $this->Security->checkRateLimit(null, $clientIp);
             if ($rateLimitCheck['remainingAttempts'] <= 3) {
-                $captcha = $this->Captcha->generateChallenge();
-                $this->set('captcha', $captcha);
+                $captchaChallenge = $this->Captcha->generateChallenge();
+                $this->set('captchaChallenge', $captchaChallenge);
                 $this->set('showCaptcha', true);
             }
+            $this->set('remainingAttempts', $rateLimitCheck['remainingAttempts']);
         }
     }
     /**

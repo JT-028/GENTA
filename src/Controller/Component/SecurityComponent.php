@@ -161,7 +161,7 @@ class SecurityComponent extends Component
                 // Store session metadata
                 $session->write('Security.loginTime', time());
                 $session->write('Security.lastActivity', time());
-                $session->write('Security.ip', $this->_getClientIp());
+                $session->write('Security.ip', $this->getClientIp());
                 $session->write('Security.userAgent', $request->getHeaderLine('User-Agent'));
             }
         }
@@ -199,7 +199,7 @@ class SecurityComponent extends Component
         }
 
         // Check IP address consistency (optional security check)
-        $currentIp = $this->_getClientIp();
+        $currentIp = $this->getClientIp();
         if ($sessionIp && $currentIp && $sessionIp !== $currentIp) {
             Log::warning('Session IP mismatch', [
                 'session_ip' => $sessionIp,
@@ -291,7 +291,7 @@ class SecurityComponent extends Component
      *
      * @return string
      */
-    protected function _getClientIp(): string
+    public function getClientIp(): string
     {
         $request = $this->getController()->getRequest();
         
