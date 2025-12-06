@@ -472,11 +472,22 @@ class UsersController extends AppController
     {
         $this->request->allowMethod(['get', 'post']);
         
-        // Get token from query string
+        // Get token from query string - try both methods
         $token = $this->request->getQuery('token');
+        if (!$token) {
+            $token = $this->request->getData('token');
+        }
         
-        \Cake\Log\Log::write('debug', 'Reset password accessed with token: ' . ($token ?: 'NONE'));
+        // Clean the token (remove any whitespace or special characters)
+        if ($token) {
+            $token = trim($token);
+        }
+        
+        \Cake\Log\Log::write('debug', 'Reset password accessed');
+        \Cake\Log\Log::write('debug', 'Token: ' . ($token ?: 'NONE'));
         \Cake\Log\Log::write('debug', 'Token length: ' . strlen($token ?: ''));
+        \Cake\Log\Log::write('debug', 'Query string: ' . $this->request->getUri()->getQuery());
+        \Cake\Log\Log::write('debug', 'Full URL: ' . $this->request->getUri());
         
         if (!$token) {
             \Cake\Log\Log::write('warning', 'Reset password accessed without token');
