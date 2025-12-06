@@ -381,8 +381,8 @@ class UsersController extends AppController
                 if ($user) {
                     // Generate password reset token
                     $resetToken = bin2hex(random_bytes(32));
-                    // Use server's default timezone
-                    $expiresAt = new \DateTime('+1 hour');
+                    // Set expiration to 1 hour from now, store as UTC for database
+                    $expiresAt = new \DateTime('+1 hour', new \DateTimeZone('UTC'));
                     $expiresFormatted = $expiresAt->format('Y-m-d H:i:s');
                     
                     \Cake\Log\Log::write('debug', 'Generated reset token for ' . $user->email . ': ' . $resetToken);
@@ -580,9 +580,9 @@ class UsersController extends AppController
         
         \Cake\Log\Log::write('debug', 'User found for reset token: ' . $user->email);
         
-        // Check if token is expired - use string comparison to avoid timezone issues
+        // Check if token is expired - compare using UTC timestamps
         $expiresAt = $user->password_reset_expires;
-        $now = new \DateTime('now');
+        $now = new \DateTime('now', new \DateTimeZone('UTC'));
         
         \Cake\Log\Log::write('debug', 'Token expires at: ' . ($expiresAt ? $expiresAt->format('Y-m-d H:i:s') : 'NULL'));
         \Cake\Log\Log::write('debug', 'Current server time: ' . $now->format('Y-m-d H:i:s'));
