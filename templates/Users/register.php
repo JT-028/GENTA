@@ -28,23 +28,27 @@
         <small class="form-text text-muted">You will need to verify your email address. (Currently accepting all email addresses for testing)</small>
     </div>
     <div class="form-group position-relative">
-        <?= $this->Form->password('password', ['class' => 'form-control form-control-lg ' . ($fieldErrors['password']['class'] ?? ''), 'id' => 'password', 'placeholder' => 'Password (8-16 alphanumeric)', 'required' => 'required', 'maxlength' => '16', 'pattern' => '[a-zA-Z0-9]{8,16}']) ?>
+        <?= $this->Form->password('password', ['class' => 'form-control form-control-lg ' . ($fieldErrors['password']['class'] ?? ''), 'id' => 'password', 'placeholder' => 'Password', 'required' => 'required', 'minlength' => '8', 'maxlength' => '32']) ?>
     <button type="button" id="toggle-password-visibility" class="password-toggle-icon" aria-label="Toggle password visibility"><i class="mdi mdi-eye-off-outline" aria-hidden="true"></i></button>
         <div class="invalid-feedback"><?= $fieldErrors['password']['message'] ?? '' ?></div>
         <div id="password-strength-indicator" class="small mt-1" style="display:none;" aria-live="polite">
             <div class="d-flex align-items-center">
-                <span id="password-strength-text" class="text-danger">⚠ Must be 8-16 alphanumeric characters</span>
+                <span id="password-strength-text" class="text-muted">Password requirements</span>
             </div>
         </div>
+        <small class="form-text text-muted">
+            Must contain: uppercase, lowercase, number, and special character (@, #, !, $, %)
+        </small>
     </div>
     <div class="form-group">
         <?= $this->Form->password('confirm_password', ['class' => 'form-control form-control-lg', 'id' => 'confirm_password', 'placeholder' => 'Confirm Password', 'required' => 'required']) ?>
         <div id="password-match-indicator" class="small text-muted mt-1" aria-live="polite"></div>
     </div>
     <div class="mb-4">
-        <div class="form-check">
+        <div class="form-check custom-checkbox">
             <label class="form-check-label text-muted">
-                <?= $this->Form->checkbox('terms_and_conditions', ['class' => 'form-check-input', 'required' => 'required']) ?> I agree to the Terms & Conditions
+                <?= $this->Form->checkbox('terms_and_conditions', ['class' => 'form-check-input', 'required' => 'required', 'id' => 'terms_checkbox']) ?> 
+                I agree to the <a href="#" id="open-terms-modal" class="text-primary">Terms & Conditions</a>
             </label>
         </div>
     </div>
@@ -93,21 +97,27 @@
         
         strengthIndicator.style.display = 'block';
         
-        const isValidLength = password.length >= 8 && password.length <= 16;
-        const isAlphanumeric = /^[a-zA-Z0-9]+$/.test(password);
+        const isValidLength = password.length >= 8 && password.length <= 32;
+        const hasUppercase = /[A-Z]/.test(password);
+        const hasLowercase = /[a-z]/.test(password);
+        const hasNumber = /[0-9]/.test(password);
+        const hasSpecial = /[@#!$%&*()_+\-=\[\]{};:'",.<>?\/\\|`~]/.test(password);
         
-        if (isValidLength && isAlphanumeric) {
+        const requirements = [];
+        if (!isValidLength) requirements.push('8-32 characters');
+        if (!hasUppercase) requirements.push('uppercase');
+        if (!hasLowercase) requirements.push('lowercase');
+        if (!hasNumber) requirements.push('number');
+        if (!hasSpecial) requirements.push('special character');
+        
+        if (requirements.length === 0) {
             strengthText.className = 'text-success';
-            strengthText.innerHTML = '✓ Password meets requirements';
+            strengthText.innerHTML = '✓ Password meets all requirements';
             passwordField.setCustomValidity('');
         } else {
-            strengthText.className = 'text-danger';
-            if (!isValidLength) {
-                strengthText.innerHTML = '⚠ Must be 8-16 characters';
-            } else if (!isAlphanumeric) {
-                strengthText.innerHTML = '⚠ Only letters and numbers allowed';
-            }
-            passwordField.setCustomValidity('Password must be 8-16 alphanumeric characters');
+            strengthText.className = 'text-warning';
+            strengthText.innerHTML = '⚠ Missing: ' + requirements.join(', ');
+            passwordField.setCustomValidity('Password does not meet requirements');
         }
         
         // Also check password match if confirm field has value
@@ -153,5 +163,186 @@
     if (confirmPasswordField) {
         confirmPasswordField.addEventListener('input', checkPasswordMatch);
     }
+    
+    // Terms & Conditions Modal
+    const openTermsModal = document.getElementById('open-terms-modal');
+    const termsCheckbox = document.getElementById('terms_checkbox');
+    
+    if (openTermsModal) {
+        openTermsModal.addEventListener('click', function(e) {
+            e.preventDefault();
+            showTermsModal();
+        });
+    }
+    
+    function showTermsModal() {
+        const modalHTML = `
+            <div class="modal fade show" id="termsModal" tabindex="-1" style="display: block; background: rgba(0,0,0,0.5);">
+                <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                    <div class="modal-content">
+                        <div class="modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                            <h5 class="modal-title"><i class="mdi mdi-file-document-outline"></i> Terms & Conditions</h5>
+                            <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                        <div class="modal-body" style="max-height: 60vh; overflow-y: auto;">
+                            <h6 class="font-weight-bold">1. Acceptance of Terms</h6>
+                            <p>By creating an account on GENTA (Gamified Educational and Networking Tool for Academics), you agree to comply with and be bound by these Terms and Conditions.</p>
+                            
+                            <h6 class="font-weight-bold">2. User Accounts</h6>
+                            <p>You are responsible for maintaining the confidentiality of your account credentials. You must:</p>
+                            <ul>
+                                <li>Provide accurate and complete information during registration</li>
+                                <li>Keep your password secure and not share it with others</li>
+                                <li>Notify us immediately of any unauthorized access to your account</li>
+                                <li>Be responsible for all activities that occur under your account</li>
+                            </ul>
+                            
+                            <h6 class="font-weight-bold">3. Acceptable Use</h6>
+                            <p>You agree to use GENTA only for lawful educational purposes. You will not:</p>
+                            <ul>
+                                <li>Upload or share inappropriate, offensive, or copyrighted content</li>
+                                <li>Attempt to gain unauthorized access to the system</li>
+                                <li>Interfere with or disrupt the service</li>
+                                <li>Impersonate others or misrepresent your identity</li>
+                                <li>Use the platform for commercial purposes without authorization</li>
+                            </ul>
+                            
+                            <h6 class="font-weight-bold">4. Privacy and Data Protection</h6>
+                            <p>We respect your privacy and are committed to protecting your personal data:</p>
+                            <ul>
+                                <li>Your personal information will be collected, stored, and processed in accordance with applicable data protection laws</li>
+                                <li>We will not share your data with third parties without your consent, except as required by law</li>
+                                <li>You have the right to access, correct, or delete your personal information</li>
+                            </ul>
+                            
+                            <h6 class="font-weight-bold">5. Academic Integrity</h6>
+                            <p>All users must maintain academic honesty:</p>
+                            <ul>
+                                <li>Quiz answers must be your own work</li>
+                                <li>Sharing quiz answers or questions with others is prohibited</li>
+                                <li>Cheating or plagiarism will result in account suspension</li>
+                            </ul>
+                            
+                            <h6 class="font-weight-bold">6. Intellectual Property</h6>
+                            <p>All content, features, and functionality of GENTA are owned by the platform and protected by intellectual property laws. You may not:</p>
+                            <ul>
+                                <li>Copy, modify, or distribute platform content without permission</li>
+                                <li>Reverse engineer or attempt to extract source code</li>
+                                <li>Remove copyright or proprietary notices</li>
+                            </ul>
+                            
+                            <h6 class="font-weight-bold">7. Termination</h6>
+                            <p>We reserve the right to suspend or terminate your account if you violate these Terms and Conditions or engage in conduct that we deem harmful to the platform or other users.</p>
+                            
+                            <h6 class="font-weight-bold">8. Disclaimer of Warranties</h6>
+                            <p>GENTA is provided "as is" without warranties of any kind. We do not guarantee that the service will be uninterrupted, secure, or error-free.</p>
+                            
+                            <h6 class="font-weight-bold">9. Limitation of Liability</h6>
+                            <p>We shall not be liable for any indirect, incidental, special, or consequential damages arising from your use of the platform.</p>
+                            
+                            <h6 class="font-weight-bold">10. Changes to Terms</h6>
+                            <p>We reserve the right to modify these Terms and Conditions at any time. Continued use of the platform after changes constitutes acceptance of the updated terms.</p>
+                            
+                            <h6 class="font-weight-bold">11. Contact Information</h6>
+                            <p>For questions about these Terms and Conditions, please contact the GENTA administration team.</p>
+                            
+                            <hr>
+                            <p class="text-muted small"><strong>Last Updated:</strong> December 6, 2025</p>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                            <button type="button" class="btn btn-primary" id="accept-terms-btn">I Accept</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+        
+        const modal = document.getElementById('termsModal');
+        const closeBtn = modal.querySelector('.close');
+        const dismissBtn = modal.querySelector('[data-dismiss="modal"]');
+        const acceptBtn = document.getElementById('accept-terms-btn');
+        
+        function closeModal() {
+            modal.style.display = 'none';
+            setTimeout(() => modal.remove(), 300);
+        }
+        
+        closeBtn.addEventListener('click', closeModal);
+        dismissBtn.addEventListener('click', closeModal);
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) closeModal();
+        });
+        
+        acceptBtn.addEventListener('click', function() {
+            termsCheckbox.checked = true;
+            closeModal();
+        });
+    }
 })();
 </script>
+
+<style>
+/* Custom checkbox styling to match site theme */
+.custom-checkbox .form-check-input {
+    width: 18px;
+    height: 18px;
+    border: 2px solid #667eea;
+    border-radius: 4px;
+    cursor: pointer;
+    position: relative;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-color: white;
+    transition: all 0.3s ease;
+}
+
+.custom-checkbox .form-check-input:checked {
+    background-color: #667eea;
+    border-color: #667eea;
+}
+
+.custom-checkbox .form-check-input:checked::after {
+    content: '✓';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.custom-checkbox .form-check-input:hover {
+    border-color: #764ba2;
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+}
+
+.custom-checkbox .form-check-input:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+}
+
+.custom-checkbox .form-check-label {
+    cursor: pointer;
+    user-select: none;
+    padding-left: 8px;
+}
+
+#open-terms-modal {
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.2s;
+}
+
+#open-terms-modal:hover {
+    text-decoration: underline;
+    color: #764ba2 !important;
+}
+</style>
