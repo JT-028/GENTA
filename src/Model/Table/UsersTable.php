@@ -73,9 +73,20 @@ class UsersTable extends Table
 
         $validator
             ->scalar('password')
-            ->minLength('password', 8, __('Password must be 8-16 characters.'))
-            ->maxLength('password', 16, __('Password must be 8-16 characters.'))
-            ->alphaNumeric('password', __('Password must contain only letters and numbers.'))
+            ->minLength('password', 8, __('Password must be at least 8 characters.'))
+            ->maxLength('password', 32, __('Password must not exceed 32 characters.'))
+            ->add('password', 'strongPassword', [
+                'rule' => function($value, $context) {
+                    // Must contain at least one uppercase, one lowercase, one number, and one special character
+                    $hasUppercase = preg_match('/[A-Z]/', $value);
+                    $hasLowercase = preg_match('/[a-z]/', $value);
+                    $hasNumber = preg_match('/[0-9]/', $value);
+                    $hasSpecial = preg_match('/[@#!$%&*()_+\-=\[\]{};:\'",.<>?\/\\|`~]/', $value);
+                    
+                    return $hasUppercase && $hasLowercase && $hasNumber && $hasSpecial;
+                },
+                'message' => __('Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character (@, #, !, $, %, etc.).')
+            ])
             ->requirePresence('password', 'create')
             ->notEmptyString('password',  __('Password is required.'));
 
