@@ -646,7 +646,15 @@ class UsersController extends AppController
         $expiresAt = $dbExpiresRaw ?? $user->password_reset_expires;
         $now = new \DateTime('now');
         
-        \Cake\Log\Log::write('debug', 'Token expires at: ' . ($expiresAt ? $expiresAt->format('Y-m-d H:i:s') : 'NULL'));
+        // Safely format the expiry for logging whether it's a string or DateTime
+        if ($expiresAt instanceof \DateTimeInterface || $expiresAt instanceof \Cake\I18n\FrozenTime) {
+            $expiresLog = $expiresAt instanceof \Cake\I18n\FrozenTime ? $expiresAt->toNative()->format('Y-m-d H:i:s') : $expiresAt->format('Y-m-d H:i:s');
+        } elseif (is_string($expiresAt)) {
+            $expiresLog = $expiresAt;
+        } else {
+            $expiresLog = 'NULL';
+        }
+        \Cake\Log\Log::write('debug', 'Token expires at: ' . $expiresLog);
         \Cake\Log\Log::write('debug', 'Current server time: ' . $now->format('Y-m-d H:i:s'));
         \Cake\Log\Log::write('debug', 'Server timezone: ' . date_default_timezone_get());
         
