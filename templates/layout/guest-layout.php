@@ -77,13 +77,12 @@
                     <div class="row flex-grow">
                         <div class="col-xxl-4 col-lg-6 col-md-12 mx-auto">
                             <div class="auth-form-light text-left p-5">
-                                <!-- LOGO (hide on Users::login to avoid duplicate mascot) -->
+                                <!-- LOGO (hide on Users pages with animated mascot to avoid duplicate) -->
                                 <?php
                                 $ctl = $this->request->getParam('controller');
                                 $act = $this->request->getParam('action');
-                                // Hide the brand logo on Users::login and Users::register to avoid
-                                // rendering a duplicate mascot/icon when the page templates include their own mascot.
-                                if (!($ctl === 'Users' && in_array($act, ['login', 'register']))): ?>
+                                // Hide the brand logo on Users pages that have their own animated mascot
+                                if (!($ctl === 'Users' && in_array($act, ['login', 'register', 'forgotPassword', 'resetPassword']))): ?>
                                 <div class="brand-logo">
                                     <?= $this->Html->image('/assets/images/mascot_head.svg', ['alt' => 'GENTA Icon']) ?>
                                 </div>
