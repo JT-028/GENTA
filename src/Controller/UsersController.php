@@ -539,6 +539,19 @@ class UsersController extends AppController
         if ($token) {
             $token = trim($token);
         }
+
+        // Temporary: write a simple debug entry to webroot so we can see
+        // exactly what token the server received on GET and POST requests.
+        // This file is temporary and should be removed after debugging.
+        try {
+            $dbg = date('c') . ' | ' . ($_SERVER['REMOTE_ADDR'] ?? 'CLI')
+                . ' | method=' . $this->request->getMethod()
+                . ' | token=' . ($token ?? 'NONE')
+                . ' | uri=' . ($_SERVER['REQUEST_URI'] ?? '') . PHP_EOL;
+            file_put_contents(WWW_ROOT . 'reset_token_debug.log', $dbg, FILE_APPEND | LOCK_EX);
+        } catch (\Exception $ex) {
+            // swallow any failure to avoid breaking the flow
+        }
         
         \Cake\Log\Log::write('debug', '========== RESET PASSWORD REQUEST ==========');
         \Cake\Log\Log::write('debug', 'Token received: ' . ($token ?: 'NONE'));
