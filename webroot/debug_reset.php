@@ -49,8 +49,8 @@ $token = $_GET['token'] ?? null;
         <h2>Database Connection Test</h2>
         <?php
         try {
-            // Load CakePHP bootstrap
-            require dirname(__DIR__) . '/config/bootstrap.php';
+            // Load CakePHP bootstrap - fix path for webroot location
+            require __DIR__ . '/../config/bootstrap.php';
             
             // Get database connection
             $connection = \Cake\Datasource\ConnectionManager::get('default');
