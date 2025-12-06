@@ -9,10 +9,21 @@ use Cake\Core\Configure;
  * Users Controller
  *
  * @property \App\Model\Table\UsersTable $Users
+ * @property \App\Controller\Component\SecurityComponent $Security
+ * @property \App\Controller\Component\CaptchaComponent $Captcha
  * @method \App\Model\Entity\User[]|\Cake\Datasource\ResultSetInterface paginate($object = null, array $settings = [])
  */
 class UsersController extends AppController
 {
+    /**
+     * Initialize controller
+     */
+    public function initialize(): void
+    {
+        parent::initialize();
+        $this->loadComponent('Security');
+        $this->loadComponent('Captcha');
+    }
     public function logout()
     {
         // AUTHENTICATE
@@ -70,6 +81,38 @@ class UsersController extends AppController
     public function login()
     {
         $this->request->allowMethod(['get', 'post']);
+
+        // Get client IP for rate limiting
+        $clientIp = $this->Security->_getClientIp();
+        $email = null;
+        
+        // Check rate limiting before processing
+        if ($this->request->is('post')) {
+            $email = $this->request->getData('email');
+            $rateLimitCheck = $this->Security->checkRateLimit($email, $clientIp);
+            
+            if (!$rateLimitCheck['allowed']) {
+                $minutes = ceil(($rateLimitCheck['lockoutTime'] - time()) / 60);
+                $this->Flash->error(__('Too many failed login attempts. Please try again in {0} minutes.', $minutes));
+                $this->set('rateLimited', true);
+                $this->set('lockoutMinutes', $minutes);
+                return;
+            }
+            
+            // Check CAPTCHA if required
+            $requireCaptcha = $rateLimitCheck['remainingAttempts'] <= 3;
+            if ($requireCaptcha) {
+                $captchaAnswer = $this->request->getData('captcha_answer');
+                if (!$this->Captcha->verify($captchaAnswer)) {
+                    $this->Flash->error(__('Invalid CAPTCHA answer. Please try again.'));
+                    $this->Security->recordFailedAttempt($email, $clientIp);
+                    $captcha = $this->Captcha->generateChallenge();
+                    $this->set('captcha', $captcha);
+                    $this->set('showCaptcha', true);
+                    return;
+                }
+            }
+        }
 
         // AUTHENTICATE
         $result = $this->Authentication->getResult();
@@ -175,6 +218,12 @@ class UsersController extends AppController
                 \Cake\Log\Log::write('error', 'Error while checking user status on login: ' . $e->getMessage());
             }
 
+            // Clear failed attempts on successful login
+            $this->Security->clearFailedAttempts($email, $clientIp);
+            
+            // Regenerate session for security
+            $this->Security->regenerateSession();
+
             $redirect = $this->request->getQuery('redirect', [
                 'controller' => 'Dashboard',
                 'action' => 'index',
@@ -187,7 +236,32 @@ class UsersController extends AppController
         // IF WRONG CREDENTIALS
         if ($this->request->is('post') && !$result->isValid())
         {
-            $this->Flash->error(__('Invalid email or password.'));
+            // Record failed attempt
+            $this->Security->recordFailedAttempt($email, $clientIp);
+            
+            // Check remaining attempts
+            $rateLimitCheck = $this->Security->checkRateLimit($email, $clientIp);
+            $remainingAttempts = $rateLimitCheck['remainingAttempts'];
+            
+            if ($remainingAttempts <= 3 && $remainingAttempts > 0) {
+                $this->Flash->error(__('Invalid email or password. {0} attempts remaining.', $remainingAttempts));
+                // Generate CAPTCHA for next attempt
+                $captcha = $this->Captcha->generateChallenge();
+                $this->set('captcha', $captcha);
+                $this->set('showCaptcha', true);
+            } else {
+                $this->Flash->error(__('Invalid email or password.'));
+            }
+        }
+        
+        // Generate CAPTCHA if needed for GET request
+        if ($this->request->is('get')) {
+            $rateLimitCheck = $this->Security->checkRateLimit(null, $clientIp);
+            if ($rateLimitCheck['remainingAttempts'] <= 3) {
+                $captcha = $this->Captcha->generateChallenge();
+                $this->set('captcha', $captcha);
+                $this->set('showCaptcha', true);
+            }
         }
     }
     /**
@@ -286,6 +360,134 @@ class UsersController extends AppController
         $this->set(compact('user'));
     }
 
+    /**
+     * Request password reset
+     */
+    public function forgotPassword()
+    {
+        $this->request->allowMethod(['get', 'post']);
+        
+        if ($this->request->is('post')) {
+            $email = $this->request->getData('email');
+            
+            if ($email) {
+                $usersTable = $this->loadModel('Users');
+                $user = $usersTable->find()->where(['email' => strtolower($email)])->first();
+                
+                if ($user) {
+                    // Generate password reset token
+                    $resetToken = bin2hex(random_bytes(32));
+                    $user->password_reset_token = $resetToken;
+                    $user->password_reset_expires = new \DateTime('+1 hour');
+                    
+                    if ($usersTable->save($user)) {
+                        // Send password reset email
+                        try {
+                            $mailer = new \Cake\Mailer\Mailer('default');
+                            
+                            // Build reset URL
+                            $uri = $this->request->getUri();
+                            $scheme = $uri->getScheme() ?: 'http';
+                            $host = $uri->getHost();
+                            $port = $uri->getPort();
+                            $baseUrl = $scheme . '://' . $host;
+                            if ($port && !in_array($port, [80, 443])) {
+                                $baseUrl .= ':' . $port;
+                            }
+                            $appBase = Configure::read('App.base') ?: '';
+                            $resetUrl = rtrim($baseUrl, '\\/') . ($appBase ? rtrim($appBase, '/') : '') . '/users/reset-password/' . $resetToken;
+                            
+                            $mailer
+                                ->setTo($user->email)
+                                ->setSubject('GENTA - Password Reset Request')
+                                ->setViewVars([
+                                    'firstName' => $user->first_name,
+                                    'resetUrl' => $resetUrl
+                                ])
+                                ->viewBuilder()
+                                    ->setTemplate('password_reset')
+                                    ->setLayout('default');
+                            
+                            $mailer->deliver();
+                            
+                            \Cake\Log\Log::write('info', 'Password reset email sent to: ' . $user->email);
+                        } catch (\Throwable $e) {
+                            \Cake\Log\Log::write('error', 'Failed to send password reset email: ' . $e->getMessage());
+                        }
+                    }
+                }
+                
+                // Always show success message (don't reveal if email exists)
+                $this->Flash->success(__('If the email address exists, a password reset link has been sent. Please check your inbox.'));
+                return $this->redirect(['action' => 'login']);
+            }
+        }
+    }
+    
+    /**
+     * Reset password with token
+     */
+    public function resetPassword(?string $token = null)
+    {
+        $this->request->allowMethod(['get', 'post']);
+        
+        if (!$token) {
+            $this->Flash->error(__('Invalid password reset link.'));
+            return $this->redirect(['action' => 'login']);
+        }
+        
+        $usersTable = $this->loadModel('Users');
+        $user = $usersTable->find()
+            ->where(['password_reset_token' => $token])
+            ->first();
+        
+        if (!$user) {
+            $this->Flash->error(__('Invalid or expired password reset link.'));
+            return $this->redirect(['action' => 'login']);
+        }
+        
+        // Check if token is expired
+        $expiresAt = $user->password_reset_expires;
+        if (!$expiresAt || $expiresAt < new \DateTime()) {
+            $this->Flash->error(__('Password reset link has expired. Please request a new one.'));
+            return $this->redirect(['action' => 'forgotPassword']);
+        }
+        
+        if ($this->request->is('post')) {
+            $password = $this->request->getData('password');
+            $confirmPassword = $this->request->getData('confirm_password');
+            
+            if ($password === $confirmPassword) {
+                $user->password = $password;
+                $user->password_reset_token = null;
+                $user->password_reset_expires = null;
+                $user->failed_login_attempts = 0;
+                $user->account_locked_until = null;
+                
+                // Validate password only
+                $user->setDirty('password', true);
+                
+                if ($usersTable->save($user, ['validate' => 'default'])) {
+                    $this->Flash->success(__('Password has been reset successfully. You can now login with your new password.'));
+                    return $this->redirect(['action' => 'login']);
+                } else {
+                    $errors = $user->getErrors();
+                    if (isset($errors['password'])) {
+                        foreach ($errors['password'] as $error) {
+                            $this->Flash->error($error);
+                        }
+                    } else {
+                        $this->Flash->error(__('Failed to reset password. Please try again.'));
+                    }
+                }
+            } else {
+                $this->Flash->error(__('Passwords do not match.'));
+            }
+        }
+        
+        $this->set(compact('token'));
+    }
+
     public function beforeFilter(
         \Cake\Event\EventInterface $event
     ) {
@@ -295,13 +497,17 @@ class UsersController extends AppController
         // - verifyEmail: users clicking verification link in email
         // - register: new user registration
         // - registrationPending: status page after registration
+        // - forgotPassword: password reset request
+        // - resetPassword: password reset with token
         try {
             if (isset($this->Authentication)) {
                 $this->Authentication->addUnauthenticatedActions([
                     'approvalCallback',
                     'verifyEmail',
                     'register',
-                    'registrationPending'
+                    'registrationPending',
+                    'forgotPassword',
+                    'resetPassword'
                 ]);
             }
         } catch (\Throwable $_) {

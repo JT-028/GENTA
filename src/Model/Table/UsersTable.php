@@ -99,12 +99,12 @@ class UsersTable extends Table
         $validator
             ->scalar('first_name')
             ->maxLength('first_name', 255)
-            ->alphaNumeric('first_name', __('First name must contain only letters.'))
-            ->add('first_name', 'lettersOnly', [
+            ->add('first_name', 'lettersAndSpaces', [
                 'rule' => function($value, $context) {
-                    return preg_match('/^[a-zA-Z\s]+$/', $value) === 1;
+                    // Allow letters, spaces, hyphens, apostrophes (for names like Mary-Jane, O'Brien, etc.)
+                    return preg_match('/^[a-zA-Z\s\'-]+$/', trim($value)) === 1;
                 },
-                'message' => __('First name must contain only letters.')
+                'message' => __('First name must contain only letters, spaces, hyphens, and apostrophes.')
             ])
             ->requirePresence('first_name', 'create')
             ->notEmptyString('first_name', __('First Name is required.'));
@@ -112,11 +112,12 @@ class UsersTable extends Table
         $validator
             ->scalar('last_name')
             ->maxLength('last_name', 255)
-            ->add('last_name', 'lettersOnly', [
+            ->add('last_name', 'lettersAndSpaces', [
                 'rule' => function($value, $context) {
-                    return preg_match('/^[a-zA-Z\s]+$/', $value) === 1;
+                    // Allow letters, spaces, hyphens, apostrophes (for names like De La Cruz, O'Connor, etc.)
+                    return preg_match('/^[a-zA-Z\s\'-]+$/', trim($value)) === 1;
                 },
-                'message' => __('Last name must contain only letters.')
+                'message' => __('Last name must contain only letters, spaces, hyphens, and apostrophes.')
             ])
             ->requirePresence('last_name', 'create')
             ->notEmptyString('last_name', __('Last Name is required.'));

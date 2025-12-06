@@ -23,6 +23,38 @@
         <?= $this->Form->password('password', ['class' => 'form-control form-control-lg', 'id' => 'password', 'placeholder' => 'Password', 'required' => 'required', 'aria-label' => 'Password']) ?>
     <button type="button" id="toggle-password-visibility" class="password-toggle-icon" aria-label="Toggle password visibility"><i class="mdi mdi-eye-off-outline" aria-hidden="true"></i></button>
     </div>
+    
+    <?php if (isset($showCaptcha) && $showCaptcha): ?>
+    <div class="form-group captcha-group">
+        <label class="font-weight-medium">Security Check</label>
+        <div class="captcha-challenge mb-2">
+            <span class="captcha-question"><?= h($captchaChallenge) ?></span>
+        </div>
+        <?= $this->Form->control('captcha', [
+            'class' => 'form-control form-control-lg',
+            'placeholder' => 'Enter your answer',
+            'required' => true,
+            'label' => false,
+            'type' => 'text',
+            'autocomplete' => 'off'
+        ]) ?>
+    </div>
+    <?php endif; ?>
+    
+    <?php if (isset($remainingAttempts) && $remainingAttempts < 5): ?>
+    <div class="alert alert-warning mb-3" role="alert">
+        <i class="mdi mdi-alert-outline"></i>
+        <strong>Warning:</strong> <?= $remainingAttempts ?> login attempt(s) remaining before temporary lockout.
+    </div>
+    <?php endif; ?>
+    
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div></div>
+        <div class="text-right">
+            <?= $this->Html->link('Forgot Password?', ['controller' => 'Users', 'action' => 'forgotPassword'], ['class' => 'text-primary font-weight-medium']) ?>
+        </div>
+    </div>
+    
     <div class="mt-3">
         <?= $this->Form->button('LOG IN', ['class' => 'btn btn-primary btn-block btn-lg font-weight-medium', 'type' => 'submit']) ?>
     </div>

@@ -46,6 +46,12 @@ class User extends Entity
         'email_verified' => true,
         'verification_token' => true,
         'verification_token_expires' => true,
+        'password_reset_token' => true,
+        'password_reset_expires' => true,
+        'failed_login_attempts' => true,
+        'account_locked_until' => true,
+        'two_factor_secret' => true,
+        'two_factor_enabled' => true,
     ];
 
     /**
@@ -57,6 +63,8 @@ class User extends Entity
         'password',
         'token',
         'verification_token',
+        'password_reset_token',
+        'two_factor_secret',
     ];
 
     protected function _setEmail(string $email) : ?string

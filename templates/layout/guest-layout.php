@@ -25,6 +25,7 @@
                 // STYLES
                 '/assets/css/style.css',
                 '/assets/css/custom.css',
+                '/assets/css/login.css',
             ])
         ?>
         <script>

@@ -143,6 +143,17 @@ return [
             'duration' => '+1 years',
             'url' => env('CACHE_CAKEROUTES_URL', null),
         ],
+
+        /*
+         * Security cache for rate limiting and session data
+         */
+        'security' => [
+            'className' => FileEngine::class,
+            'prefix' => 'security_',
+            'path' => CACHE . 'security' . DS,
+            'serialize' => true,
+            'duration' => '+1 hours',
+        ],
     ],
 
     /*
