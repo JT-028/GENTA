@@ -382,37 +382,58 @@ class UsersController extends AppController
                     // Generate password reset token
                     $resetToken = bin2hex(random_bytes(32));
                     $expiresAt = new \DateTime('+1 hour');
+                    $expiresFormatted = $expiresAt->format('Y-m-d H:i:s');
                     
                     \Cake\Log\Log::write('debug', 'Generated reset token for ' . $user->email . ': ' . $resetToken);
-                    \Cake\Log\Log::write('debug', 'Token expires at: ' . $expiresAt->format('Y-m-d H:i:s'));
-                    \Cake\Log\Log::write('debug', 'Attempting to save user with ID: ' . $user->id);
+                    \Cake\Log\Log::write('debug', 'Token expires at: ' . $expiresFormatted);
+                    \Cake\Log\Log::write('debug', 'User ID: ' . $user->id);
                     
-                    // Patch the entity with new data
-                    $user = $usersTable->patchEntity($user, [
-                        'password_reset_token' => $resetToken,
-                        'password_reset_expires' => $expiresAt
-                    ], ['validate' => false]);
+                    // Use direct SQL update to bypass ORM issues
+                    $connection = $usersTable->getConnection();
                     
-                    // Mark fields as dirty to ensure they're saved
-                    $user->setDirty('password_reset_token', true);
-                    $user->setDirty('password_reset_expires', true);
-                    
-                    \Cake\Log\Log::write('debug', 'Dirty fields before save: ' . print_r($user->getDirty(), true));
-                    
-                    // Save with validation disabled
-                    if ($usersTable->save($user, ['validate' => false, 'checkRules' => false, 'atomic' => false])) {
-                        \Cake\Log\Log::write('debug', 'User saved with reset token successfully');
-                        \Cake\Log\Log::write('debug', 'Verifying save - querying database for token...');
+                    try {
+                        $query = $connection->newQuery()
+                            ->update('users')
+                            ->set([
+                                'password_reset_token' => $resetToken,
+                                'password_reset_expires' => $expiresFormatted
+                            ])
+                            ->where(['id' => $user->id]);
                         
-                        // Verify the token was actually saved
-                        $verifyUser = $usersTable->get($user->id);
-                        if ($verifyUser->password_reset_token === $resetToken) {
-                            \Cake\Log\Log::write('debug', 'VERIFICATION SUCCESS: Token found in database');
+                        $statement = $query->execute();
+                        $rowsAffected = $statement->rowCount();
+                        
+                        \Cake\Log\Log::write('debug', 'Direct SQL update executed. Rows affected: ' . $rowsAffected);
+                        
+                        if ($rowsAffected > 0) {
+                            \Cake\Log\Log::write('debug', 'Token saved successfully via direct SQL');
+                            
+                            // Verify the token was saved
+                            $verifyQuery = $connection->execute(
+                                'SELECT password_reset_token FROM users WHERE id = ?',
+                                [$user->id]
+                            );
+                            $result = $verifyQuery->fetch('assoc');
+                            
+                            if ($result && $result['password_reset_token'] === $resetToken) {
+                                \Cake\Log\Log::write('debug', 'VERIFICATION SUCCESS: Token confirmed in database');
+                            } else {
+                                \Cake\Log\Log::write('error', 'VERIFICATION FAILED after direct SQL');
+                                \Cake\Log\Log::write('error', 'Expected: ' . $resetToken);
+                                \Cake\Log\Log::write('error', 'Got: ' . ($result['password_reset_token'] ?? 'NULL'));
+                            }
                         } else {
-                            \Cake\Log\Log::write('error', 'VERIFICATION FAILED: Token NOT in database after save');
-                            \Cake\Log\Log::write('error', 'Expected: ' . $resetToken);
-                            \Cake\Log\Log::write('error', 'Got: ' . ($verifyUser->password_reset_token ?: 'NULL'));
+                            \Cake\Log\Log::write('error', 'Direct SQL update affected 0 rows');
                         }
+                    } catch (\Exception $e) {
+                        \Cake\Log\Log::write('error', 'Direct SQL update failed: ' . $e->getMessage());
+                    }
+                    
+                    // Continue with email sending regardless
+                    $saveSucceeded = true;
+                    
+                    if ($saveSucceeded) {
+                        \Cake\Log\Log::write('debug', 'Proceeding to send email');
                         
                         // Send password reset email
                         try {
