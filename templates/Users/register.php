@@ -210,16 +210,20 @@
     
     // Prevent checkbox from being checked directly - force modal interaction
     if (termsCheckbox) {
+        let checkboxWasChecked = termsCheckbox.checked;
+        
+        // Use mousedown to capture state BEFORE the click changes it
+        termsCheckbox.addEventListener('mousedown', function(e) {
+            checkboxWasChecked = this.checked;
+        });
+        
         termsCheckbox.addEventListener('click', function(e) {
-            // Store the state before the click (since click already toggles it)
-            const wasChecked = this.checked;
-            
             // Always prevent default behavior
             e.preventDefault();
             
-            // If it was unchecked before click, show modal (don't check it yet)
-            if (!wasChecked) {
-                this.checked = false; // Keep it unchecked
+            // If it was unchecked before click, show modal (keep it unchecked)
+            if (!checkboxWasChecked) {
+                this.checked = false;
                 showTermsModal();
             }
             // If it was already checked, allow unchecking
