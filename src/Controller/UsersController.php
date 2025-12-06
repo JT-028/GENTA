@@ -384,9 +384,14 @@ class UsersController extends AppController
                     $user->password_reset_token = $resetToken;
                     $user->password_reset_expires = new \DateTime('+1 hour');
                     
+                    \Cake\Log\Log::write('debug', 'Generated reset token for ' . $user->email . ': ' . $resetToken);
+                    
                     if ($usersTable->save($user)) {
+                        \Cake\Log\Log::write('debug', 'User saved with reset token');
+                        
                         // Send password reset email
                         try {
+                            \Cake\Log\Log::write('debug', 'Attempting to send password reset email...');
                             $mailer = new \Cake\Mailer\Mailer('default');
                             
                             // Build reset URL using Router
@@ -399,21 +404,58 @@ class UsersController extends AppController
                             $mailer
                                 ->setTo($user->email)
                                 ->setSubject('GENTA - Password Reset Request')
+                                ->setEmailFormat('html')
                                 ->setViewVars([
                                     'firstName' => $user->first_name,
                                     'resetUrl' => $resetUrl
                                 ])
                                 ->viewBuilder()
-                                    ->setTemplate('password_reset')
-                                    ->setLayout('default');
+                                    ->setTemplate('password_reset');
                             
+                            \Cake\Log\Log::write('debug', 'About to call deliver() with URL: ' . $resetUrl);
                             $result = $mailer->deliver();
                             
-                            \Cake\Log\Log::write('info', 'Password reset email sent to: ' . $user->email . ' with URL: ' . $resetUrl);
+                            \Cake\Log\Log::write('info', 'Password reset email sent successfully to: ' . $user->email);
+                            \Cake\Log\Log::write('debug', 'Email result: ' . print_r($result, true));
                         } catch (\Throwable $e) {
-                            \Cake\Log\Log::write('error', 'Failed to send password reset email to ' . $user->email . ': ' . $e->getMessage() . ' | Trace: ' . $e->getTraceAsString());
-                            // Still show success message for security (don't reveal email exists)
+                            \Cake\Log\Log::write('error', 'Failed to send password reset email to ' . $user->email . ': ' . $e->getMessage());
+                            \Cake\Log\Log::write('error', 'Error file: ' . $e->getFile() . ':' . $e->getLine());
+                            \Cake\Log\Log::write('error', 'Stack trace: ' . $e->getTraceAsString());
+                            
+                            // Fallback: Try sending without template
+                            try {
+                                \Cake\Log\Log::write('debug', 'Trying fallback email method without template...');
+                                $simpleMailer = new \Cake\Mailer\Mailer('default');
+                                
+                                $htmlBody = "
+                                <html>
+                                <body style='font-family: Arial, sans-serif; padding: 20px;'>
+                                    <h2>Password Reset Request</h2>
+                                    <p>Hello {$user->first_name},</p>
+                                    <p>Click the link below to reset your password:</p>
+                                    <p><a href='{$resetUrl}' style='background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;'>Reset Password</a></p>
+                                    <p>Or copy this link: <br>{$resetUrl}</p>
+                                    <p><strong>This link expires in 1 hour.</strong></p>
+                                </body>
+                                </html>
+                                ";
+                                
+                                $simpleMailer
+                                    ->setTo($user->email)
+                                    ->setSubject('GENTA - Password Reset Request')
+                                    ->setEmailFormat('html')
+                                    ->deliver($htmlBody);
+                                
+                                \Cake\Log\Log::write('info', 'Fallback email sent successfully to: ' . $user->email);
+                            } catch (\Throwable $fallbackError) {
+                                \Cake\Log\Log::write('error', 'Fallback email also failed: ' . $fallbackError->getMessage());
+                            }
                         }
+                    } else {
+                        \Cake\Log\Log::write('error', 'Failed to save user with reset token. Validation errors: ' . print_r($user->getErrors(), true));
+                    }
+                } else {
+                    \Cake\Log\Log::write('debug', 'Password reset requested for non-existent email: ' . $email);
                     }
                 }
                 
