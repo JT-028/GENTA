@@ -45,7 +45,7 @@
             </div>
         </div>
     </div>
-    <div id="password-strength-indicator" class="alert alert-info small py-2 mb-3" style="display:none;" role="alert">
+    <div id="password-strength-indicator" class="small mb-2 px-2 py-1" style="display:none; border-radius: 4px; font-size: 0.8rem;" role="alert">
         <i class="mdi mdi-information-outline"></i> <span id="password-strength-text">Password requirements</span>
     </div>
     <div class="mb-3">
@@ -115,12 +115,16 @@
         if (!hasSpecial) requirements.push('special (@,#,!,$,%)');
         
         if (requirements.length === 0) {
-            strengthIndicator.className = 'alert alert-success small py-2 mb-3';
-            strengthText.innerHTML = '<i class="mdi mdi-check-circle"></i> Password meets all requirements';
+            strengthIndicator.className = 'small mb-2 px-2 py-1 text-success';
+            strengthIndicator.style.backgroundColor = '#d4edda';
+            strengthIndicator.style.border = '1px solid #c3e6cb';
+            strengthText.innerHTML = '<i class="mdi mdi-check-circle"></i> Strong password';
             passwordField.setCustomValidity('');
         } else {
-            strengthIndicator.className = 'alert alert-warning small py-2 mb-3';
-            strengthText.innerHTML = '<i class="mdi mdi-alert"></i> Missing: ' + requirements.join(', ');
+            strengthIndicator.className = 'small mb-2 px-2 py-1 text-warning';
+            strengthIndicator.style.backgroundColor = '#fff3cd';
+            strengthIndicator.style.border = '1px solid #ffeaa7';
+            strengthText.innerHTML = '<i class="mdi mdi-alert"></i> Need: ' + requirements.join(', ');
             passwordField.setCustomValidity('Password does not meet requirements');
         }
         
@@ -138,11 +142,13 @@
         
         if (passwordField.value === confirmPasswordField.value) {
             matchIndicator.className = 'small text-success mt-1';
-            matchIndicator.textContent = '✓ Passwords match';
+            matchIndicator.style.fontSize = '0.8rem';
+            matchIndicator.innerHTML = '<i class="mdi mdi-check-circle"></i> Match';
             confirmPasswordField.setCustomValidity('');
         } else {
             matchIndicator.className = 'small text-danger mt-1';
-            matchIndicator.textContent = '✗ Passwords do not match';
+            matchIndicator.style.fontSize = '0.8rem';
+            matchIndicator.innerHTML = '<i class="mdi mdi-close-circle"></i> No match';
             confirmPasswordField.setCustomValidity('Passwords must match');
         }
     }
@@ -293,8 +299,9 @@
 <style>
 /* Custom checkbox styling to match site theme */
 .custom-checkbox .form-check-input {
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
+    margin-top: 0.15rem;
     border: 2px solid #667eea;
     border-radius: 4px;
     cursor: pointer;
@@ -303,11 +310,14 @@
     -webkit-appearance: none;
     -moz-appearance: none;
     background-color: white;
-    transition: all 0.3s ease;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+    display: inline-block;
+    vertical-align: middle;
 }
 
 .custom-checkbox .form-check-input:checked {
-    background-color: #667eea;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     border-color: #667eea;
 }
 
@@ -318,13 +328,14 @@
     left: 50%;
     transform: translate(-50%, -50%);
     color: white;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: bold;
+    line-height: 1;
 }
 
 .custom-checkbox .form-check-input:hover {
     border-color: #764ba2;
-    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    box-shadow: 0 0 0 0.15rem rgba(102, 126, 234, 0.2);
 }
 
 .custom-checkbox .form-check-input:focus {
@@ -337,6 +348,10 @@
     cursor: pointer;
     user-select: none;
     padding-left: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.95rem;
 }
 
 #open-terms-modal {

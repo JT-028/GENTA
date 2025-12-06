@@ -476,6 +476,7 @@ class UsersController extends AppController
         $token = $this->request->getQuery('token');
         
         \Cake\Log\Log::write('debug', 'Reset password accessed with token: ' . ($token ?: 'NONE'));
+        \Cake\Log\Log::write('debug', 'Token length: ' . strlen($token ?: ''));
         
         if (!$token) {
             \Cake\Log\Log::write('warning', 'Reset password accessed without token');
@@ -484,12 +485,33 @@ class UsersController extends AppController
         }
         
         $usersTable = $this->loadModel('Users');
+        
+        // Debug: Check if column exists
+        try {
+            $schema = $usersTable->getSchema();
+            $hasTokenColumn = $schema->hasColumn('password_reset_token');
+            \Cake\Log\Log::write('debug', 'password_reset_token column exists: ' . ($hasTokenColumn ? 'YES' : 'NO'));
+        } catch (\Exception $e) {
+            \Cake\Log\Log::write('error', 'Error checking schema: ' . $e->getMessage());
+        }
+        
         $user = $usersTable->find()
             ->where(['password_reset_token' => $token])
             ->first();
         
         if (!$user) {
-            \Cake\Log\Log::write('warning', 'Reset password token not found: ' . $token);
+            \Cake\Log\Log::write('warning', 'Reset password token not found in database: ' . $token);
+            // Check if ANY user has this token (case sensitivity issue?)
+            $allUsers = $usersTable->find()
+                ->where(['password_reset_token IS NOT' => null])
+                ->select(['id', 'email', 'password_reset_token'])
+                ->limit(5)
+                ->toArray();
+            \Cake\Log\Log::write('debug', 'Users with reset tokens: ' . count($allUsers));
+            foreach ($allUsers as $u) {
+                \Cake\Log\Log::write('debug', 'User ' . $u->email . ' has token: ' . substr($u->password_reset_token, 0, 20) . '...');
+            }
+            
             $this->Flash->error(__('Invalid or expired password reset link. Please request a new one.'));
             return $this->redirect(['action' => 'forgotPassword']);
         }
@@ -498,7 +520,11 @@ class UsersController extends AppController
         
         // Check if token is expired
         $expiresAt = $user->password_reset_expires;
+        \Cake\Log\Log::write('debug', 'Token expires at: ' . ($expiresAt ? $expiresAt->format('Y-m-d H:i:s') : 'NULL'));
+        \Cake\Log\Log::write('debug', 'Current time: ' . (new \DateTime())->format('Y-m-d H:i:s'));
+        
         if (!$expiresAt || $expiresAt < new \DateTime()) {
+            \Cake\Log\Log::write('warning', 'Token expired for user: ' . $user->email);
             $this->Flash->error(__('Password reset link has expired. Please request a new one.'));
             return $this->redirect(['action' => 'forgotPassword']);
         }
