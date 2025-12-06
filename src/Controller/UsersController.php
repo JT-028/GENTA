@@ -540,46 +540,62 @@ class UsersController extends AppController
             $token = trim($token);
         }
         
-        \Cake\Log\Log::write('debug', 'Reset password accessed');
-        \Cake\Log\Log::write('debug', 'Token: ' . ($token ?: 'NONE'));
+        \Cake\Log\Log::write('debug', '========== RESET PASSWORD REQUEST ==========');
+        \Cake\Log\Log::write('debug', 'Token received: ' . ($token ?: 'NONE'));
         \Cake\Log\Log::write('debug', 'Token length: ' . strlen($token ?: ''));
-        \Cake\Log\Log::write('debug', 'Query string: ' . $this->request->getUri()->getQuery());
-        \Cake\Log\Log::write('debug', 'Full URL: ' . $this->request->getUri());
         
         if (!$token) {
-            \Cake\Log\Log::write('warning', 'Reset password accessed without token');
+            \Cake\Log\Log::write('warning', 'No token provided in request');
             $this->Flash->error(__('Invalid password reset link. Please request a new one.'));
             return $this->redirect(['action' => 'forgotPassword']);
         }
         
         $usersTable = $this->loadModel('Users');
         
-        // Debug: Check if column exists
+        // Search for user with this token using direct SQL to avoid any ORM issues
+        $connection = $usersTable->getConnection();
         try {
-            $schema = $usersTable->getSchema();
-            $hasTokenColumn = $schema->hasColumn('password_reset_token');
-            \Cake\Log\Log::write('debug', 'password_reset_token column exists: ' . ($hasTokenColumn ? 'YES' : 'NO'));
-        } catch (\Exception $e) {
-            \Cake\Log\Log::write('error', 'Error checking schema: ' . $e->getMessage());
-        }
-        
-        $user = $usersTable->find()
-            ->where(['password_reset_token' => $token])
-            ->first();
-        
-        if (!$user) {
-            \Cake\Log\Log::write('warning', 'Reset password token not found in database: ' . $token);
-            // Check if ANY user has this token (case sensitivity issue?)
-            $allUsers = $usersTable->find()
-                ->where(['password_reset_token IS NOT' => null])
-                ->select(['id', 'email', 'password_reset_token'])
-                ->limit(5)
-                ->toArray();
-            \Cake\Log\Log::write('debug', 'Users with reset tokens: ' . count($allUsers));
-            foreach ($allUsers as $u) {
-                \Cake\Log\Log::write('debug', 'User ' . $u->email . ' has token: ' . substr($u->password_reset_token, 0, 20) . '...');
+            $result = $connection->execute(
+                'SELECT id, email, password_reset_token, password_reset_expires FROM users WHERE password_reset_token = ? LIMIT 1',
+                [$token],
+                ['string']
+            )->fetch('assoc');
+            
+            \Cake\Log\Log::write('debug', 'Direct SQL query executed for token');
+            
+            if (!$result) {
+                \Cake\Log\Log::write('warning', 'Token NOT found via direct SQL: ' . substr($token, 0, 20) . '...');
+                
+                // Check recent tokens for debugging
+                $recentTokens = $connection->execute(
+                    'SELECT email, LEFT(password_reset_token, 20) as token_prefix, password_reset_expires 
+                     FROM users 
+                     WHERE password_reset_token IS NOT NULL 
+                     ORDER BY password_reset_expires DESC 
+                     LIMIT 3'
+                )->fetchAll('assoc');
+                
+                \Cake\Log\Log::write('debug', 'Recent tokens in DB: ' . count($recentTokens));
+                foreach ($recentTokens as $row) {
+                    \Cake\Log\Log::write('debug', '  - ' . $row['email'] . ': ' . $row['token_prefix'] . '... expires ' . $row['password_reset_expires']);
+                }
+                
+                $this->Flash->error(__('Invalid or expired password reset link. Please request a new one.'));
+                return $this->redirect(['action' => 'forgotPassword']);
             }
             
+            \Cake\Log\Log::write('debug', 'Token found! User: ' . $result['email']);
+            
+            // Load the full user entity
+            $user = $usersTable->get($result['id']);
+            
+        } catch (\Exception $e) {
+            \Cake\Log\Log::write('error', 'Database error during token lookup: ' . $e->getMessage());
+            $this->Flash->error(__('An error occurred. Please try again.'));
+            return $this->redirect(['action' => 'forgotPassword']);
+        }
+        
+        if (!$user) {
             $this->Flash->error(__('Invalid or expired password reset link. Please request a new one.'));
             return $this->redirect(['action' => 'forgotPassword']);
         }
