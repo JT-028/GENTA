@@ -10,7 +10,8 @@
 <div class="auth-subtitle">Enter your new password below.</div>
 
 <!-- RESET PASSWORD FORM -->
-<?= $this->Form->create(null, ['url' => ['controller' => 'Users', 'action' => 'resetPassword', 'prefix' => false, '?' => ['token' => $token]]]) ?>
+<?= $this->Form->create(null, ['url' => ['controller' => 'Users', 'action' => 'resetPassword', 'prefix' => false]]) ?>
+    <?= $this->Form->hidden('token', ['value' => $token]) ?>
     <div class="form-group position-relative">
         <?= $this->Form->password('password', [
             'class' => 'form-control form-control-lg', 

@@ -529,10 +529,10 @@ class UsersController extends AppController
     {
         $this->request->allowMethod(['get', 'post']);
         
-        // Get token from query string - try both methods
-        $token = $this->request->getQuery('token');
+        // Get token - check POST data first (from hidden field), then query string
+        $token = $this->request->getData('token');
         if (!$token) {
-            $token = $this->request->getData('token');
+            $token = $this->request->getQuery('token');
         }
         
         // Clean the token (remove any whitespace or special characters)
