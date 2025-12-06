@@ -468,13 +468,19 @@ class UsersController extends AppController
     /**
      * Reset password with token
      */
-    public function resetPassword(?string $token = null)
+    public function resetPassword()
     {
         $this->request->allowMethod(['get', 'post']);
         
+        // Get token from query string
+        $token = $this->request->getQuery('token');
+        
+        \Cake\Log\Log::write('debug', 'Reset password accessed with token: ' . ($token ?: 'NONE'));
+        
         if (!$token) {
-            $this->Flash->error(__('Invalid password reset link.'));
-            return $this->redirect(['action' => 'login']);
+            \Cake\Log\Log::write('warning', 'Reset password accessed without token');
+            $this->Flash->error(__('Invalid password reset link. Please request a new one.'));
+            return $this->redirect(['action' => 'forgotPassword']);
         }
         
         $usersTable = $this->loadModel('Users');
@@ -483,9 +489,12 @@ class UsersController extends AppController
             ->first();
         
         if (!$user) {
-            $this->Flash->error(__('Invalid or expired password reset link.'));
-            return $this->redirect(['action' => 'login']);
+            \Cake\Log\Log::write('warning', 'Reset password token not found: ' . $token);
+            $this->Flash->error(__('Invalid or expired password reset link. Please request a new one.'));
+            return $this->redirect(['action' => 'forgotPassword']);
         }
+        
+        \Cake\Log\Log::write('debug', 'User found for reset token: ' . $user->email);
         
         // Check if token is expired
         $expiresAt = $user->password_reset_expires;
@@ -496,9 +505,9 @@ class UsersController extends AppController
         
         if ($this->request->is('post')) {
             $password = $this->request->getData('password');
-            $confirmPassword = $this->request->getData('confirm_password');
+            $confirmPassword = $this->request->getData('password_confirm');
             
-            if ($password === $confirmPassword) {
+            if ($password && $confirmPassword && $password === $confirmPassword) {
                 $user->password = $password;
                 $user->password_reset_token = null;
                 $user->password_reset_expires = null;
