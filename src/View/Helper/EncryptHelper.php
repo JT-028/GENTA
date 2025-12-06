@@ -34,9 +34,6 @@ class EncryptHelper extends Helper
         // Encode only the binary part to hex
         $result = $hmac . bin2hex($ciphertext);  // Total: 48 + 96 = 144 chars
         
-        // Debug logging
-        error_log("EncryptHelper: ID=$hex, encrypted_len=" . strlen($encrypted) . ", result_len=" . strlen($result));
-        
         return $result;
     }
 }
