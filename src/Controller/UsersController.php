@@ -78,64 +78,9 @@ class UsersController extends AppController
             return $this->redirect(['controller' => 'Users', 'action' => 'login']);
         }
     }
-    /**
-     * AJAX endpoint to check login status (account exists, remaining attempts)
-     */
-    public function checkLoginStatus()
-    {
-        $this->request->allowMethod(['post']);
-        $this->autoRender = false;
-        $this->response = $this->response->withType('application/json');
-        
-        $email = $this->request->getData('email');
-        $clientIp = $this->Security->getClientIp();
-        
-        $response = [
-            'accountExists' => false,
-            'accountActive' => false,
-            'remainingAttempts' => 5,
-            'showCaptcha' => false,
-            'captchaChallenge' => null,
-            'locked' => false,
-            'lockoutMinutes' => 0
-        ];
-        
-        if ($email) {
-            // Check if account exists
-            $usersTable = $this->loadModel('Users');
-            $user = $usersTable->find()->where(['email' => strtolower($email)])->first();
-            
-            if ($user) {
-                $response['accountExists'] = true;
-                $response['accountActive'] = (int)($user->status ?? 0) === 1;
-                
-                // Only check rate limits if account exists
-                $rateLimitCheck = $this->Security->checkRateLimit($email, $clientIp);
-                $response['remainingAttempts'] = $rateLimitCheck['remainingAttempts'];
-                $response['locked'] = !$rateLimitCheck['allowed'];
-                
-                if (!$rateLimitCheck['allowed']) {
-                    $response['lockoutMinutes'] = ceil(($rateLimitCheck['lockoutTime'] - time()) / 60);
-                }
-                
-                // Show CAPTCHA if remaining attempts <= 3
-                if ($rateLimitCheck['remainingAttempts'] <= 3 && $rateLimitCheck['remainingAttempts'] > 0) {
-                    $response['showCaptcha'] = true;
-                    $challenge = $this->Captcha->generateChallenge();
-                    $response['captchaChallenge'] = $challenge['question'];
-                }
-            }
-        }
-        
-        return $this->response->withStringBody(json_encode($response));
-    }
-
     public function login()
     {
         $this->request->allowMethod(['get', 'post']);
-        
-        // Check if this is an AJAX request
-        $isAjax = $this->request->is('ajax') || $this->request->getHeaderLine('X-Requested-With') === 'XMLHttpRequest';
 
         // Get client IP for rate limiting
         $clientIp = $this->Security->getClientIp();
@@ -144,38 +89,10 @@ class UsersController extends AppController
         // Check rate limiting before processing
         if ($this->request->is('post')) {
             $email = $this->request->getData('email');
-            
-            // First, check if account exists
-            $usersTable = $this->loadModel('Users');
-            $user = $usersTable->find()->where(['email' => strtolower($email)])->first();
-            
-            if (!$user) {
-                $this->Flash->error(__('This email is not registered. Please create an account first.'));
-                return;
-            }
-            
-            // Check if account is active
-            if ((int)($user->status ?? 0) !== 1) {
-                $this->Flash->error(__('Your account is not active. It may be pending admin approval.'));
-                return;
-            }
             $rateLimitCheck = $this->Security->checkRateLimit($email, $clientIp);
             
             if (!$rateLimitCheck['allowed']) {
                 $minutes = ceil(($rateLimitCheck['lockoutTime'] - time()) / 60);
-                
-                if ($isAjax) {
-                    return $this->response
-                        ->withType('application/json')
-                        ->withStringBody(json_encode([
-                            'success' => false,
-                            'message' => __('Too many failed login attempts. Please try again in {0} minutes.', $minutes),
-                            'rateLimited' => true,
-                            'lockoutMinutes' => $minutes,
-                            'remainingAttempts' => 0
-                        ]));
-                }
-                
                 $this->Flash->error(__('Too many failed login attempts. Please try again in {0} minutes.', $minutes));
                 $this->set('rateLimited', true);
                 $this->set('lockoutMinutes', $minutes);
@@ -187,26 +104,12 @@ class UsersController extends AppController
             if ($captchaRequired && $this->request->getData('captcha') !== null) {
                 $captchaAnswer = $this->request->getData('captcha');
                 if (!$this->Captcha->verify($captchaAnswer)) {
+                    $this->Flash->error(__('Invalid CAPTCHA answer. Please try again.'));
                     $this->Security->recordFailedAttempt($email, $clientIp);
                     $challenge = $this->Captcha->generateChallenge();
-                    $newRemainingAttempts = $rateLimitCheck['remainingAttempts'] - 1;
-                    
-                    if ($isAjax) {
-                        return $this->response
-                            ->withType('application/json')
-                            ->withStringBody(json_encode([
-                                'success' => false,
-                                'message' => __('Invalid CAPTCHA answer. Please try again.'),
-                                'showCaptcha' => true,
-                                'captchaChallenge' => $challenge['question'],
-                                'remainingAttempts' => $newRemainingAttempts
-                            ]));
-                    }
-                    
-                    $this->Flash->error(__('Invalid CAPTCHA answer. Please try again.'));
                     $this->set('captchaChallenge', $challenge['question']);
                     $this->set('showCaptcha', true);
-                    $this->set('remainingAttempts', $newRemainingAttempts);
+                    $this->set('remainingAttempts', $rateLimitCheck['remainingAttempts'] - 1);
                     return;
                 }
             }
@@ -249,17 +152,6 @@ class UsersController extends AppController
                         // establishing a session for a pending account.
                         if ((int)($user->status ?? 0) !== 1) {
                             \Cake\Log\Log::write('warning', 'Blocked login attempt for ' . $email . ' due to status=' . ($user->status ?? '<null>'));
-                            
-                            if ($isAjax) {
-                                return $this->response
-                                    ->withType('application/json')
-                                    ->withStringBody(json_encode([
-                                        'success' => false,
-                                        'message' => __('Your account is not active. It may be pending admin approval.'),
-                                        'accountInactive' => true
-                                    ]));
-                            }
-                            
                             $this->Flash->error(__('Your account is not active. It may be pending admin approval.'));
                             return;
                         }
@@ -316,18 +208,6 @@ class UsersController extends AppController
                     if ((int)($userEntity->status ?? 0) !== 1) {
                         // Deny login for pending/suspended accounts
                         \Cake\Log\Log::write('warning', 'Login blocked for user ' . $userId . ' due to status=' . ($userEntity->status ?? '<null>'));
-                        
-                        if ($isAjax) {
-                            try { $this->Authentication->logout(); } catch (\Throwable $_) { }
-                            return $this->response
-                                ->withType('application/json')
-                                ->withStringBody(json_encode([
-                                    'success' => false,
-                                    'message' => __('Your account is not active. It may be pending admin approval.'),
-                                    'accountInactive' => true
-                                ]));
-                        }
-                        
                         $this->Flash->error(__('Your account is not active. It may be pending admin approval.'));
                         // Ensure no identity is kept
                         try { $this->Authentication->logout(); } catch (\Throwable $_) { }
@@ -351,23 +231,13 @@ class UsersController extends AppController
                 'prefix' => 'Teacher'
             ]);
 
-            if ($isAjax) {
-                $redirectUrl = is_array($redirect) ? $this->getRequest()->getAttribute('webroot') . 'teacher/dashboard' : $redirect;
-                return $this->response
-                    ->withType('application/json')
-                    ->withStringBody(json_encode([
-                        'success' => true,
-                        'redirect' => $redirectUrl
-                    ]));
-            }
-
             return $this->redirect($redirect);
         }
 
         // IF WRONG CREDENTIALS
         if ($this->request->is('post') && !$result->isValid())
         {
-            // Record failed attempt (only if account exists - already validated above)
+            // Record failed attempt
             $this->Security->recordFailedAttempt($email, $clientIp);
             
             // Check remaining attempts
@@ -377,6 +247,7 @@ class UsersController extends AppController
             if ($remainingAttempts <= 3 && $remainingAttempts > 0) {
                 $this->Flash->error(__('Invalid email or password. {0} attempts remaining.', $remainingAttempts));
                 // Generate CAPTCHA for next attempt
+                $challenge = $this->Captcha->generateChallenge();
                 $this->set('captchaChallenge', $challenge['question']);
                 $this->set('showCaptcha', true);
                 $this->set('remainingAttempts', $remainingAttempts);
