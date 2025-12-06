@@ -28,7 +28,7 @@
     </div>
     <div class="form-group">
         <?= $this->Form->email('email', ['class' => 'form-control form-control-lg ' . ($fieldErrors['email']['class'] ?? ''), 'id' => 'email', 'placeholder' => 'Email Address', 'required' => 'required', 'title' => 'Enter your email address']) ?>
-        <small class="form-text text-muted mt-1" style="font-size: 0.8rem;">
+        <small id="email-instruction" class="form-text text-muted mt-1" style="font-size: 0.8rem;">
             <i class="mdi mdi-information-outline"></i> Use a valid email format (e.g., user@example.com)
         </small>
         <div class="invalid-feedback"><?= $fieldErrors['email']['message'] ?? '' ?></div>
@@ -42,13 +42,13 @@
             </div>
         </div>
         <div class="col-md-6">
-            <div class="form-group position-relative">
+            <div class="form-group">
                 <?= $this->Form->password('confirm_password', ['class' => 'form-control form-control-lg', 'id' => 'confirm_password', 'placeholder' => 'Confirm Password', 'required' => 'required']) ?>
-                <div id="password-match-indicator" class="position-absolute small" style="right: 12px; top: 50%; transform: translateY(-50%); font-size: 0.8rem; pointer-events: none;" aria-live="polite"></div>
+                <small id="password-match-indicator" class="form-text" style="font-size: 0.75rem; min-height: 20px; display: block; margin-top: 0.25rem;" aria-live="polite"></small>
             </div>
         </div>
     </div>
-    <div class="small mb-2 px-2 py-1 text-muted" style="border-radius: 4px; font-size: 0.8rem; background-color: #f8f9fa; border: 1px solid #e9ecef;">
+    <div id="password-instruction" class="small mb-2 px-2 py-1 text-muted" style="border-radius: 4px; font-size: 0.8rem; background-color: #f8f9fa; border: 1px solid #e9ecef;">
         <i class="mdi mdi-information-outline"></i> Password must have: 8-32 characters, uppercase, lowercase, number, special character (@,#,!,$,%)
     </div>
     <div id="password-strength-indicator" class="small mb-2 px-2 py-1" style="display:none; border-radius: 4px; font-size: 0.8rem;" role="alert">
@@ -102,9 +102,12 @@
     function validatePasswordStrength(password) {
         if (!password) {
             strengthIndicator.style.display = 'none';
+            if (passwordInstruction) passwordInstruction.style.display = 'block';
             return;
         }
         
+        // Hide initial instruction, show dynamic indicator
+        if (passwordInstruction) passwordInstruction.style.display = 'none';
         strengthIndicator.style.display = 'block';
         
         const isValidLength = password.length >= 8 && password.length <= 32;
@@ -143,23 +146,35 @@
     function checkPasswordMatch() {
         if (!confirmPasswordField.value) {
             matchIndicator.innerHTML = '';
-            matchIndicator.className = 'position-absolute small';
             return;
         }
         
         if (passwordField.value === confirmPasswordField.value) {
-            matchIndicator.className = 'position-absolute small text-success';
-            matchIndicator.style.fontSize = '0.8rem';
-            matchIndicator.innerHTML = '<i class="mdi mdi-check-circle"></i> Match';
+            matchIndicator.className = 'form-text text-success';
+            matchIndicator.innerHTML = '<i class="mdi mdi-check-circle"></i> Passwords match';
             confirmPasswordField.setCustomValidity('');
         } else {
-            matchIndicator.className = 'position-absolute small text-danger';
-            matchIndicator.style.fontSize = '0.8rem';
-            matchIndicator.innerHTML = '<i class="mdi mdi-close-circle"></i> No match';
+            matchIndicator.className = 'form-text text-danger';
+            matchIndicator.innerHTML = '<i class="mdi mdi-close-circle"></i> Passwords do not match';
             confirmPasswordField.setCustomValidity('Passwords must match');
         }
     }
 
+    // Email field - hide instruction after typing
+    const emailField = document.getElementById('email');
+    const emailInstruction = document.getElementById('email-instruction');
+    const passwordInstruction = document.getElementById('password-instruction');
+    
+    if (emailField && emailInstruction) {
+        emailField.addEventListener('input', function() {
+            if (this.value.length > 0) {
+                emailInstruction.style.display = 'none';
+            } else {
+                emailInstruction.style.display = 'block';
+            }
+        });
+    }
+    
     // Validate name fields (letters only)
     const firstNameField = document.getElementById('first_name');
     const lastNameField = document.getElementById('last_name');
@@ -188,7 +203,29 @@
     if (openTermsModal) {
         openTermsModal.addEventListener('click', function(e) {
             e.preventDefault();
+            e.stopPropagation();
             showTermsModal();
+        });
+    }
+    
+    // Prevent checkbox from being checked directly - force modal interaction
+    if (termsCheckbox) {
+        termsCheckbox.addEventListener('click', function(e) {
+            // Store the state before the click (since click already toggles it)
+            const wasChecked = this.checked;
+            
+            // Always prevent default behavior
+            e.preventDefault();
+            
+            // If it was unchecked before click, show modal (don't check it yet)
+            if (!wasChecked) {
+                this.checked = false; // Keep it unchecked
+                showTermsModal();
+            }
+            // If it was already checked, allow unchecking
+            else {
+                this.checked = false;
+            }
         });
     }
     
@@ -310,10 +347,16 @@
 
 <style>
 /* Custom checkbox styling to match site theme */
+.custom-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
 .custom-checkbox .form-check-input {
     width: 20px;
     height: 20px;
-    margin-top: 0.15rem;
+    margin: 0;
     border: 2px solid #667eea;
     border-radius: 4px;
     cursor: pointer;
@@ -324,8 +367,6 @@
     background-color: white;
     transition: all 0.2s ease;
     flex-shrink: 0;
-    display: inline-block;
-    vertical-align: middle;
 }
 
 .custom-checkbox .form-check-input:checked {
@@ -359,11 +400,10 @@
 .custom-checkbox .form-check-label {
     cursor: pointer;
     user-select: none;
-    padding-left: 8px;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
+    margin: 0;
+    padding: 0;
     font-size: 0.95rem;
+    line-height: 1.4;
 }
 
 #open-terms-modal {
