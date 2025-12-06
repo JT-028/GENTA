@@ -28,6 +28,9 @@
     </div>
     <div class="form-group">
         <?= $this->Form->email('email', ['class' => 'form-control form-control-lg ' . ($fieldErrors['email']['class'] ?? ''), 'id' => 'email', 'placeholder' => 'Email Address', 'required' => 'required', 'title' => 'Enter your email address']) ?>
+        <small class="form-text text-muted mt-1" style="font-size: 0.8rem;">
+            <i class="mdi mdi-information-outline"></i> Use a valid email format (e.g., user@example.com)
+        </small>
         <div class="invalid-feedback"><?= $fieldErrors['email']['message'] ?? '' ?></div>
     </div>
     <div class="row">
@@ -39,19 +42,22 @@
             </div>
         </div>
         <div class="col-md-6">
-            <div class="form-group">
+            <div class="form-group position-relative">
                 <?= $this->Form->password('confirm_password', ['class' => 'form-control form-control-lg', 'id' => 'confirm_password', 'placeholder' => 'Confirm Password', 'required' => 'required']) ?>
-                <div id="password-match-indicator" class="small text-muted mt-1" aria-live="polite"></div>
+                <div id="password-match-indicator" class="position-absolute small" style="right: 12px; top: 50%; transform: translateY(-50%); font-size: 0.8rem; pointer-events: none;" aria-live="polite"></div>
             </div>
         </div>
+    </div>
+    <div class="small mb-2 px-2 py-1 text-muted" style="border-radius: 4px; font-size: 0.8rem; background-color: #f8f9fa; border: 1px solid #e9ecef;">
+        <i class="mdi mdi-information-outline"></i> Password must have: 8-32 characters, uppercase, lowercase, number, special character (@,#,!,$,%)
     </div>
     <div id="password-strength-indicator" class="small mb-2 px-2 py-1" style="display:none; border-radius: 4px; font-size: 0.8rem;" role="alert">
         <i class="mdi mdi-information-outline"></i> <span id="password-strength-text">Password requirements</span>
     </div>
     <div class="mb-3">
         <div class="form-check custom-checkbox">
-            <label class="form-check-label text-muted">
-                <?= $this->Form->checkbox('terms_and_conditions', ['class' => 'form-check-input', 'required' => 'required', 'id' => 'terms_checkbox']) ?> 
+            <?= $this->Form->checkbox('terms_and_conditions', ['class' => 'form-check-input', 'required' => 'required', 'id' => 'terms_checkbox']) ?>
+            <label class="form-check-label text-muted" for="terms_checkbox">
                 I agree to the <a href="#" id="open-terms-modal" class="text-primary">Terms & Conditions</a>
             </label>
         </div>
@@ -136,17 +142,18 @@
 
     function checkPasswordMatch() {
         if (!confirmPasswordField.value) {
-            matchIndicator.textContent = '';
+            matchIndicator.innerHTML = '';
+            matchIndicator.className = 'position-absolute small';
             return;
         }
         
         if (passwordField.value === confirmPasswordField.value) {
-            matchIndicator.className = 'small text-success mt-1';
+            matchIndicator.className = 'position-absolute small text-success';
             matchIndicator.style.fontSize = '0.8rem';
             matchIndicator.innerHTML = '<i class="mdi mdi-check-circle"></i> Match';
             confirmPasswordField.setCustomValidity('');
         } else {
-            matchIndicator.className = 'small text-danger mt-1';
+            matchIndicator.className = 'position-absolute small text-danger';
             matchIndicator.style.fontSize = '0.8rem';
             matchIndicator.innerHTML = '<i class="mdi mdi-close-circle"></i> No match';
             confirmPasswordField.setCustomValidity('Passwords must match');
@@ -274,7 +281,7 @@
         
         const modal = document.getElementById('termsModal');
         const closeBtn = modal.querySelector('.close');
-        const dismissBtn = modal.querySelector('[data-dismiss="modal"]');
+        const dismissBtns = modal.querySelectorAll('[data-dismiss="modal"]');
         const acceptBtn = document.getElementById('accept-terms-btn');
         
         function closeModal() {
@@ -283,13 +290,18 @@
         }
         
         closeBtn.addEventListener('click', closeModal);
-        dismissBtn.addEventListener('click', closeModal);
+        // Add event listener to all dismiss buttons (Close and Cancel)
+        dismissBtns.forEach(btn => {
+            btn.addEventListener('click', closeModal);
+        });
         modal.addEventListener('click', function(e) {
             if (e.target === modal) closeModal();
         });
         
         acceptBtn.addEventListener('click', function() {
             termsCheckbox.checked = true;
+            // Trigger change event to update UI
+            termsCheckbox.dispatchEvent(new Event('change', { bubbles: true }));
             closeModal();
         });
     }
