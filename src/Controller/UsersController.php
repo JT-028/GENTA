@@ -21,7 +21,7 @@ class UsersController extends AppController
     public function initialize(): void
     {
         parent::initialize();
-        $this->loadComponent('Security');
+        // Security component is now loaded in AppController
         $this->loadComponent('Captcha');
     }
     public function logout()

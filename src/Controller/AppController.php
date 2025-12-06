@@ -53,16 +53,45 @@ class AppController extends Controller
 
         // AUTHENTICATION COMPONENT
         $this->loadComponent('Authentication.Authentication');
+        
+        // SECURITY COMPONENT for session timeout
+        $this->loadComponent('Security');
     }
 
     public function beforeFilter(EventInterface $event)
     {
         parent::beforeFilter($event);
 
-    // UNAUTHENTICATED PAGES
-    // Allow the approvalCallback endpoint to be called by the Flask admin (server-to-server)
-    // without an authenticated session. Keep login/register public as well.
-    $this->Authentication->addUnauthenticatedActions(['login', 'register', 'approvalCallback']);
+        // UNAUTHENTICATED PAGES
+        // Allow the approvalCallback endpoint to be called by the Flask admin (server-to-server)
+        // without an authenticated session. Keep login/register public as well.
+        $this->Authentication->addUnauthenticatedActions(['login', 'register', 'approvalCallback']);
+
+        // Check session timeout for authenticated users
+        $identity = $this->Authentication->getIdentity();
+        if ($identity) {
+            $sessionCheck = $this->Security->checkSession();
+            
+            if (!$sessionCheck['valid']) {
+                // Session expired - log out user
+                $this->Authentication->logout();
+                
+                $message = 'Your session has expired due to inactivity. Please log in again.';
+                if ($sessionCheck['reason'] === 'absolute_timeout') {
+                    $message = 'Your session has expired. Please log in again.';
+                }
+                
+                $this->Flash->warning(__($message));
+                
+                // Redirect to login with redirect parameter
+                $currentUrl = $this->request->getRequestTarget();
+                return $this->redirect([
+                    'controller' => 'Users',
+                    'action' => 'login',
+                    '?' => ['redirect' => $currentUrl]
+                ]);
+            }
+        }
 
         // SET LAYOUT FOR ALL PAGES ON GUEST
         $this->viewBuilder()->setLayout('guest-layout');
