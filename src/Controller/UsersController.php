@@ -382,15 +382,17 @@ class UsersController extends AppController
                     // Generate password reset token
                     $resetToken = bin2hex(random_bytes(32));
                     
-                    // Calculate expiration using timestamp (1 hour = 3600 seconds from now)
-                    $currentTimestamp = time();
-                    $expiresTimestamp = $currentTimestamp + 3600;
-                    $expiresFormatted = gmdate('Y-m-d H:i:s', $expiresTimestamp); // Use gmdate for UTC
+                    // Use the actual current time (not UTC) and add 1 hour
+                    // This ensures the expiration is 1 hour from the user's actual time
+                    $currentTime = new \DateTime('now');
+                    $expiresAt = clone $currentTime;
+                    $expiresAt->modify('+1 hour');
+                    $expiresFormatted = $expiresAt->format('Y-m-d H:i:s');
                     
                     \Cake\Log\Log::write('debug', 'Generated reset token for ' . $user->email . ': ' . $resetToken);
-                    \Cake\Log\Log::write('debug', 'Current timestamp: ' . $currentTimestamp);
-                    \Cake\Log\Log::write('debug', 'Expires timestamp: ' . $expiresTimestamp);
-                    \Cake\Log\Log::write('debug', 'Expires formatted (UTC): ' . $expiresFormatted);
+                    \Cake\Log\Log::write('debug', 'Current time: ' . $currentTime->format('Y-m-d H:i:s'));
+                    \Cake\Log\Log::write('debug', 'Expires at: ' . $expiresFormatted);
+                    \Cake\Log\Log::write('debug', 'Timezone: ' . $currentTime->getTimezone()->getName());
                     \Cake\Log\Log::write('debug', 'User ID: ' . $user->id);
                     
                     // Use direct SQL update to bypass ORM issues
@@ -584,9 +586,9 @@ class UsersController extends AppController
         
         \Cake\Log\Log::write('debug', 'User found for reset token: ' . $user->email);
         
-        // Check if token is expired - compare using UTC timestamps
+        // Check if token is expired - use the same timezone as when we created it
         $expiresAt = $user->password_reset_expires;
-        $now = new \DateTime('now', new \DateTimeZone('UTC'));
+        $now = new \DateTime('now');
         
         \Cake\Log\Log::write('debug', 'Token expires at: ' . ($expiresAt ? $expiresAt->format('Y-m-d H:i:s') : 'NULL'));
         \Cake\Log\Log::write('debug', 'Current server time: ' . $now->format('Y-m-d H:i:s'));
