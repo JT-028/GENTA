@@ -581,12 +581,34 @@ class UsersController extends AppController
         
         // Check if token is expired
         $expiresAt = $user->password_reset_expires;
-        \Cake\Log\Log::write('debug', 'Token expires at: ' . ($expiresAt ? $expiresAt->format('Y-m-d H:i:s') : 'NULL'));
-        \Cake\Log\Log::write('debug', 'Current time: ' . (new \DateTime())->format('Y-m-d H:i:s'));
+        $now = new \DateTime('now', new \DateTimeZone('UTC'));
         
-        if (!$expiresAt || $expiresAt < new \DateTime()) {
-            \Cake\Log\Log::write('warning', 'Token expired for user: ' . $user->email);
-            $this->Flash->error(__('Password reset link has expired. Please request a new one.'));
+        \Cake\Log\Log::write('debug', 'Token expires at: ' . ($expiresAt ? $expiresAt->format('Y-m-d H:i:s') : 'NULL'));
+        \Cake\Log\Log::write('debug', 'Current time (UTC): ' . $now->format('Y-m-d H:i:s'));
+        \Cake\Log\Log::write('debug', 'Server timezone: ' . date_default_timezone_get());
+        
+        if ($expiresAt) {
+            // Convert to DateTime if it's a string
+            if (is_string($expiresAt)) {
+                $expiresAt = new \DateTime($expiresAt);
+            }
+            
+            // Get timestamps for comparison
+            $expiresTimestamp = $expiresAt->getTimestamp();
+            $nowTimestamp = time();
+            
+            \Cake\Log\Log::write('debug', 'Expires timestamp: ' . $expiresTimestamp);
+            \Cake\Log\Log::write('debug', 'Now timestamp: ' . $nowTimestamp);
+            \Cake\Log\Log::write('debug', 'Difference (seconds): ' . ($expiresTimestamp - $nowTimestamp));
+            
+            if ($expiresTimestamp < $nowTimestamp) {
+                \Cake\Log\Log::write('warning', 'Token expired for user: ' . $user->email);
+                $this->Flash->error(__('Password reset link has expired. Please request a new one.'));
+                return $this->redirect(['action' => 'forgotPassword']);
+            }
+        } else {
+            \Cake\Log\Log::write('error', 'Token expiry is NULL for user: ' . $user->email);
+            $this->Flash->error(__('Invalid password reset link. Please request a new one.'));
             return $this->redirect(['action' => 'forgotPassword']);
         }
         
