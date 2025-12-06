@@ -405,6 +405,11 @@ try { window.__mascotScriptPresent = true; if (typeof console !== 'undefined' &&
               if (isConfirmMismatch) {
                 try { showEyes('wrong_pass', true); } catch(e){}
               }
+              // Check for unregistered account message
+              if (/not registered|please register first/i.test(txt)) {
+                try { showEyes('wrong_pass', true); } catch(e){}
+                foundError = true;
+              }
               if (/invalid email|invalid password|invalid email or password/i.test(txt)) foundError = true;
             }
           } catch(e){}
