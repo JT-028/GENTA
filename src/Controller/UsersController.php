@@ -456,13 +456,12 @@ class UsersController extends AppController
                     }
                 } else {
                     \Cake\Log\Log::write('debug', 'Password reset requested for non-existent email: ' . $email);
-                    }
                 }
-                
-                // Always show success message (don't reveal if email exists)
-                $this->Flash->success(__('If the email address exists, a password reset link has been sent. Please check your inbox.'));
-                return $this->redirect(['action' => 'login']);
             }
+            
+            // Always show success message (don't reveal if email exists)
+            $this->Flash->success(__('If the email address exists, a password reset link has been sent. Please check your inbox.'));
+            return $this->redirect(['action' => 'login']);
         }
     }
     
