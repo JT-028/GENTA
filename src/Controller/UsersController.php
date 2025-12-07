@@ -265,6 +265,16 @@ class UsersController extends AppController
                             try { $this->Authentication->logout(); } catch (\Throwable $_) { }
                             // Do not redirect into the app
                             return;
+                        } else {
+                            // Lockout time has expired - reset failed attempts and lockout
+                            \Cake\Log\Log::write('info', 'Lockout expired for user ' . $userId . ' - resetting failed_login_attempts');
+                            $usersTable->updateAll(
+                                [
+                                    'failed_login_attempts' => 0,
+                                    'account_locked_until' => null
+                                ],
+                                ['id' => $userId]
+                            );
                         }
                     }
                     

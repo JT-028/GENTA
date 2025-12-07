@@ -6,8 +6,10 @@
 </div>
 
 <!-- WELCOME TEXT -->
-<h4 class="auth-title">Welcome back to GENTA</h4>
-<div class="auth-subtitle">Sign in to access your dashboard — manage quizzes, students, and results.</div>
+<div class="text-center mb-4">
+    <h2 class="auth-title mb-2" style="font-weight: 600; color: #2c3e50;">Welcome Back! 👋</h2>
+    <p class="auth-subtitle" style="color: #6c757d; font-size: 0.95rem;">Sign in to continue managing your quizzes, students, and results</p>
+</div>
 
 <!-- LOG IN FORM -->
 <?php

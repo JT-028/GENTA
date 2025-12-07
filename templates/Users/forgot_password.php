@@ -6,8 +6,10 @@
 </div>
 
 <!-- FORGOT PASSWORD TITLE -->
-<h4 class="auth-title"><i class="mdi mdi-key-variant"></i> Forgot Password?</h4>
-<div class="auth-subtitle">Enter your email address and we'll send you a link to reset your password.</div>
+<div class="text-center mb-4">
+    <h2 class="auth-title mb-2" style="font-weight: 600; color: #2c3e50;"><i class="mdi mdi-lock-question"></i> Forgot Password?</h2>
+    <p class="auth-subtitle" style="color: #6c757d; font-size: 0.95rem;">No worries! Enter your email and we'll send you a password reset link</p>
+</div>
 
 <!-- FORGOT PASSWORD FORM -->
 <?= $this->Form->create(null, ['url' => ['controller' => 'Users', 'action' => 'forgotPassword', 'prefix' => false]]) ?>

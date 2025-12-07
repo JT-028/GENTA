@@ -7,8 +7,10 @@
     <div id="genta-mascot-container" class="frame-circle" aria-hidden="true"></div>
 </div>
 
-<h4 class="auth-title">New Account</h4>
-<div class="auth-subtitle">To register a new account, kindly fill up the following.</div>
+<div class="text-center mb-4">
+    <h2 class="auth-title mb-2" style="font-weight: 600; color: #2c3e50;">Create Your Account ✨</h2>
+    <p class="auth-subtitle" style="color: #6c757d; font-size: 0.95rem;">Join GENTA and start creating engaging quizzes for your students</p>
+</div>
 
 <!-- REGISTER FORM -->
 <?= $this->Form->create(NULL, ['url' => ['controller' => 'Users', 'action' => 'register'], 'novalidate' => true]) ?>

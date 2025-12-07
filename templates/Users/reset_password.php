@@ -6,8 +6,10 @@
 </div>
 
 <!-- RESET PASSWORD TITLE -->
-<h4 class="auth-title"><i class="mdi mdi-lock-reset"></i> Reset Your Password</h4>
-<div class="auth-subtitle">Enter your new password below.</div>
+<div class="text-center mb-4">
+    <h2 class="auth-title mb-2" style="font-weight: 600; color: #2c3e50;"><i class="mdi mdi-shield-lock"></i> Create New Password</h2>
+    <p class="auth-subtitle" style="color: #6c757d; font-size: 0.95rem;">Choose a strong password to keep your account secure</p>
+</div>
 
 <!-- RESET PASSWORD FORM -->
 <?= $this->Form->create(null, ['url' => ['controller' => 'Users', 'action' => 'resetPassword', 'prefix' => false]]) ?>
