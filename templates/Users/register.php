@@ -105,12 +105,16 @@
             }
         });
         
+        let maskingEnabled = true; // Flag to temporarily disable masking during toggle
+        
         passwordField.addEventListener('input', function(e) {
             if (passwordVisible) {
                 // When password is visible, just validate directly
                 actualPassword = this.value;
                 validatePasswordStrength(actualPassword);
             } else {
+                if (!maskingEnabled) return; // Skip masking if temporarily disabled
+                
                 // When password is hidden, use character-by-character masking
                 const currentValue = this.value;
                 const cursorPos = this.selectionStart;
@@ -179,6 +183,13 @@
             const icon = this.querySelector('i');
             clearTimeout(lastCharTimer);
             clearTimeout(confirmLastCharTimer);
+            
+            // Temporarily disable masking during toggle to prevent interference
+            maskingEnabled = false;
+            if (typeof confirmMaskingEnabled !== 'undefined') {
+                confirmMaskingEnabled = false;
+            }
+            
             passwordVisible = !passwordVisible;
             confirmPasswordVisible = !confirmPasswordVisible;
             
@@ -199,6 +210,14 @@
                 icon.classList.remove('mdi-eye-outline');
                 icon.classList.add('mdi-eye-off-outline');
             }
+            
+            // Re-enable masking after a short delay
+            setTimeout(() => {
+                maskingEnabled = true;
+                if (typeof confirmMaskingEnabled !== 'undefined') {
+                    confirmMaskingEnabled = true;
+                }
+            }, 50);
         });
     }
 
@@ -316,11 +335,15 @@
             }
         });
         
+        let confirmMaskingEnabled = true; // Flag to temporarily disable masking during toggle
+        
         confirmPasswordField.addEventListener('input', function(e) {
             if (confirmPasswordVisible) {
                 // When password is visible, just validate directly
                 actualConfirmPassword = this.value;
             } else {
+                if (!confirmMaskingEnabled) return; // Skip masking if temporarily disabled
+                
                 // When password is hidden, use character-by-character masking
                 const currentValue = this.value;
                 const cursorPos = this.selectionStart;
