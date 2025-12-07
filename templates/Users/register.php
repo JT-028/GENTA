@@ -42,9 +42,8 @@
             </div>
         </div>
         <div class="col-md-6">
-            <div class="form-group position-relative">
+            <div class="form-group">
                 <?= $this->Form->text('confirm_password', ['class' => 'form-control form-control-lg', 'id' => 'confirm_password', 'placeholder' => 'Confirm Password', 'required' => 'required', 'autocomplete' => 'new-password']) ?>
-                <button type="button" id="toggle-confirm-password" class="password-toggle-icon" aria-label="Toggle confirm password visibility"><i class="mdi mdi-eye-off-outline" aria-hidden="true"></i></button>
                 <small id="password-match-indicator" class="form-text" style="font-size: 0.75rem; min-height: 20px; display: block; margin-top: 0.25rem;" aria-live="polite"></small>
             </div>
         </div>
@@ -173,22 +172,30 @@
         }
     }
     
-    // Password visibility toggle - switches between masking and full visibility
+    // Password visibility toggle - switches between masking and full visibility for BOTH fields
     const togglePasswordBtn = document.getElementById('toggle-password-visibility');
     if (togglePasswordBtn && passwordField) {
         togglePasswordBtn.addEventListener('click', function() {
             const icon = this.querySelector('i');
             clearTimeout(lastCharTimer);
+            clearTimeout(confirmLastCharTimer);
             passwordVisible = !passwordVisible;
+            confirmPasswordVisible = !confirmPasswordVisible;
             
             if (passwordVisible) {
-                // Show full actual password
+                // Show full actual passwords in both fields
                 passwordField.value = actualPassword;
+                if (confirmPasswordField) {
+                    confirmPasswordField.value = actualConfirmPassword;
+                }
                 icon.classList.remove('mdi-eye-off-outline');
                 icon.classList.add('mdi-eye-outline');
             } else {
-                // Show masked password
+                // Show masked passwords in both fields
                 passwordField.value = '•'.repeat(actualPassword.length);
+                if (confirmPasswordField) {
+                    confirmPasswordField.value = '•'.repeat(actualConfirmPassword.length);
+                }
                 icon.classList.remove('mdi-eye-outline');
                 icon.classList.add('mdi-eye-off-outline');
             }
@@ -362,25 +369,7 @@
         }
     }
     
-    // Confirm password visibility toggle
-    const toggleConfirmPasswordBtn = document.getElementById('toggle-confirm-password');
-    if (toggleConfirmPasswordBtn && confirmPasswordField) {
-        toggleConfirmPasswordBtn.addEventListener('click', function() {
-            const icon = this.querySelector('i');
-            clearTimeout(confirmLastCharTimer);
-            confirmPasswordVisible = !confirmPasswordVisible;
-            
-            if (confirmPasswordVisible) {
-                confirmPasswordField.value = actualConfirmPassword;
-                icon.classList.remove('mdi-eye-off-outline');
-                icon.classList.add('mdi-eye-outline');
-            } else {
-                confirmPasswordField.value = '•'.repeat(actualConfirmPassword.length);
-                icon.classList.remove('mdi-eye-outline');
-                icon.classList.add('mdi-eye-off-outline');
-            }
-        });
-    }
+
     
     // Terms & Conditions Modal
     const openTermsModal = document.getElementById('open-terms-modal');
