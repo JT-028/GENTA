@@ -36,14 +36,15 @@
     <div class="row">
         <div class="col-md-6">
             <div class="form-group position-relative">
-                <?= $this->Form->password('password', ['class' => 'form-control form-control-lg ' . ($fieldErrors['password']['class'] ?? ''), 'id' => 'password', 'placeholder' => 'Password', 'required' => 'required', 'minlength' => '8', 'maxlength' => '32']) ?>
+                <?= $this->Form->text('password', ['class' => 'form-control form-control-lg ' . ($fieldErrors['password']['class'] ?? ''), 'id' => 'password', 'placeholder' => 'Password', 'required' => 'required', 'minlength' => '8', 'maxlength' => '32', 'autocomplete' => 'new-password']) ?>
                 <button type="button" id="toggle-password-visibility" class="password-toggle-icon" aria-label="Toggle password visibility"><i class="mdi mdi-eye-off-outline" aria-hidden="true"></i></button>
                 <div class="invalid-feedback"><?= $fieldErrors['password']['message'] ?? '' ?></div>
             </div>
         </div>
         <div class="col-md-6">
-            <div class="form-group">
-                <?= $this->Form->password('confirm_password', ['class' => 'form-control form-control-lg', 'id' => 'confirm_password', 'placeholder' => 'Confirm Password', 'required' => 'required']) ?>
+            <div class="form-group position-relative">
+                <?= $this->Form->text('confirm_password', ['class' => 'form-control form-control-lg', 'id' => 'confirm_password', 'placeholder' => 'Confirm Password', 'required' => 'required', 'autocomplete' => 'new-password']) ?>
+                <button type="button" id="toggle-confirm-password" class="password-toggle-icon" aria-label="Toggle confirm password visibility"><i class="mdi mdi-eye-off-outline" aria-hidden="true"></i></button>
                 <small id="password-match-indicator" class="form-text" style="font-size: 0.75rem; min-height: 20px; display: block; margin-top: 0.25rem;" aria-live="polite"></small>
             </div>
         </div>
@@ -86,6 +87,25 @@
     let passwordVisible = false; // Track if password is shown
     
     if (passwordField) {
+        // Initialize - if field already has value (autocomplete), mask it
+        if (passwordField.value && !passwordField.value.includes('•')) {
+            actualPassword = passwordField.value;
+            passwordField.value = '•'.repeat(actualPassword.length);
+            validatePasswordStrength(actualPassword);
+        }
+        
+        // Handle autocomplete/paste - detect when field suddenly has text without bullets
+        passwordField.addEventListener('change', function() {
+            if (!passwordVisible && this.value && !this.value.includes('•')) {
+                actualPassword = this.value;
+                this.value = '•'.repeat(actualPassword.length);
+                validatePasswordStrength(actualPassword);
+                if (confirmPasswordField && actualConfirmPassword) {
+                    checkPasswordMatch();
+                }
+            }
+        });
+        
         passwordField.addEventListener('input', function(e) {
             if (passwordVisible) {
                 // When password is visible, just validate directly
@@ -96,9 +116,14 @@
                 const currentValue = this.value;
                 const cursorPos = this.selectionStart;
                 
-                // Detect what changed
-                if (currentValue.length > actualPassword.length) {
-                    // Character(s) added
+                // Handle paste - if we get many chars at once without bullets
+                if (currentValue && !currentValue.includes('•') && currentValue.length > actualPassword.length + 1) {
+                    actualPassword = currentValue;
+                    this.value = '•'.repeat(actualPassword.length);
+                    this.setSelectionRange(cursorPos, cursorPos);
+                    validatePasswordStrength(actualPassword);
+                } else if (currentValue.length > actualPassword.length) {
+                    // Character(s) added normally
                     const addedChars = currentValue.length - actualPassword.length;
                     const insertPos = cursorPos - addedChars;
                     const newChars = currentValue.substring(insertPos, cursorPos);
@@ -119,6 +144,7 @@
                             passwordField.setSelectionRange(cursorPos, cursorPos);
                         }
                     }, 500);
+                    validatePasswordStrength(actualPassword);
                 } else if (currentValue.length < actualPassword.length) {
                     // Character(s) deleted
                     const deletedCount = actualPassword.length - currentValue.length;
@@ -128,14 +154,12 @@
                     clearTimeout(lastCharTimer);
                     this.value = '•'.repeat(actualPassword.length);
                     this.setSelectionRange(cursorPos, cursorPos);
+                    validatePasswordStrength(actualPassword);
                 }
-                
-                // Validate password strength with actual password
-                validatePasswordStrength(actualPassword);
             }
             
             // Check if passwords match
-            if (confirmPasswordField && confirmPasswordField.value) {
+            if (confirmPasswordField && actualConfirmPassword) {
                 checkPasswordMatch();
             }
         });
@@ -269,6 +293,22 @@
     let confirmPasswordVisible = false;
     
     if (confirmPasswordField) {
+        // Initialize - if field already has value (autocomplete), mask it
+        if (confirmPasswordField.value && !confirmPasswordField.value.includes('•')) {
+            actualConfirmPassword = confirmPasswordField.value;
+            confirmPasswordField.value = '•'.repeat(actualConfirmPassword.length);
+            checkPasswordMatch();
+        }
+        
+        // Handle autocomplete/paste
+        confirmPasswordField.addEventListener('change', function() {
+            if (!confirmPasswordVisible && this.value && !this.value.includes('•')) {
+                actualConfirmPassword = this.value;
+                this.value = '•'.repeat(actualConfirmPassword.length);
+                checkPasswordMatch();
+            }
+        });
+        
         confirmPasswordField.addEventListener('input', function(e) {
             if (confirmPasswordVisible) {
                 // When password is visible, just validate directly
@@ -278,7 +318,12 @@
                 const currentValue = this.value;
                 const cursorPos = this.selectionStart;
                 
-                if (currentValue.length > actualConfirmPassword.length) {
+                // Handle paste
+                if (currentValue && !currentValue.includes('•') && currentValue.length > actualConfirmPassword.length + 1) {
+                    actualConfirmPassword = currentValue;
+                    this.value = '•'.repeat(actualConfirmPassword.length);
+                    this.setSelectionRange(cursorPos, cursorPos);
+                } else if (currentValue.length > actualConfirmPassword.length) {
                     const addedChars = currentValue.length - actualConfirmPassword.length;
                     const insertPos = cursorPos - addedChars;
                     const newChars = currentValue.substring(insertPos, cursorPos);
