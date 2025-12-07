@@ -84,6 +84,7 @@
     let actualPassword = '';
     let lastCharTimer = null;
     let passwordVisible = false; // Track if password is shown
+    window.__passwordRevealed = false; // Global flag for mascot.js to check
     
     if (passwordField) {
         // Initialize - if field already has value (autocomplete), mask it
@@ -184,16 +185,17 @@
             clearTimeout(lastCharTimer);
             clearTimeout(confirmLastCharTimer);
             
-            // Temporarily disable masking during toggle to prevent interference
-            maskingEnabled = false;
-            if (typeof confirmMaskingEnabled !== 'undefined') {
-                confirmMaskingEnabled = false;
-            }
-            
             passwordVisible = !passwordVisible;
             confirmPasswordVisible = !confirmPasswordVisible;
             
             if (passwordVisible) {
+                // SHOW PASSWORD STATE: Disable masking and show actual passwords
+                maskingEnabled = false;
+                if (typeof confirmMaskingEnabled !== 'undefined') {
+                    confirmMaskingEnabled = false;
+                }
+                window.__passwordRevealed = true; // Signal to mascot.js
+                
                 // Show full actual passwords in both fields
                 passwordField.value = actualPassword;
                 if (confirmPasswordField) {
@@ -201,7 +203,15 @@
                 }
                 icon.classList.remove('mdi-eye-off-outline');
                 icon.classList.add('mdi-eye-outline');
+                
+                // Mascot shows peaking eyes (one eye closed, one peeking)
+                if (typeof window.showEyes === 'function') {
+                    window.showEyes('peak', true);
+                }
             } else {
+                // HIDDEN PASSWORD STATE: Enable masking and show bullets
+                window.__passwordRevealed = false; // Signal to mascot.js
+                
                 // Show masked passwords in both fields
                 passwordField.value = '•'.repeat(actualPassword.length);
                 if (confirmPasswordField) {
@@ -209,15 +219,20 @@
                 }
                 icon.classList.remove('mdi-eye-outline');
                 icon.classList.add('mdi-eye-off-outline');
-            }
-            
-            // Re-enable masking after a short delay
-            setTimeout(() => {
-                maskingEnabled = true;
-                if (typeof confirmMaskingEnabled !== 'undefined') {
-                    confirmMaskingEnabled = true;
+                
+                // Re-enable masking for character-by-character typing
+                setTimeout(() => {
+                    maskingEnabled = true;
+                    if (typeof confirmMaskingEnabled !== 'undefined') {
+                        confirmMaskingEnabled = true;
+                    }
+                }, 50);
+                
+                // Mascot shows closed eyes (default state)
+                if (typeof window.showEyes === 'function') {
+                    window.showEyes('closed', true);
                 }
-            }, 50);
+            }
         });
     }
 

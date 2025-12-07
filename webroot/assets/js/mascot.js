@@ -637,8 +637,10 @@ try { window.__mascotScriptPresent = true; if (typeof console !== 'undefined' &&
       window.__mascotLog('passwordStateRefresh', force, password && password.type, document.activeElement && document.activeElement.id);
       if (!password) return;
       var now = Date.now();
+      // Check global flag for password reveal state (supports custom masking)
+      var isRevealed = window.__passwordRevealed || password.type === 'text';
       // show peak only if password is focused and revealed; do not use a post-toggle force window
-      if (password.type === 'text' && document.activeElement === password) {
+      if (isRevealed && document.activeElement === password) {
         showEyes('peak', !!force);
       } else if (document.activeElement === password) {
         // password focused and not revealed
