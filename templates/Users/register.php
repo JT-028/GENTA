@@ -80,69 +80,63 @@
     const matchIndicator = document.getElementById('password-match-indicator');
     let hideTimeout = null;
 
-    // Brief character visibility for password field (per character)
+    // Password field with character-by-character masking when hidden
     let actualPassword = '';
     let lastCharTimer = null;
+    let passwordVisible = false; // Track if password is shown
     
     if (passwordField) {
         passwordField.addEventListener('input', function(e) {
-            const currentValue = this.value;
-            const cursorPos = this.selectionStart;
-            
-            // Detect what changed
-            if (currentValue.length > actualPassword.length) {
-                // Character(s) added
-                const addedChars = currentValue.length - actualPassword.length;
-                const insertPos = cursorPos - addedChars;
-                const newChars = currentValue.substring(insertPos, cursorPos);
+            if (passwordVisible) {
+                // When password is visible, just validate directly
+                actualPassword = this.value;
+                validatePasswordStrength(actualPassword);
+            } else {
+                // When password is hidden, use character-by-character masking
+                const currentValue = this.value;
+                const cursorPos = this.selectionStart;
                 
-                // Update actual password
-                actualPassword = actualPassword.substring(0, insertPos) + newChars + actualPassword.substring(insertPos);
+                // Detect what changed
+                if (currentValue.length > actualPassword.length) {
+                    // Character(s) added
+                    const addedChars = currentValue.length - actualPassword.length;
+                    const insertPos = cursorPos - addedChars;
+                    const newChars = currentValue.substring(insertPos, cursorPos);
+                    
+                    // Update actual password
+                    actualPassword = actualPassword.substring(0, insertPos) + newChars + actualPassword.substring(insertPos);
+                    
+                    // Show last typed character briefly, mask others
+                    clearTimeout(lastCharTimer);
+                    const maskedValue = '•'.repeat(actualPassword.length - 1) + actualPassword.charAt(actualPassword.length - 1);
+                    this.value = maskedValue;
+                    this.setSelectionRange(cursorPos, cursorPos);
+                    
+                    // Mask all characters after 500ms
+                    lastCharTimer = setTimeout(() => {
+                        if (!passwordVisible && passwordField.value.length === actualPassword.length) {
+                            passwordField.value = '•'.repeat(actualPassword.length);
+                            passwordField.setSelectionRange(cursorPos, cursorPos);
+                        }
+                    }, 500);
+                } else if (currentValue.length < actualPassword.length) {
+                    // Character(s) deleted
+                    const deletedCount = actualPassword.length - currentValue.length;
+                    actualPassword = actualPassword.substring(0, cursorPos) + actualPassword.substring(cursorPos + deletedCount);
+                    
+                    // Show all as masked
+                    clearTimeout(lastCharTimer);
+                    this.value = '•'.repeat(actualPassword.length);
+                    this.setSelectionRange(cursorPos, cursorPos);
+                }
                 
-                // Show last typed character briefly, mask others
-                clearTimeout(lastCharTimer);
-                const maskedValue = '•'.repeat(actualPassword.length - 1) + actualPassword.charAt(actualPassword.length - 1);
-                this.value = maskedValue;
-                this.setSelectionRange(cursorPos, cursorPos);
-                
-                // Mask all characters after 500ms
-                lastCharTimer = setTimeout(() => {
-                    if (passwordField.value.length === actualPassword.length) {
-                        passwordField.value = '•'.repeat(actualPassword.length);
-                        passwordField.setSelectionRange(cursorPos, cursorPos);
-                    }
-                }, 500);
-            } else if (currentValue.length < actualPassword.length) {
-                // Character(s) deleted
-                const deletedCount = actualPassword.length - currentValue.length;
-                actualPassword = actualPassword.substring(0, cursorPos) + actualPassword.substring(cursorPos + deletedCount);
-                
-                // Show all as masked
-                clearTimeout(lastCharTimer);
-                this.value = '•'.repeat(actualPassword.length);
-                this.setSelectionRange(cursorPos, cursorPos);
+                // Validate password strength with actual password
+                validatePasswordStrength(actualPassword);
             }
             
-            // Validate password strength with actual password
-            validatePasswordStrength(actualPassword);
-        });
-        
-        // Prevent copying masked characters
-        passwordField.addEventListener('copy', function(e) {
-            e.preventDefault();
-            if (e.clipboardData) {
-                e.clipboardData.setData('text/plain', actualPassword);
-            }
-        });
-        
-        // Prevent cutting masked characters
-        passwordField.addEventListener('cut', function(e) {
-            e.preventDefault();
-            if (e.clipboardData) {
-                e.clipboardData.setData('text/plain', actualPassword);
-                actualPassword = '';
-                this.value = '';
-                validatePasswordStrength('');
+            // Check if passwords match
+            if (confirmPasswordField && confirmPasswordField.value) {
+                checkPasswordMatch();
             }
         });
         
@@ -153,6 +147,28 @@
                 passwordField.value = actualPassword;
             });
         }
+    }
+    
+    // Password visibility toggle - switches between masking and full visibility
+    const togglePasswordBtn = document.getElementById('toggle-password-visibility');
+    if (togglePasswordBtn && passwordField) {
+        togglePasswordBtn.addEventListener('click', function() {
+            const icon = this.querySelector('i');
+            clearTimeout(lastCharTimer);
+            passwordVisible = !passwordVisible;
+            
+            if (passwordVisible) {
+                // Show full actual password
+                passwordField.value = actualPassword;
+                icon.classList.remove('mdi-eye-off-outline');
+                icon.classList.add('mdi-eye-outline');
+            } else {
+                // Show masked password
+                passwordField.value = '•'.repeat(actualPassword.length);
+                icon.classList.remove('mdi-eye-outline');
+                icon.classList.add('mdi-eye-off-outline');
+            }
+        });
     }
 
     function validatePasswordStrength(password) {
@@ -199,8 +215,8 @@
         }
     }
 
-    function checkPasswordMatchWithActual() {
-        if (typeof actualConfirmPassword === 'undefined' || !actualConfirmPassword) {
+    function checkPasswordMatch() {
+        if (!actualConfirmPassword) {
             matchIndicator.innerHTML = '';
             return;
         }
@@ -213,13 +229,6 @@
             matchIndicator.className = 'form-text text-danger';
             matchIndicator.innerHTML = '<i class="mdi mdi-close-circle"></i> Passwords do not match';
             confirmPasswordField.setCustomValidity('Passwords must match');
-        }
-    }
-    
-    // Legacy function kept for compatibility
-    function checkPasswordMatch() {
-        if (typeof actualConfirmPassword !== 'undefined') {
-            checkPasswordMatchWithActual();
         }
     }
 
@@ -254,79 +263,78 @@
     validateNameField(firstNameField);
     validateNameField(lastNameField);
 
-    // Brief character visibility for confirm password field (per character)
+    // Confirm password field with character-by-character masking when hidden
     let actualConfirmPassword = '';
     let confirmLastCharTimer = null;
+    let confirmPasswordVisible = false;
     
     if (confirmPasswordField) {
         confirmPasswordField.addEventListener('input', function(e) {
-            const currentValue = this.value;
-            const cursorPos = this.selectionStart;
-            
-            // Detect what changed
-            if (currentValue.length > actualConfirmPassword.length) {
-                // Character(s) added
-                const addedChars = currentValue.length - actualConfirmPassword.length;
-                const insertPos = cursorPos - addedChars;
-                const newChars = currentValue.substring(insertPos, cursorPos);
+            if (confirmPasswordVisible) {
+                // When password is visible, just validate directly
+                actualConfirmPassword = this.value;
+            } else {
+                // When password is hidden, use character-by-character masking
+                const currentValue = this.value;
+                const cursorPos = this.selectionStart;
                 
-                // Update actual confirm password
-                actualConfirmPassword = actualConfirmPassword.substring(0, insertPos) + newChars + actualConfirmPassword.substring(insertPos);
-                
-                // Show last typed character briefly, mask others
-                clearTimeout(confirmLastCharTimer);
-                const maskedValue = '•'.repeat(actualConfirmPassword.length - 1) + actualConfirmPassword.charAt(actualConfirmPassword.length - 1);
-                this.value = maskedValue;
-                this.setSelectionRange(cursorPos, cursorPos);
-                
-                // Mask all characters after 500ms
-                confirmLastCharTimer = setTimeout(() => {
-                    if (confirmPasswordField.value.length === actualConfirmPassword.length) {
-                        confirmPasswordField.value = '•'.repeat(actualConfirmPassword.length);
-                        confirmPasswordField.setSelectionRange(cursorPos, cursorPos);
-                    }
-                }, 500);
-            } else if (currentValue.length < actualConfirmPassword.length) {
-                // Character(s) deleted
-                const deletedCount = actualConfirmPassword.length - currentValue.length;
-                actualConfirmPassword = actualConfirmPassword.substring(0, cursorPos) + actualConfirmPassword.substring(cursorPos + deletedCount);
-                
-                // Show all as masked
-                clearTimeout(confirmLastCharTimer);
-                this.value = '•'.repeat(actualConfirmPassword.length);
-                this.setSelectionRange(cursorPos, cursorPos);
+                if (currentValue.length > actualConfirmPassword.length) {
+                    const addedChars = currentValue.length - actualConfirmPassword.length;
+                    const insertPos = cursorPos - addedChars;
+                    const newChars = currentValue.substring(insertPos, cursorPos);
+                    
+                    actualConfirmPassword = actualConfirmPassword.substring(0, insertPos) + newChars + actualConfirmPassword.substring(insertPos);
+                    
+                    clearTimeout(confirmLastCharTimer);
+                    const maskedValue = '•'.repeat(actualConfirmPassword.length - 1) + actualConfirmPassword.charAt(actualConfirmPassword.length - 1);
+                    this.value = maskedValue;
+                    this.setSelectionRange(cursorPos, cursorPos);
+                    
+                    confirmLastCharTimer = setTimeout(() => {
+                        if (!confirmPasswordVisible && confirmPasswordField.value.length === actualConfirmPassword.length) {
+                            confirmPasswordField.value = '•'.repeat(actualConfirmPassword.length);
+                            confirmPasswordField.setSelectionRange(cursorPos, cursorPos);
+                        }
+                    }, 500);
+                } else if (currentValue.length < actualConfirmPassword.length) {
+                    const deletedCount = actualConfirmPassword.length - currentValue.length;
+                    actualConfirmPassword = actualConfirmPassword.substring(0, cursorPos) + actualConfirmPassword.substring(cursorPos + deletedCount);
+                    
+                    clearTimeout(confirmLastCharTimer);
+                    this.value = '•'.repeat(actualConfirmPassword.length);
+                    this.setSelectionRange(cursorPos, cursorPos);
+                }
             }
             
-            // Check password match with actual passwords
-            checkPasswordMatchWithActual();
+            checkPasswordMatch();
         });
         
-        // Prevent copying masked characters
-        confirmPasswordField.addEventListener('copy', function(e) {
-            e.preventDefault();
-            if (e.clipboardData) {
-                e.clipboardData.setData('text/plain', actualConfirmPassword);
-            }
-        });
-        
-        // Prevent cutting masked characters
-        confirmPasswordField.addEventListener('cut', function(e) {
-            e.preventDefault();
-            if (e.clipboardData) {
-                e.clipboardData.setData('text/plain', actualConfirmPassword);
-                actualConfirmPassword = '';
-                this.value = '';
-                checkPasswordMatchWithActual();
-            }
-        });
-        
-        // On form submit, use actual confirm password
         const form = confirmPasswordField.closest('form');
         if (form) {
             form.addEventListener('submit', function(e) {
                 confirmPasswordField.value = actualConfirmPassword;
             });
         }
+    }
+    
+    // Confirm password visibility toggle
+    const toggleConfirmPasswordBtn = document.getElementById('toggle-confirm-password');
+    if (toggleConfirmPasswordBtn && confirmPasswordField) {
+        toggleConfirmPasswordBtn.addEventListener('click', function() {
+            const icon = this.querySelector('i');
+            clearTimeout(confirmLastCharTimer);
+            confirmPasswordVisible = !confirmPasswordVisible;
+            
+            if (confirmPasswordVisible) {
+                confirmPasswordField.value = actualConfirmPassword;
+                icon.classList.remove('mdi-eye-off-outline');
+                icon.classList.add('mdi-eye-outline');
+            } else {
+                confirmPasswordField.value = '•'.repeat(actualConfirmPassword.length);
+                icon.classList.remove('mdi-eye-outline');
+                icon.classList.add('mdi-eye-off-outline');
+            }
+        });
     }
     
     // Terms & Conditions Modal
