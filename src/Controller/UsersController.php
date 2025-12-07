@@ -96,17 +96,22 @@ class UsersController extends AppController
             
             if ($user) {
                 // Check if account is locked
-                if ($user->account_locked_until && new \DateTime($user->account_locked_until) > new \DateTime('now')) {
-                    $lockoutTime = new \DateTime($user->account_locked_until);
-                    $now = new \DateTime('now');
-                    $diff = $now->diff($lockoutTime);
-                    $minutes = ($diff->days * 24 * 60) + ($diff->h * 60) + $diff->i + 1;
+                if ($user->account_locked_until) {
+                    $lockoutTime = ($user->account_locked_until instanceof \Cake\I18n\FrozenTime) 
+                        ? $user->account_locked_until 
+                        : new \Cake\I18n\FrozenTime($user->account_locked_until);
+                    $now = \Cake\I18n\FrozenTime::now();
                     
-                    $this->Flash->error(__('This account is temporarily locked due to too many failed login attempts. Please try again in {0} minutes.', $minutes));
-                    $this->set('rateLimited', true);
-                    $this->set('lockoutMinutes', $minutes);
-                    $this->set('remainingAttempts', 0);
-                    return;
+                    if ($lockoutTime > $now) {
+                        $diff = $now->diff($lockoutTime);
+                        $minutes = ($diff->days * 24 * 60) + ($diff->h * 60) + $diff->i + 1;
+                        
+                        $this->Flash->error(__('This account is temporarily locked due to too many failed login attempts. Please try again in {0} minutes.', $minutes));
+                        $this->set('rateLimited', true);
+                        $this->set('lockoutMinutes', $minutes);
+                        $this->set('remainingAttempts', 0);
+                        return;
+                    }
                 }
                 
                 // Check CAPTCHA if required (after 2 failed attempts)

@@ -595,7 +595,7 @@ try { window.__mascotScriptPresent = true; if (typeof console !== 'undefined' &&
 
     // If there's a server-side login failure, show wrong_pass immediately and suppress the brief open flash
     var __initialError = detectAndHandleFlash();
-    if (__initialError) {
+    if (__initialError || window.__mascotWrongPassTriggered) {
       // show wrong_pass immediately; it will revert to open after a short delay
       try { showEyes('wrong_pass', true); } catch(e) { showEyes('open'); }
     } else {
@@ -604,7 +604,7 @@ try { window.__mascotScriptPresent = true; if (typeof console !== 'undefined' &&
       if (window.__mascotPendingFlash) {
         try { showEyes('pending', true); } catch(e) { showEyes('open'); }
         try { window.__mascotPendingFlash = false; } catch(e) {}
-      } else if (window.__mascotHappyFlash) {
+      } else if (window.__mascotHappyFlash && !window.__mascotWrongPassTriggered) {
         try { showEyes('happy', true); } catch(e) { showEyes('open'); }
         try { window.__mascotHappyFlash = false; } catch(e) {}
       } else {
