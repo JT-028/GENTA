@@ -116,23 +116,29 @@
         
         passwordField.addEventListener('input', function(e) {
             if (passwordVisible) {
-                // When password is visible, just validate directly
+                // When password is visible, update the actual password directly from the field
+                // No masking - user sees what they type
                 actualPassword = this.value;
                 validatePasswordStrength(actualPassword);
-            } else {
-                if (!maskingEnabled) return; // Skip masking if temporarily disabled
-                
-                // When password is hidden, use character-by-character masking
-                const currentValue = this.value;
-                const cursorPos = this.selectionStart;
-                
-                // Handle paste - if we get many chars at once without bullets
-                if (currentValue && !currentValue.includes('•') && currentValue.length > actualPassword.length + 1) {
-                    actualPassword = currentValue;
-                    this.value = '•'.repeat(actualPassword.length);
-                    this.setSelectionRange(cursorPos, cursorPos);
-                    validatePasswordStrength(actualPassword);
-                } else if (currentValue.length > actualPassword.length) {
+                if (confirmPasswordField && actualConfirmPassword) {
+                    checkPasswordMatch();
+                }
+                return; // Exit early - no masking needed
+            }
+            
+            // Password is HIDDEN - apply character-by-character masking
+            if (!maskingEnabled) return; // Skip if masking temporarily disabled during toggle
+            
+            const currentValue = this.value;
+            const cursorPos = this.selectionStart;
+            
+            // Handle paste - if we get many chars at once without bullets
+            if (currentValue && !currentValue.includes('•') && currentValue.length > actualPassword.length + 1) {
+                actualPassword = currentValue;
+                this.value = '•'.repeat(actualPassword.length);
+                this.setSelectionRange(cursorPos, cursorPos);
+                validatePasswordStrength(actualPassword);
+            } else if (currentValue.length > actualPassword.length) {
                     // Character(s) added normally
                     const addedChars = currentValue.length - actualPassword.length;
                     const insertPos = cursorPos - addedChars;
@@ -168,7 +174,7 @@
                 }
             }
             
-            // Check if passwords match
+            // Check if passwords match (for hidden mode)
             if (confirmPasswordField && actualConfirmPassword) {
                 checkPasswordMatch();
             }
@@ -195,48 +201,55 @@
             confirmPasswordVisible = !confirmPasswordVisible;
             
             if (passwordVisible) {
-                // SHOW PASSWORD STATE: Disable masking and show actual passwords
+                // SHOW PASSWORD STATE: Show actual plain text passwords
+                console.log('[Password Toggle] Showing passwords. actualPassword:', actualPassword, 'actualConfirmPassword:', actualConfirmPassword);
+                
+                // Update icon first
+                icon.classList.remove('mdi-eye-off-outline');
+                icon.classList.add('mdi-eye-outline');
+                
+                // Disable masking immediately BEFORE setting values
                 maskingEnabled = false;
                 confirmMaskingEnabled = false;
                 window.__passwordRevealed = true; // Signal to mascot.js
                 
-                // IMPORTANT: Disable masking first, then update field values
-                // This prevents the input event from re-masking when we set the plain text
+                // Set the actual password values directly (this will show plain text)
+                passwordField.value = actualPassword;
+                if (confirmPasswordField) {
+                    confirmPasswordField.value = actualConfirmPassword;
+                }
                 
-                // Show full actual passwords in both fields (plain text, not bullets)
-                // Force immediate display without waiting for input events
-                setTimeout(() => {
-                    passwordField.value = actualPassword;
-                    if (confirmPasswordField) {
-                        confirmPasswordField.value = actualConfirmPassword;
-                    }
-                }, 0);
-                
-                icon.classList.remove('mdi-eye-off-outline');
-                icon.classList.add('mdi-eye-outline');
+                console.log('[Password Toggle] Field values set to:', passwordField.value, confirmPasswordField ? confirmPasswordField.value : 'N/A');
                 
                 // Mascot shows peaking eyes (one eye closed, one peeking)
                 if (typeof window.showEyes === 'function') {
                     window.showEyes('peak', true);
                 }
             } else {
-                // HIDDEN PASSWORD STATE: Enable masking and show bullets
+                // HIDDEN PASSWORD STATE: Show bullets and enable masking
+                console.log('[Password Toggle] Hiding passwords. actualPassword length:', actualPassword.length, 'actualConfirmPassword length:', actualConfirmPassword.length);
+                
+                // Update icon first
+                icon.classList.remove('mdi-eye-outline');
+                icon.classList.add('mdi-eye-off-outline');
+                
+                // Disable masking temporarily while we set bullet values
+                maskingEnabled = false;
+                confirmMaskingEnabled = false;
                 window.__passwordRevealed = false; // Signal to mascot.js
                 
                 // Show masked passwords in both fields (bullets)
-                // Do this immediately before re-enabling masking
                 passwordField.value = '•'.repeat(actualPassword.length);
                 if (confirmPasswordField) {
                     confirmPasswordField.value = '•'.repeat(actualConfirmPassword.length);
                 }
-                icon.classList.remove('mdi-eye-outline');
-                icon.classList.add('mdi-eye-off-outline');
                 
-                // Re-enable masking for character-by-character typing
+                // Re-enable masking after a short delay
                 setTimeout(() => {
                     maskingEnabled = true;
                     confirmMaskingEnabled = true;
-                }, 50);
+                    console.log('[Password Toggle] Masking re-enabled');
+                }, 100);
                 
                 // Mascot shows closed eyes (default state)
                 if (typeof window.showEyes === 'function') {
@@ -358,14 +371,18 @@
         
         confirmPasswordField.addEventListener('input', function(e) {
             if (confirmPasswordVisible) {
-                // When password is visible, just validate directly
+                // When password is visible, update the actual password directly from the field
+                // No masking - user sees what they type
                 actualConfirmPassword = this.value;
-            } else {
-                if (!confirmMaskingEnabled) return; // Skip masking if temporarily disabled
-                
-                // When password is hidden, use character-by-character masking
-                const currentValue = this.value;
-                const cursorPos = this.selectionStart;
+                checkPasswordMatch();
+                return; // Exit early - no masking needed
+            }
+            
+            // Password is HIDDEN - apply character-by-character masking
+            if (!confirmMaskingEnabled) return; // Skip if masking temporarily disabled during toggle
+            
+            const currentValue = this.value;
+            const cursorPos = this.selectionStart;
                 
                 // Handle paste
                 if (currentValue && !currentValue.includes('•') && currentValue.length > actualConfirmPassword.length + 1) {

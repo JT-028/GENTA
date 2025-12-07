@@ -286,16 +286,27 @@ class UsersController extends AppController
                     if (!$userEntity) {
                         $userEntity = $usersTable->get($userId);
                     }
+                    
+                    $previousAttempts = $userEntity->failed_login_attempts ?? 0;
+                    
                     // Reset failed_login_attempts to 0 on successful login
                     // This ensures that if the user logged in successfully (1-4 attempts) before lockout,
                     // the counter resets so they start fresh on their next session
                     $userEntity->failed_login_attempts = 0;
                     $userEntity->account_locked_until = null;
-                    $usersTable->save($userEntity);
-                    \Cake\Log\Log::write('info', 'Reset failed_login_attempts for user ' . $userId . ' after successful login');
+                    
+                    $saveResult = $usersTable->save($userEntity);
+                    
+                    if ($saveResult) {
+                        \Cake\Log\Log::write('info', 'Successfully reset failed_login_attempts for user ' . $userId . ' (was: ' . $previousAttempts . ', now: 0) after successful login');
+                    } else {
+                        \Cake\Log\Log::write('error', 'Failed to save user entity when resetting failed_login_attempts for user ' . $userId . '. Errors: ' . json_encode($userEntity->getErrors()));
+                    }
                 } catch (\Throwable $e) {
-                    \Cake\Log\Log::write('error', 'Error clearing failed attempts: ' . $e->getMessage());
+                    \Cake\Log\Log::write('error', 'Exception while clearing failed attempts for user ' . $userId . ': ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
                 }
+            } else {
+                \Cake\Log\Log::write('warning', 'Successful login but userId is null or empty - cannot reset failed_login_attempts');
             }
             
             // Regenerate session for security
