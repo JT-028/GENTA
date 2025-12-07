@@ -378,9 +378,10 @@ try { window.__mascotScriptPresent = true; if (typeof console !== 'undefined' &&
               _showFallbackToast(txt, isError ? 'error' : (isSuccess ? 'success' : 'info'));
             }
             // If this is a success flash (e.g., registration or profile saved), show happy eyes
-            // But don't show happy if wrong_pass was triggered
+            // But don't show happy if wrong_pass was triggered OR if it's an unregistered account message
+            var isUnregistered = /not registered|please register first/i.test(txt);
             var isRegistrationSuccess = isSuccess && /registered|you successfully registered|successfully registered a new account/i.test(txt);
-            if (isSuccess && !window.__mascotWrongPassTriggered) {
+            if (isSuccess && !window.__mascotWrongPassTriggered && !isUnregistered) {
               try {
                 // For registration-specific success messages, set a flag so
                 // initialization won't immediately reset the mascot to 'open'.

@@ -111,6 +111,12 @@ class UsersController extends AppController
                         $this->set('lockoutMinutes', $minutes);
                         $this->set('remainingAttempts', 0);
                         return;
+                    } else {
+                        // Lockout period has expired - reset the counter
+                        $user->failed_login_attempts = 0;
+                        $user->account_locked_until = null;
+                        $usersTable->save($user);
+                        \Cake\Log\Log::write('info', 'Lockout expired for: ' . $email . ', reset failed attempts');
                     }
                 }
                 
