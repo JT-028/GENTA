@@ -240,6 +240,27 @@ class UsersController extends AppController
                 if ($userId) {
                     $usersTable = $this->loadModel('Users');
                     $userEntity = $usersTable->get($userId);
+                    
+                    // Check if account is locked FIRST (critical security check)
+                    if ($userEntity->account_locked_until) {
+                        $lockoutTime = ($userEntity->account_locked_until instanceof \Cake\I18n\FrozenTime) 
+                            ? $userEntity->account_locked_until 
+                            : new \Cake\I18n\FrozenTime($userEntity->account_locked_until);
+                        $now = \Cake\I18n\FrozenTime::now();
+                        
+                        if ($lockoutTime > $now) {
+                            $diff = $now->diff($lockoutTime);
+                            $minutes = ($diff->days * 24 * 60) + ($diff->h * 60) + $diff->i + 1;
+                            
+                            \Cake\Log\Log::write('warning', 'Login attempt blocked for locked account: ' . $userId . ' (locked until ' . $lockoutTime->format('Y-m-d H:i:s') . ')');
+                            $this->Flash->error(__('This account is temporarily locked due to too many failed login attempts. Please try again in {0} minutes.', $minutes));
+                            // Ensure no identity is kept
+                            try { $this->Authentication->logout(); } catch (\Throwable $_) { }
+                            // Do not redirect into the app
+                            return;
+                        }
+                    }
+                    
                     if ((int)($userEntity->status ?? 0) !== 1) {
                         // Deny login for pending/suspended accounts
                         \Cake\Log\Log::write('warning', 'Login blocked for user ' . $userId . ' due to status=' . ($userEntity->status ?? '<null>'));

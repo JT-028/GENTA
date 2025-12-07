@@ -67,9 +67,47 @@ class AppController extends Controller
         // without an authenticated session. Keep login/register public as well.
         $this->Authentication->addUnauthenticatedActions(['login', 'register', 'approvalCallback']);
 
-        // Check session timeout for authenticated users
+        // Check session timeout and account lock status for authenticated users
         $identity = $this->Authentication->getIdentity();
         if ($identity) {
+            // CRITICAL SECURITY: Check if account is locked (global check for all authenticated requests)
+            try {
+                $userId = null;
+                if (is_object($identity) && property_exists($identity, 'id')) {
+                    $userId = $identity->id;
+                } elseif (is_array($identity) && array_key_exists('id', $identity)) {
+                    $userId = $identity['id'];
+                }
+                
+                if ($userId) {
+                    $usersTable = $this->fetchTable('Users');
+                    $user = $usersTable->find()->where(['id' => $userId])->first();
+                    
+                    if ($user && $user->account_locked_until) {
+                        $lockoutTime = ($user->account_locked_until instanceof \Cake\I18n\FrozenTime) 
+                            ? $user->account_locked_until 
+                            : new \Cake\I18n\FrozenTime($user->account_locked_until);
+                        $now = \Cake\I18n\FrozenTime::now();
+                        
+                        if ($lockoutTime > $now) {
+                            $diff = $now->diff($lockoutTime);
+                            $minutes = ($diff->days * 24 * 60) + ($diff->h * 60) + $diff->i + 1;
+                            
+                            \Cake\Log\Log::write('warning', 'Locked account attempted access: user=' . $userId . ', action=' . $this->request->getParam('action'));
+                            $this->Authentication->logout();
+                            $this->Flash->error(__('This account is temporarily locked due to too many failed login attempts. Please try again in {0} minutes.', $minutes));
+                            
+                            return $this->redirect([
+                                'controller' => 'Users',
+                                'action' => 'login'
+                            ]);
+                        }
+                    }
+                }
+            } catch (\Throwable $e) {
+                \Cake\Log\Log::write('error', 'Error checking account lock status in AppController: ' . $e->getMessage());
+            }
+            
             $sessionCheck = $this->Security->checkSession();
             
             if (!$sessionCheck['valid']) {

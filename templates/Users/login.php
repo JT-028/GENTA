@@ -41,7 +41,7 @@
     </div>
     <?php endif; ?>
     
-    <?php if (isset($remainingAttempts) && $remainingAttempts < 5): ?>
+    <?php if (isset($remainingAttempts) && $remainingAttempts < 5 && $remainingAttempts > 0): ?>
     <div class="alert alert-warning mb-3" role="alert">
         <i class="mdi mdi-alert-outline"></i>
         <strong>Warning:</strong> <?= $remainingAttempts ?> login attempt(s) remaining before temporary lockout.
