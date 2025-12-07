@@ -226,6 +226,8 @@ class UsersController extends AppController
         // VALIDATE AUTH RESULT
         if ($result && $result->isValid())
         {
+            \Cake\Log\Log::write('info', '[LOGIN SUCCESS] Authentication result is valid, proceeding with user checks');
+            
             // Define userId outside try block to ensure it's available for failed attempts reset
             $userId = null;
             $userEntity = null;
@@ -239,6 +241,8 @@ class UsersController extends AppController
                 } elseif (is_array($identity) && array_key_exists('id', $identity)) {
                     $userId = $identity['id'];
                 }
+                
+                \Cake\Log\Log::write('info', '[LOGIN SUCCESS] Extracted userId: ' . ($userId ?? 'NULL'));
 
                 if ($userId) {
                     $usersTable = $this->loadModel('Users');
@@ -295,7 +299,11 @@ class UsersController extends AppController
                     $userEntity->failed_login_attempts = 0;
                     $userEntity->account_locked_until = null;
                     
-                    $saveResult = $usersTable->save($userEntity);
+                    // Explicitly mark fields as dirty to ensure CakePHP saves them
+                    $userEntity->setDirty('failed_login_attempts', true);
+                    $userEntity->setDirty('account_locked_until', true);
+                    
+                    $saveResult = $usersTable->save($userEntity, ['checkRules' => false]);
                     
                     if ($saveResult) {
                         \Cake\Log\Log::write('info', 'Successfully reset failed_login_attempts for user ' . $userId . ' (was: ' . $previousAttempts . ', now: 0) after successful login');

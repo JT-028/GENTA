@@ -667,10 +667,6 @@ try { window.__mascotScriptPresent = true; if (typeof console !== 'undefined' &&
         mo.observe(password, { attributes: true });
       } catch (e) { /* ignore */ }
 
-      // In case a separate toggle button changes the type, handle clicks and re-evaluate
-      document.addEventListener('click', function () {
-        setTimeout(passwordStateRefresh, 40);
-      });
       // Password visibility toggle button (if present)
       var toggleBtn = document.getElementById('toggle-password-visibility');
       if (toggleBtn) {

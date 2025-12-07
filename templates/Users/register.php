@@ -92,7 +92,15 @@
     let confirmPasswordVisible = false;
     let confirmMaskingEnabled = true; // Flag to temporarily disable masking during toggle
     
-    window.__passwordRevealed = false; // Global flag for mascot.js to check
+    window.__passwordRevealed = false; // Global flag for mascot.js to check - set BEFORE any other code runs
+    
+    // Initialize mascot with closed eyes IMMEDIATELY on page load (default hidden password state)
+    // This prevents the peaking eyes from showing due to click handlers
+    setTimeout(() => {
+        if (typeof window.showEyes === 'function') {
+            window.showEyes('closed', true);
+        }
+    }, 10);
     
     if (passwordField) {
         // Initialize - if field already has value (autocomplete), mask it
@@ -139,39 +147,38 @@
                 this.setSelectionRange(cursorPos, cursorPos);
                 validatePasswordStrength(actualPassword);
             } else if (currentValue.length > actualPassword.length) {
-                    // Character(s) added normally
-                    const addedChars = currentValue.length - actualPassword.length;
-                    const insertPos = cursorPos - addedChars;
-                    const newChars = currentValue.substring(insertPos, cursorPos);
-                    
-                    // Update actual password
-                    actualPassword = actualPassword.substring(0, insertPos) + newChars + actualPassword.substring(insertPos);
-                    
-                    // Show last typed character briefly, mask others
-                    clearTimeout(lastCharTimer);
-                    const maskedValue = '•'.repeat(actualPassword.length - 1) + actualPassword.charAt(actualPassword.length - 1);
-                    this.value = maskedValue;
-                    this.setSelectionRange(cursorPos, cursorPos);
-                    
-                    // Mask all characters after 500ms
-                    lastCharTimer = setTimeout(() => {
-                        if (!passwordVisible && passwordField.value.length === actualPassword.length) {
-                            passwordField.value = '•'.repeat(actualPassword.length);
-                            passwordField.setSelectionRange(cursorPos, cursorPos);
-                        }
-                    }, 500);
-                    validatePasswordStrength(actualPassword);
-                } else if (currentValue.length < actualPassword.length) {
-                    // Character(s) deleted
-                    const deletedCount = actualPassword.length - currentValue.length;
-                    actualPassword = actualPassword.substring(0, cursorPos) + actualPassword.substring(cursorPos + deletedCount);
-                    
-                    // Show all as masked
-                    clearTimeout(lastCharTimer);
-                    this.value = '•'.repeat(actualPassword.length);
-                    this.setSelectionRange(cursorPos, cursorPos);
-                    validatePasswordStrength(actualPassword);
-                }
+                // Character(s) added normally
+                const addedChars = currentValue.length - actualPassword.length;
+                const insertPos = cursorPos - addedChars;
+                const newChars = currentValue.substring(insertPos, cursorPos);
+                
+                // Update actual password
+                actualPassword = actualPassword.substring(0, insertPos) + newChars + actualPassword.substring(insertPos);
+                
+                // Show last typed character briefly, mask others
+                clearTimeout(lastCharTimer);
+                const maskedValue = '•'.repeat(actualPassword.length - 1) + actualPassword.charAt(actualPassword.length - 1);
+                this.value = maskedValue;
+                this.setSelectionRange(cursorPos, cursorPos);
+                
+                // Mask all characters after 500ms
+                lastCharTimer = setTimeout(() => {
+                    if (!passwordVisible && passwordField.value.length === actualPassword.length) {
+                        passwordField.value = '•'.repeat(actualPassword.length);
+                        passwordField.setSelectionRange(cursorPos, cursorPos);
+                    }
+                }, 500);
+                validatePasswordStrength(actualPassword);
+            } else if (currentValue.length < actualPassword.length) {
+                // Character(s) deleted
+                const deletedCount = actualPassword.length - currentValue.length;
+                actualPassword = actualPassword.substring(0, cursorPos) + actualPassword.substring(cursorPos + deletedCount);
+                
+                // Show all as masked
+                clearTimeout(lastCharTimer);
+                this.value = '•'.repeat(actualPassword.length);
+                this.setSelectionRange(cursorPos, cursorPos);
+                validatePasswordStrength(actualPassword);
             }
             
             // Check if passwords match (for hidden mode)
@@ -202,7 +209,6 @@
             
             if (passwordVisible) {
                 // SHOW PASSWORD STATE: Show actual plain text passwords
-                console.log('[Password Toggle] Showing passwords. actualPassword:', actualPassword, 'actualConfirmPassword:', actualConfirmPassword);
                 
                 // Update icon first
                 icon.classList.remove('mdi-eye-off-outline');
@@ -219,15 +225,12 @@
                     confirmPasswordField.value = actualConfirmPassword;
                 }
                 
-                console.log('[Password Toggle] Field values set to:', passwordField.value, confirmPasswordField ? confirmPasswordField.value : 'N/A');
-                
                 // Mascot shows peaking eyes (one eye closed, one peeking)
                 if (typeof window.showEyes === 'function') {
                     window.showEyes('peak', true);
                 }
             } else {
                 // HIDDEN PASSWORD STATE: Show bullets and enable masking
-                console.log('[Password Toggle] Hiding passwords. actualPassword length:', actualPassword.length, 'actualConfirmPassword length:', actualConfirmPassword.length);
                 
                 // Update icon first
                 icon.classList.remove('mdi-eye-outline');
@@ -248,7 +251,6 @@
                 setTimeout(() => {
                     maskingEnabled = true;
                     confirmMaskingEnabled = true;
-                    console.log('[Password Toggle] Masking re-enabled');
                 }, 100);
                 
                 // Mascot shows closed eyes (default state)
