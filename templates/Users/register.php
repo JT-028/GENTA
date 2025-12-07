@@ -84,6 +84,14 @@
     let actualPassword = '';
     let lastCharTimer = null;
     let passwordVisible = false; // Track if password is shown
+    let maskingEnabled = true; // Flag to temporarily disable masking during toggle
+
+    // Confirm password field variables (also in outer scope for toggle access)
+    let actualConfirmPassword = '';
+    let confirmLastCharTimer = null;
+    let confirmPasswordVisible = false;
+    let confirmMaskingEnabled = true; // Flag to temporarily disable masking during toggle
+    
     window.__passwordRevealed = false; // Global flag for mascot.js to check
     
     if (passwordField) {
@@ -105,8 +113,6 @@
                 }
             }
         });
-        
-        let maskingEnabled = true; // Flag to temporarily disable masking during toggle
         
         passwordField.addEventListener('input', function(e) {
             if (passwordVisible) {
@@ -191,12 +197,10 @@
             if (passwordVisible) {
                 // SHOW PASSWORD STATE: Disable masking and show actual passwords
                 maskingEnabled = false;
-                if (typeof confirmMaskingEnabled !== 'undefined') {
-                    confirmMaskingEnabled = false;
-                }
+                confirmMaskingEnabled = false;
                 window.__passwordRevealed = true; // Signal to mascot.js
                 
-                // Show full actual passwords in both fields
+                // Show full actual passwords in both fields (plain text, not bullets)
                 passwordField.value = actualPassword;
                 if (confirmPasswordField) {
                     confirmPasswordField.value = actualConfirmPassword;
@@ -212,7 +216,7 @@
                 // HIDDEN PASSWORD STATE: Enable masking and show bullets
                 window.__passwordRevealed = false; // Signal to mascot.js
                 
-                // Show masked passwords in both fields
+                // Show masked passwords in both fields (bullets)
                 passwordField.value = '•'.repeat(actualPassword.length);
                 if (confirmPasswordField) {
                     confirmPasswordField.value = '•'.repeat(actualConfirmPassword.length);
@@ -223,9 +227,7 @@
                 // Re-enable masking for character-by-character typing
                 setTimeout(() => {
                     maskingEnabled = true;
-                    if (typeof confirmMaskingEnabled !== 'undefined') {
-                        confirmMaskingEnabled = true;
-                    }
+                    confirmMaskingEnabled = true;
                 }, 50);
                 
                 // Mascot shows closed eyes (default state)
@@ -328,11 +330,7 @@
     validateNameField(firstNameField);
     validateNameField(lastNameField);
 
-    // Confirm password field with character-by-character masking when hidden
-    let actualConfirmPassword = '';
-    let confirmLastCharTimer = null;
-    let confirmPasswordVisible = false;
-    
+    // Confirm password field event handlers (variables already declared at top)
     if (confirmPasswordField) {
         // Initialize - if field already has value (autocomplete), mask it
         if (confirmPasswordField.value && !confirmPasswordField.value.includes('•')) {
@@ -349,8 +347,6 @@
                 checkPasswordMatch();
             }
         });
-        
-        let confirmMaskingEnabled = true; // Flag to temporarily disable masking during toggle
         
         confirmPasswordField.addEventListener('input', function(e) {
             if (confirmPasswordVisible) {

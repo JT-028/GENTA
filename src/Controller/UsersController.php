@@ -226,11 +226,14 @@ class UsersController extends AppController
         // VALIDATE AUTH RESULT
         if ($result && $result->isValid())
         {
+            // Define userId outside try block to ensure it's available for failed attempts reset
+            $userId = null;
+            $userEntity = null;
+            
             // Prevent users who are not approved (status != 1) from logging in.
             try {
                 $identity = null;
                 try { $identity = $result->getData(); } catch (\Throwable $_) { $identity = null; }
-                $userId = null;
                 if (is_object($identity) && property_exists($identity, 'id')) {
                     $userId = $identity->id;
                 } elseif (is_array($identity) && array_key_exists('id', $identity)) {
@@ -275,14 +278,21 @@ class UsersController extends AppController
                 \Cake\Log\Log::write('error', 'Error while checking user status on login: ' . $e->getMessage());
             }
 
-            // Clear failed attempts on successful login
+            // Clear failed attempts on successful login (when account is not locked)
+            // This resets the counter even if the user had 1-4 failed attempts before successfully logging in
             if ($userId) {
                 try {
-                    $usersTable = $this->loadModel('Users');
-                    $userEntity = $usersTable->get($userId);
+                    if (!$userEntity) {
+                        $usersTable = $this->loadModel('Users');
+                        $userEntity = $usersTable->get($userId);
+                    }
+                    // Reset failed_login_attempts to 0 on successful login
+                    // This ensures that if the user logged in successfully (1-4 attempts) before lockout,
+                    // the counter resets so they start fresh on their next session
                     $userEntity->failed_login_attempts = 0;
                     $userEntity->account_locked_until = null;
                     $usersTable->save($userEntity);
+                    \Cake\Log\Log::write('info', 'Reset failed_login_attempts for user ' . $userId . ' after successful login');
                 } catch (\Throwable $e) {
                     \Cake\Log\Log::write('error', 'Error clearing failed attempts: ' . $e->getMessage());
                 }
