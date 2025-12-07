@@ -644,6 +644,9 @@ try { window.__mascotScriptPresent = true; if (typeof console !== 'undefined' &&
         showEyes('open', !!force);
       }
     }
+    
+    // Expose passwordStateRefresh globally for toggle buttons in other scripts
+    window.passwordStateRefresh = passwordStateRefresh;
 
     if (password) {
       password.addEventListener('focus', passwordStateRefresh);

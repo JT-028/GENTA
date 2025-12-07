@@ -85,4 +85,53 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
+<script>
+// Password toggle for login page
+document.addEventListener('DOMContentLoaded', function() {
+    const toggleBtn = document.getElementById('toggle-password-visibility');
+    const passwordField = document.getElementById('password');
+    
+    if (toggleBtn && passwordField) {
+        // Use mousedown to prevent default focus behavior
+        toggleBtn.addEventListener('mousedown', function(e) {
+            e.preventDefault(); // Prevent focus from shifting away from password field
+        });
+        
+        toggleBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const icon = this.querySelector('i');
+            
+            // Save cursor position before toggle
+            const cursorPos = passwordField.selectionStart;
+            const cursorEnd = passwordField.selectionEnd;
+            
+            if (passwordField.type === 'password') {
+                passwordField.type = 'text';
+                icon.classList.remove('mdi-eye-off-outline');
+                icon.classList.add('mdi-eye-outline');
+                window.__passwordRevealed = true;
+            } else {
+                passwordField.type = 'password';
+                icon.classList.remove('mdi-eye-outline');
+                icon.classList.add('mdi-eye-off-outline');
+                window.__passwordRevealed = false;
+            }
+            
+            // Keep focus on password field and restore cursor position after type change completes
+            requestAnimationFrame(() => {
+                passwordField.focus();
+                passwordField.setSelectionRange(cursorPos, cursorEnd);
+                
+                // Trigger mascot eye update immediately
+                if (typeof window.passwordStateRefresh === 'function') {
+                    window.passwordStateRefresh(true);
+                }
+            });
+        });
+    }
+});
+</script>
+
 <script src="<?= $this->Url->build('/assets/js/mascot.js') ?>?v=<?= filemtime(WWW_ROOT . 'assets/js/mascot.js') ?>" defer></script>

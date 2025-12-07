@@ -293,22 +293,27 @@ class UsersController extends AppController
                     
                     $previousAttempts = $userEntity->failed_login_attempts ?? 0;
                     
-                    // Reset failed_login_attempts to 0 on successful login
-                    // This ensures that if the user logged in successfully (1-4 attempts) before lockout,
-                    // the counter resets so they start fresh on their next session
-                    $userEntity->failed_login_attempts = 0;
-                    $userEntity->account_locked_until = null;
+                    \Cake\Log\Log::write('debug', '[RESET ATTEMPTS] Starting reset for user ' . $userId . ' with previous attempts: ' . $previousAttempts);
                     
-                    // Explicitly mark fields as dirty to ensure CakePHP saves them
-                    $userEntity->setDirty('failed_login_attempts', true);
-                    $userEntity->setDirty('account_locked_until', true);
+                    // Use direct UPDATE query to ensure the reset happens
+                    $updateResult = $usersTable->updateAll(
+                        [
+                            'failed_login_attempts' => 0,
+                            'account_locked_until' => null
+                        ],
+                        ['id' => $userId]
+                    );
                     
-                    $saveResult = $usersTable->save($userEntity, ['checkRules' => false]);
+                    \Cake\Log\Log::write('debug', '[RESET ATTEMPTS] updateAll result: ' . $updateResult . ' rows affected');
                     
-                    if ($saveResult) {
+                    // Verify the reset by re-fetching the user
+                    $verifyUser = $usersTable->get($userId);
+                    \Cake\Log\Log::write('debug', '[RESET ATTEMPTS] Verification - failed_login_attempts is now: ' . ($verifyUser->failed_login_attempts ?? 'NULL'));
+                    
+                    if ($updateResult > 0 || ($verifyUser->failed_login_attempts ?? 0) === 0) {
                         \Cake\Log\Log::write('info', 'Successfully reset failed_login_attempts for user ' . $userId . ' (was: ' . $previousAttempts . ', now: 0) after successful login');
                     } else {
-                        \Cake\Log\Log::write('error', 'Failed to save user entity when resetting failed_login_attempts for user ' . $userId . '. Errors: ' . json_encode($userEntity->getErrors()));
+                        \Cake\Log\Log::write('error', 'Failed to reset failed_login_attempts for user ' . $userId . ' - updateAll returned ' . $updateResult);
                     }
                 } catch (\Throwable $e) {
                     \Cake\Log\Log::write('error', 'Exception while clearing failed attempts for user ' . $userId . ': ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
