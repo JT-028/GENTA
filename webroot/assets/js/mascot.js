@@ -113,24 +113,14 @@ try { window.__mascotScriptPresent = true; if (typeof console !== 'undefined' &&
     } catch (e) {}
 
     // Intercept registration form to check password confirmation client-side
+    // NOTE: Password match checking is now handled by register.php with real-time validation
+    // This form submit handler is disabled because custom masking uses bullets (•) in field values
+    // The actual password comparison is done in register.php before form submission
     try {
       var registerForm = document.querySelector('form[action*="/Users/register"], form[action*="/users/register"]');
       if (registerForm) {
-        registerForm.addEventListener('submit', function (ev) {
-          try {
-            var pwd = document.getElementById('password');
-            var cpwd = document.getElementById('confirm_password');
-            if (pwd && cpwd && pwd.value !== cpwd.value) {
-              // prevent submit and show inline indicator + mascot wrong-pass
-              try { ev.preventDefault(); } catch(e){}
-              try { if (typeof Swal !== 'undefined') { Swal.fire({ icon: 'error', title: 'Passwords do not match', toast: true, position: 'top-end', showConfirmButton: false, timer: 3000 }); } else { _showFallbackToast('Confirm Password did not match the password.', 'error'); } } catch(e){}
-              try { showEyes('wrong_pass', true); } catch(e){}
-              try { cpwd.focus(); } catch(e){}
-              return false;
-            }
-            return true;
-          } catch (err) { return true; }
-        });
+        // Form validation is handled by HTML5 validation and register.php's real-time checker
+        // No need to check password match here since we can't access actual password values
       }
     } catch (e) {}
     try { console.info('[mascot] eye groups:', { openGroup: !!openGroup, closedGroup: !!closedGroup, peakGroup: !!peakGroup, openLeft: !!openLeft, openRight: !!openRight }); } catch(e){}
@@ -621,13 +611,15 @@ try { window.__mascotScriptPresent = true; if (typeof console !== 'undefined' &&
     if (lastName) attachCaretFollower(lastName);
 
     // Global focusin listener to ensure state matches focused element immediately
+    var confirmPassword = document.getElementById('confirm_password');
+    
     document.addEventListener('focusin', function (ev) {
       try {
         window.__mascotLog('focusin', ev.target && ev.target.id);
         if (ev.target === email || ev.target === firstName || ev.target === lastName) {
           showEyes('open', true);
           if (ev.target === email) onEmailInput(); else followCaretFor(ev.target);
-        } else if (ev.target === password) {
+        } else if (ev.target === password || ev.target === confirmPassword) {
           passwordStateRefresh(true);
         }
       } catch (e) {}
@@ -637,13 +629,15 @@ try { window.__mascotScriptPresent = true; if (typeof console !== 'undefined' &&
       window.__mascotLog('passwordStateRefresh', force, password && password.type, document.activeElement && document.activeElement.id);
       if (!password) return;
       var now = Date.now();
-      // Check global flag for password reveal state (supports custom masking)
-      var isRevealed = window.__passwordRevealed || password.type === 'text';
-      // show peak only if password is focused and revealed; do not use a post-toggle force window
-      if (isRevealed && document.activeElement === password) {
+      var activeEl = document.activeElement;
+      // Check ONLY the global flag for password reveal state (supports custom masking with text input)
+      // Do NOT check password.type because custom masking uses type="text"
+      var isRevealed = window.__passwordRevealed === true;
+      // show peak only if password/confirm is focused and revealed
+      if (isRevealed && (activeEl === password || activeEl === confirmPassword)) {
         showEyes('peak', !!force);
-      } else if (document.activeElement === password) {
-        // password focused and not revealed
+      } else if (activeEl === password || activeEl === confirmPassword) {
+        // password/confirm focused and not revealed
         showEyes('closed', !!force);
       } else {
         // otherwise, prefer open for other fields
@@ -666,8 +660,18 @@ try { window.__mascotScriptPresent = true; if (typeof console !== 'undefined' &&
         });
         mo.observe(password, { attributes: true });
       } catch (e) { /* ignore */ }
+    }
+    
+    if (confirmPassword) {
+      confirmPassword.addEventListener('focus', passwordStateRefresh);
+      confirmPassword.addEventListener('input', passwordStateRefresh);
+      confirmPassword.addEventListener('blur', function () { showEyes('open'); });
+    }
 
+    if (password) {
       // Password visibility toggle button (if present)
+      // NOTE: Toggle functionality is handled by register.php for custom character-by-character masking
+      // mascot.js only handles the pointerdown event for eye state transitions
       var toggleBtn = document.getElementById('toggle-password-visibility');
       if (toggleBtn) {
         // pointerdown used to preempt focus/change events so we can suppress transient open flashes
@@ -689,86 +693,16 @@ try { window.__mascotScriptPresent = true; if (typeof console !== 'undefined' &&
             // also set a short suppression window immediately
             __mascotSuppressOpenUntil = Date.now() + 300;
             // ensure peak is shown immediately while toggle interaction is happening
-            showEyes('peak', true);
+            // showEyes('peak', true); // Removed - handled by register.php
           } catch (e) {}
         });
 
-        toggleBtn.addEventListener('click', function (e) {
-          try {
-            window.__mascotLog('toggle.click', password && password.type);
-            if (!password) return;
-            // Prevent other click handlers from running and possibly showing 'open'
-            if (e && typeof e.stopPropagation === 'function') {
-              e.stopPropagation();
-              e.preventDefault && e.preventDefault();
-            }
-            // activate a short suppression window so other handlers do not briefly show 'open' eyes
-            __mascotSuppressOpenUntil = Date.now() + 1200; // 1200ms suppression
-            // Toggle both password and confirm password fields if present
-            var confirmEl = document.getElementById('confirm_password');
-            var iconEl = toggleBtn.querySelector('i');
-            if (password.type === 'password') {
-              password.type = 'text';
-              if (confirmEl) confirmEl.type = 'text';
-              // update icon if using mdi
-              if (iconEl) { iconEl.className = 'mdi mdi-eye-outline'; }
-              // immediately show peak eyes (no persistent force window)
-              showEyes('peak', true);
-            } else {
-              password.type = 'password';
-              if (confirmEl) confirmEl.type = 'password';
-              if (iconEl) { iconEl.className = 'mdi mdi-eye-off-outline'; }
-              // after hiding, show closed eyes if still focused (or open otherwise)
-              setTimeout(function(){ passwordStateRefresh(true); }, 10);
-            }
-            // keep focus on the password field
-            try { password.focus(); } catch(e){}
-            // notify state change (ensure MutationObserver also catches it)
-            passwordStateRefresh();
-          } catch (err) { console.warn('toggle password failed', err); }
-        });
+        // Click handler removed - now handled by register.php for custom masking support
       }
     }
 
-    // Password match indicator logic for register page
-    try {
-      var confirmPassword = document.getElementById('confirm_password');
-      var matchIndicator = document.getElementById('password-match-indicator');
-      function updatePasswordMatchIndicator() {
-        try {
-          if (!matchIndicator) return;
-          var a = password && password.value ? password.value : '';
-          var b = confirmPassword && confirmPassword.value ? confirmPassword.value : '';
-          // empty state
-          if (!a && !b) {
-            matchIndicator.innerHTML = '';
-            matchIndicator.className = 'password-match-indicator neutral';
-            if (confirmPassword) { confirmPassword.classList.remove('is-invalid'); confirmPassword.classList.remove('is-valid'); }
-            return;
-          }
-          // match
-          if (a === b) {
-            matchIndicator.innerHTML = '<i class="mdi mdi-check-circle-outline" aria-hidden="true"></i><span>Passwords match</span>';
-            matchIndicator.className = 'password-match-indicator success';
-            if (confirmPassword) { confirmPassword.classList.remove('is-invalid'); confirmPassword.classList.add('is-valid'); }
-          } else {
-            matchIndicator.innerHTML = '<i class="mdi mdi-close-circle-outline" aria-hidden="true"></i><span>Passwords do not match</span>';
-            matchIndicator.className = 'password-match-indicator danger';
-            if (confirmPassword) { confirmPassword.classList.remove('is-valid'); confirmPassword.classList.add('is-invalid'); }
-          }
-        } catch (e) {}
-      }
-      if (password) password.addEventListener('input', updatePasswordMatchIndicator);
-      if (confirmPassword) {
-        confirmPassword.addEventListener('input', updatePasswordMatchIndicator);
-        // Do NOT trigger wrong_pass on blur here. wrong_pass should only be shown
-        // when an actual alert/toast is presented (e.g., on submit prevention or
-        // when the server returns a confirm-password error). Submit handler will
-        // show the toast and trigger wrong_pass as needed.
-      }
-      // initialize state
-      updatePasswordMatchIndicator();
-    } catch (e) {}
+    // Password match indicator logic is now handled by register.php
+    // with custom masking support and proper validation of actual password values
 
     // Flash handling is managed earlier via detectAndHandleFlash()
 

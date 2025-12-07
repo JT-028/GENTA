@@ -11,7 +11,7 @@
 <div class="auth-subtitle">To register a new account, kindly fill up the following.</div>
 
 <!-- REGISTER FORM -->
-<?= $this->Form->create(NULL, ['url' => ['controller' => 'Users', 'action' => 'register']]) ?>
+<?= $this->Form->create(NULL, ['url' => ['controller' => 'Users', 'action' => 'register'], 'novalidate' => true]) ?>
     <div class="row">
         <div class="col-md-6">
             <div class="form-group">
@@ -36,14 +36,14 @@
     <div class="row">
         <div class="col-md-6">
             <div class="form-group position-relative">
-                <?= $this->Form->text('password', ['class' => 'form-control form-control-lg ' . ($fieldErrors['password']['class'] ?? ''), 'id' => 'password', 'placeholder' => 'Password', 'required' => 'required', 'minlength' => '8', 'maxlength' => '32', 'autocomplete' => 'new-password']) ?>
+                <input type="text" name="password" class="form-control form-control-lg <?= $fieldErrors['password']['class'] ?? '' ?>" id="password" placeholder="Password" required minlength="8" maxlength="32" autocomplete="off" />
                 <button type="button" id="toggle-password-visibility" class="password-toggle-icon" aria-label="Toggle password visibility"><i class="mdi mdi-eye-off-outline" aria-hidden="true"></i></button>
                 <div class="invalid-feedback"><?= $fieldErrors['password']['message'] ?? '' ?></div>
             </div>
         </div>
         <div class="col-md-6">
             <div class="form-group">
-                <?= $this->Form->text('confirm_password', ['class' => 'form-control form-control-lg', 'id' => 'confirm_password', 'placeholder' => 'Confirm Password', 'required' => 'required', 'autocomplete' => 'new-password']) ?>
+                <input type="text" name="confirm_password" class="form-control form-control-lg" id="confirm_password" placeholder="Confirm Password" autocomplete="off" />
                 <small id="password-match-indicator" class="form-text" style="font-size: 0.75rem; min-height: 20px; display: block; margin-top: 0.25rem;" aria-live="polite"></small>
             </div>
         </div>
@@ -92,7 +92,49 @@
     let confirmPasswordVisible = false;
     let confirmMaskingEnabled = true; // Flag to temporarily disable masking during toggle
     
+    // Flag to prevent input handler from interfering during toggle
+    let isToggling = false;
+    
     window.__passwordRevealed = false; // Global flag for mascot.js to check - set BEFORE any other code runs
+    
+    // CRITICAL: Force fields to stay as text type and lock it
+    if (passwordField) {
+        // Remove any password-related attributes
+        passwordField.removeAttribute('data-password');
+        passwordField.removeAttribute('data-password-field');
+        
+        // Force type to text
+        passwordField.setAttribute('type', 'text');
+        passwordField.type = 'text';
+        
+        // Watch for type changes and force it back to text
+        const originalType = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'type');
+        Object.defineProperty(passwordField, 'type', {
+            get: function() {
+                return 'text';
+            },
+            set: function(value) {
+                // Always force to text, ignore attempts to set to password
+                originalType.set.call(this, 'text');
+            }
+        });
+    }
+    if (confirmPasswordField) {
+        confirmPasswordField.removeAttribute('data-password');
+        confirmPasswordField.removeAttribute('data-password-field');
+        confirmPasswordField.setAttribute('type', 'text');
+        confirmPasswordField.type = 'text';
+        
+        const originalType = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'type');
+        Object.defineProperty(confirmPasswordField, 'type', {
+            get: function() {
+                return 'text';
+            },
+            set: function(value) {
+                originalType.set.call(this, 'text');
+            }
+        });
+    }
     
     // Initialize mascot with closed eyes IMMEDIATELY on page load (default hidden password state)
     // This prevents the peaking eyes from showing due to click handlers
@@ -123,6 +165,12 @@
         });
         
         passwordField.addEventListener('input', function(e) {
+            // Skip if we're in the middle of toggling visibility
+            if (isToggling) {
+                return;
+            }
+            
+            // CRITICAL: Check if password is visible first
             if (passwordVisible) {
                 // When password is visible, update the actual password directly from the field
                 // No masking - user sees what they type
@@ -135,63 +183,85 @@
             }
             
             // Password is HIDDEN - apply character-by-character masking
-            if (!maskingEnabled) return; // Skip if masking temporarily disabled during toggle
-            
             const currentValue = this.value;
             const cursorPos = this.selectionStart;
+            const expectedLength = actualPassword.length;
             
-            // Handle paste - if we get many chars at once without bullets
-            if (currentValue && !currentValue.includes('•') && currentValue.length > actualPassword.length + 1) {
+            // Handle paste - if we get many non-bullet chars at once
+            if (currentValue && !currentValue.includes('•') && currentValue.length > expectedLength + 1) {
                 actualPassword = currentValue;
                 this.value = '•'.repeat(actualPassword.length);
                 this.setSelectionRange(cursorPos, cursorPos);
                 validatePasswordStrength(actualPassword);
-            } else if (currentValue.length > actualPassword.length) {
-                // Character(s) added normally
-                const addedChars = currentValue.length - actualPassword.length;
-                const insertPos = cursorPos - addedChars;
-                const newChars = currentValue.substring(insertPos, cursorPos);
+                if (confirmPasswordField && actualConfirmPassword) {
+                    checkPasswordMatch();
+                }
+            } else if (currentValue.length > expectedLength) {
+                // Character(s) added - find what was added by comparing lengths
+                const diff = currentValue.length - expectedLength;
+                const insertPos = cursorPos - diff;
                 
-                // Update actual password
+                // The new characters are the ones that aren't bullets at the cursor position
+                const newChars = e.data || currentValue.substring(insertPos, cursorPos).replace(/•/g, '');
+                
+                // Insert new characters into actual password at cursor position
                 actualPassword = actualPassword.substring(0, insertPos) + newChars + actualPassword.substring(insertPos);
                 
-                // Show last typed character briefly, mask others
+                // Display: all bullets except the last character(s) typed
                 clearTimeout(lastCharTimer);
-                const maskedValue = '•'.repeat(actualPassword.length - 1) + actualPassword.charAt(actualPassword.length - 1);
-                this.value = maskedValue;
+                const visibleChars = newChars;
+                const maskedPart = '•'.repeat(actualPassword.length - visibleChars.length);
+                this.value = maskedPart + visibleChars;
                 this.setSelectionRange(cursorPos, cursorPos);
                 
-                // Mask all characters after 500ms
+                // Mask everything after 500ms
                 lastCharTimer = setTimeout(() => {
-                    if (!passwordVisible && passwordField.value.length === actualPassword.length) {
+                    if (!passwordVisible) {
                         passwordField.value = '•'.repeat(actualPassword.length);
-                        passwordField.setSelectionRange(cursorPos, cursorPos);
+                        passwordField.setSelectionRange(actualPassword.length, actualPassword.length);
                     }
                 }, 500);
-                validatePasswordStrength(actualPassword);
-            } else if (currentValue.length < actualPassword.length) {
-                // Character(s) deleted
-                const deletedCount = actualPassword.length - currentValue.length;
-                actualPassword = actualPassword.substring(0, cursorPos) + actualPassword.substring(cursorPos + deletedCount);
                 
-                // Show all as masked
+                validatePasswordStrength(actualPassword);
+                if (confirmPasswordField && actualConfirmPassword) {
+                    checkPasswordMatch();
+                }
+            } else if (currentValue.length < expectedLength) {
+                // Character(s) deleted
+                const diff = expectedLength - currentValue.length;
+                
+                // Remove characters from actual password at cursor position
+                actualPassword = actualPassword.substring(0, cursorPos) + actualPassword.substring(cursorPos + diff);
+                
+                // Show all as bullets
                 clearTimeout(lastCharTimer);
                 this.value = '•'.repeat(actualPassword.length);
                 this.setSelectionRange(cursorPos, cursorPos);
+                
                 validatePasswordStrength(actualPassword);
-            }
-            
-            // Check if passwords match (for hidden mode)
-            if (confirmPasswordField && actualConfirmPassword) {
-                checkPasswordMatch();
+                if (confirmPasswordField && actualConfirmPassword) {
+                    checkPasswordMatch();
+                }
             }
         });
         
-        // On form submit, use actual password
+        // On form submit, use actual password and validate match
         const form = passwordField.closest('form');
         if (form) {
             form.addEventListener('submit', function(e) {
+                // Set actual passwords in fields for submission
                 passwordField.value = actualPassword;
+                if (confirmPasswordField) {
+                    confirmPasswordField.value = actualConfirmPassword;
+                }
+                
+                // Check if passwords match before allowing submission
+                if (actualPassword !== actualConfirmPassword) {
+                    e.preventDefault();
+                    // Focus on confirm password field to show the error
+                    confirmPasswordField.focus();
+                    return false;
+                }
             });
         }
     }
@@ -199,10 +269,15 @@
     // Password visibility toggle - switches between masking and full visibility for BOTH fields
     const togglePasswordBtn = document.getElementById('toggle-password-visibility');
     if (togglePasswordBtn && passwordField) {
-        togglePasswordBtn.addEventListener('click', function() {
+        togglePasswordBtn.addEventListener('click', function(e) {
+            e.preventDefault(); // Prevent any default behavior
+            
             const icon = this.querySelector('i');
             clearTimeout(lastCharTimer);
             clearTimeout(confirmLastCharTimer);
+            
+            // Set toggling flag to prevent input handlers from interfering
+            isToggling = true;
             
             passwordVisible = !passwordVisible;
             confirmPasswordVisible = !confirmPasswordVisible;
@@ -210,54 +285,116 @@
             if (passwordVisible) {
                 // SHOW PASSWORD STATE: Show actual plain text passwords
                 
-                // Update icon first
-                icon.classList.remove('mdi-eye-off-outline');
-                icon.classList.add('mdi-eye-outline');
+                // Update icon - force complete refresh
+                icon.className = 'mdi mdi-eye-outline';
+                icon.setAttribute('aria-hidden', 'true');
+                // Force browser repaint
+                void icon.offsetHeight;
                 
-                // Disable masking immediately BEFORE setting values
-                maskingEnabled = false;
-                confirmMaskingEnabled = false;
                 window.__passwordRevealed = true; // Signal to mascot.js
                 
-                // Set the actual password values directly (this will show plain text)
-                passwordField.value = actualPassword;
+                // Before showing, update actualPassword from any masked content
+                // (in case it somehow got out of sync)
+                if (passwordField.value.includes('•')) {
+                    // Field is masked, actualPassword is already correct
+                } else if (passwordField.value && passwordField.value !== actualPassword) {
+                    // Field has plain text different from actualPassword, update it
+                    actualPassword = passwordField.value;
+                }
+                
+                // Clear the field first
+                passwordField.value = '';
+                
+                // Use requestAnimationFrame to ensure changes are applied together
+                requestAnimationFrame(() => {
+                    // FORCE input type to text INSIDE the animation frame
+                    passwordField.type = 'text';
+                    passwordField.setAttribute('type', 'text');
+                    passwordField.removeAttribute('data-password-field');
+                    
+                    // Set the actual password value
+                    passwordField.value = actualPassword;
+                    passwordField.dispatchEvent(new Event('change', { bubbles: true }));
+                });
+                
                 if (confirmPasswordField) {
-                    confirmPasswordField.value = actualConfirmPassword;
+                    if (confirmPasswordField.value.includes('•')) {
+                        // Field is masked, actualConfirmPassword is already correct
+                    } else if (confirmPasswordField.value && confirmPasswordField.value !== actualConfirmPassword) {
+                        actualConfirmPassword = confirmPasswordField.value;
+                    }
+                    confirmPasswordField.value = '';
+                    requestAnimationFrame(() => {
+                        confirmPasswordField.type = 'text';
+                        confirmPasswordField.setAttribute('type', 'text');
+                        confirmPasswordField.removeAttribute('data-password-field');
+                        confirmPasswordField.value = actualConfirmPassword;
+                    });
                 }
                 
                 // Mascot shows peaking eyes (one eye closed, one peeking)
-                if (typeof window.showEyes === 'function') {
-                    window.showEyes('peak', true);
-                }
+                // Focus password field and refresh mascot state
+                setTimeout(() => {
+                    passwordField.focus();
+                    if (typeof window.showEyes === 'function') {
+                        window.showEyes('peak', true);
+                    }
+                }, 10);
             } else {
                 // HIDDEN PASSWORD STATE: Show bullets and enable masking
                 
-                // Update icon first
-                icon.classList.remove('mdi-eye-outline');
-                icon.classList.add('mdi-eye-off-outline');
+                // Update icon - force complete refresh
+                icon.className = 'mdi mdi-eye-off-outline';
+                icon.setAttribute('aria-hidden', 'true');
+                // Force browser repaint
+                void icon.offsetHeight;
                 
-                // Disable masking temporarily while we set bullet values
-                maskingEnabled = false;
-                confirmMaskingEnabled = false;
                 window.__passwordRevealed = false; // Signal to mascot.js
                 
-                // Show masked passwords in both fields (bullets)
-                passwordField.value = '•'.repeat(actualPassword.length);
+                // Before hiding, capture any changes made while password was visible
+                actualPassword = passwordField.value;
+                
                 if (confirmPasswordField) {
-                    confirmPasswordField.value = '•'.repeat(actualConfirmPassword.length);
+                    actualConfirmPassword = confirmPasswordField.value;
                 }
                 
-                // Re-enable masking after a short delay
-                setTimeout(() => {
-                    maskingEnabled = true;
-                    confirmMaskingEnabled = true;
-                }, 100);
+                // Clear first
+                passwordField.value = '';
+                
+                requestAnimationFrame(() => {
+                    // FORCE input type to text INSIDE the animation frame
+                    passwordField.type = 'text';
+                    passwordField.setAttribute('type', 'text');
+                    passwordField.removeAttribute('data-password-field');
+                    
+                    // Set bullets
+                    passwordField.value = '•'.repeat(actualPassword.length);
+                });
+                
+                if (confirmPasswordField) {
+                    confirmPasswordField.value = '';
+                    requestAnimationFrame(() => {
+                        confirmPasswordField.type = 'text';
+                        confirmPasswordField.setAttribute('type', 'text');
+                        confirmPasswordField.removeAttribute('data-password-field');
+                        confirmPasswordField.value = '•'.repeat(actualConfirmPassword.length);
+                    });
+                }
                 
                 // Mascot shows closed eyes (default state)
-                if (typeof window.showEyes === 'function') {
-                    window.showEyes('closed', true);
-                }
+                // Focus password field and refresh mascot state
+                setTimeout(() => {
+                    passwordField.focus();
+                    if (typeof window.showEyes === 'function') {
+                        window.showEyes('closed', true);
+                    }
+                }, 10);
             }
+            
+            // Clear toggling flag after a longer delay to prevent input handler interference
+            setTimeout(() => {
+                isToggling = false;
+            }, 300);
         });
     }
 
@@ -301,25 +438,36 @@
         
         // Also check password match if confirm field has value
         if (confirmPasswordField && typeof actualConfirmPassword !== 'undefined' && actualConfirmPassword) {
-            checkPasswordMatchWithActual();
+            checkPasswordMatch();
         }
     }
 
+    let matchCheckTimeout = null;
     function checkPasswordMatch() {
+        // Clear any pending check
+        clearTimeout(matchCheckTimeout);
+        
+        // Immediately clear the indicator to prevent flashing old state
         if (!actualConfirmPassword) {
             matchIndicator.innerHTML = '';
+            confirmPasswordField.classList.remove('is-valid', 'is-invalid');
             return;
         }
         
-        if (actualPassword === actualConfirmPassword) {
-            matchIndicator.className = 'form-text text-success';
-            matchIndicator.innerHTML = '<i class="mdi mdi-check-circle"></i> Passwords match';
-            confirmPasswordField.setCustomValidity('');
-        } else {
-            matchIndicator.className = 'form-text text-danger';
-            matchIndicator.innerHTML = '<i class="mdi mdi-close-circle"></i> Passwords do not match';
-            confirmPasswordField.setCustomValidity('Passwords must match');
-        }
+        // Use a small delay to ensure values are fully updated before final check
+        matchCheckTimeout = setTimeout(() => {
+            if (actualPassword === actualConfirmPassword) {
+                matchIndicator.className = 'form-text text-success';
+                matchIndicator.innerHTML = '<i class="mdi mdi-check-circle"></i> Passwords match';
+                confirmPasswordField.classList.remove('is-invalid');
+                confirmPasswordField.classList.add('is-valid');
+            } else {
+                matchIndicator.className = 'form-text text-danger';
+                matchIndicator.innerHTML = '<i class="mdi mdi-close-circle"></i> Passwords do not match';
+                confirmPasswordField.classList.remove('is-valid');
+                confirmPasswordField.classList.add('is-invalid');
+            }
+        }, 50);
     }
 
     // Email field - hide instruction after typing
@@ -372,6 +520,11 @@
         });
         
         confirmPasswordField.addEventListener('input', function(e) {
+            // Skip if we're in the middle of toggling visibility
+            if (isToggling) {
+                return;
+            }
+            
             if (confirmPasswordVisible) {
                 // When password is visible, update the actual password directly from the field
                 // No masking - user sees what they type
@@ -381,45 +534,57 @@
             }
             
             // Password is HIDDEN - apply character-by-character masking
-            if (!confirmMaskingEnabled) return; // Skip if masking temporarily disabled during toggle
-            
             const currentValue = this.value;
             const cursorPos = this.selectionStart;
-                
-                // Handle paste
-                if (currentValue && !currentValue.includes('•') && currentValue.length > actualConfirmPassword.length + 1) {
-                    actualConfirmPassword = currentValue;
-                    this.value = '•'.repeat(actualConfirmPassword.length);
-                    this.setSelectionRange(cursorPos, cursorPos);
-                } else if (currentValue.length > actualConfirmPassword.length) {
-                    const addedChars = currentValue.length - actualConfirmPassword.length;
-                    const insertPos = cursorPos - addedChars;
-                    const newChars = currentValue.substring(insertPos, cursorPos);
-                    
-                    actualConfirmPassword = actualConfirmPassword.substring(0, insertPos) + newChars + actualConfirmPassword.substring(insertPos);
-                    
-                    clearTimeout(confirmLastCharTimer);
-                    const maskedValue = '•'.repeat(actualConfirmPassword.length - 1) + actualConfirmPassword.charAt(actualConfirmPassword.length - 1);
-                    this.value = maskedValue;
-                    this.setSelectionRange(cursorPos, cursorPos);
-                    
-                    confirmLastCharTimer = setTimeout(() => {
-                        if (!confirmPasswordVisible && confirmPasswordField.value.length === actualConfirmPassword.length) {
-                            confirmPasswordField.value = '•'.repeat(actualConfirmPassword.length);
-                            confirmPasswordField.setSelectionRange(cursorPos, cursorPos);
-                        }
-                    }, 500);
-                } else if (currentValue.length < actualConfirmPassword.length) {
-                    const deletedCount = actualConfirmPassword.length - currentValue.length;
-                    actualConfirmPassword = actualConfirmPassword.substring(0, cursorPos) + actualConfirmPassword.substring(cursorPos + deletedCount);
-                    
-                    clearTimeout(confirmLastCharTimer);
-                    this.value = '•'.repeat(actualConfirmPassword.length);
-                    this.setSelectionRange(cursorPos, cursorPos);
-                }
-            }
+            const expectedLength = actualConfirmPassword.length;
             
-            checkPasswordMatch();
+            // Handle paste - if we get many non-bullet chars at once
+            if (currentValue && !currentValue.includes('•') && currentValue.length > expectedLength + 1) {
+                actualConfirmPassword = currentValue;
+                this.value = '•'.repeat(actualConfirmPassword.length);
+                this.setSelectionRange(cursorPos, cursorPos);
+                checkPasswordMatch();
+            } else if (currentValue.length > expectedLength) {
+                // Character(s) added - find what was added
+                const diff = currentValue.length - expectedLength;
+                const insertPos = cursorPos - diff;
+                
+                // The new characters are the ones that aren't bullets
+                const newChars = e.data || currentValue.substring(insertPos, cursorPos).replace(/•/g, '');
+                
+                // Insert new characters into actual password at cursor position
+                actualConfirmPassword = actualConfirmPassword.substring(0, insertPos) + newChars + actualConfirmPassword.substring(insertPos);
+                
+                // Display: all bullets except the last character(s) typed
+                clearTimeout(confirmLastCharTimer);
+                const visibleChars = newChars;
+                const maskedPart = '•'.repeat(actualConfirmPassword.length - visibleChars.length);
+                this.value = maskedPart + visibleChars;
+                this.setSelectionRange(cursorPos, cursorPos);
+                
+                // Mask everything after 500ms
+                confirmLastCharTimer = setTimeout(() => {
+                    if (!confirmPasswordVisible) {
+                        confirmPasswordField.value = '•'.repeat(actualConfirmPassword.length);
+                        confirmPasswordField.setSelectionRange(actualConfirmPassword.length, actualConfirmPassword.length);
+                    }
+                }, 500);
+                
+                checkPasswordMatch();
+            } else if (currentValue.length < expectedLength) {
+                // Character(s) deleted
+                const diff = expectedLength - currentValue.length;
+                
+                // Remove characters from actual password at cursor position
+                actualConfirmPassword = actualConfirmPassword.substring(0, cursorPos) + actualConfirmPassword.substring(cursorPos + diff);
+                
+                // Show all as bullets
+                clearTimeout(confirmLastCharTimer);
+                this.value = '•'.repeat(actualConfirmPassword.length);
+                this.setSelectionRange(cursorPos, cursorPos);
+                
+                checkPasswordMatch();
+            }
         });
         
         const form = confirmPasswordField.closest('form');
