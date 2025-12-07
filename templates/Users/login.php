@@ -85,4 +85,4 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
-<script src="<?= $this->Url->build('/assets/js/mascot.js') ?>" defer></script>
+<script src="<?= $this->Url->build('/assets/js/mascot.js') ?>?v=<?= filemtime(WWW_ROOT . 'assets/js/mascot.js') ?>" defer></script>

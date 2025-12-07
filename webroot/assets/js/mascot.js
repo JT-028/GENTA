@@ -442,7 +442,7 @@ try { window.__mascotScriptPresent = true; if (typeof console !== 'undefined' &&
     }
     function _hideGroup(g) {
       try {
-        window.__mascotLog('_hideGroup', g && g.getAttribute && g.getAttribute('id'));
+        window.__mascotLog                                                                          ('_hideGroup', g && g.getAttribute && g.getAttribute('id'));
         if (!g) return;
         g.style.opacity = '0';
         // after transition, hide to remove from a11y and pointer events
