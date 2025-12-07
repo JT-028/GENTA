@@ -200,11 +200,18 @@
                 confirmMaskingEnabled = false;
                 window.__passwordRevealed = true; // Signal to mascot.js
                 
+                // IMPORTANT: Disable masking first, then update field values
+                // This prevents the input event from re-masking when we set the plain text
+                
                 // Show full actual passwords in both fields (plain text, not bullets)
-                passwordField.value = actualPassword;
-                if (confirmPasswordField) {
-                    confirmPasswordField.value = actualConfirmPassword;
-                }
+                // Force immediate display without waiting for input events
+                setTimeout(() => {
+                    passwordField.value = actualPassword;
+                    if (confirmPasswordField) {
+                        confirmPasswordField.value = actualConfirmPassword;
+                    }
+                }, 0);
+                
                 icon.classList.remove('mdi-eye-off-outline');
                 icon.classList.add('mdi-eye-outline');
                 
@@ -217,6 +224,7 @@
                 window.__passwordRevealed = false; // Signal to mascot.js
                 
                 // Show masked passwords in both fields (bullets)
+                // Do this immediately before re-enabling masking
                 passwordField.value = '•'.repeat(actualPassword.length);
                 if (confirmPasswordField) {
                     confirmPasswordField.value = '•'.repeat(actualConfirmPassword.length);

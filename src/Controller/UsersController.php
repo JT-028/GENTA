@@ -282,8 +282,8 @@ class UsersController extends AppController
             // This resets the counter even if the user had 1-4 failed attempts before successfully logging in
             if ($userId) {
                 try {
+                    $usersTable = $this->loadModel('Users');
                     if (!$userEntity) {
-                        $usersTable = $this->loadModel('Users');
                         $userEntity = $usersTable->get($userId);
                     }
                     // Reset failed_login_attempts to 0 on successful login
