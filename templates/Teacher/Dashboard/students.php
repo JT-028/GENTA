@@ -159,6 +159,7 @@
                             if (!/^[0-9]{12}$/.test(lrn)) { errors.lrn = ['LRN must be a 12-digit number']; }
                         if (!name) { errors.name = ['Name is required']; }
                         if (!grade) { errors.grade = ['Grade is required']; }
+                        else if (isNaN(grade) || parseInt(grade) < 1 || parseInt(grade) > 6) { errors.grade = ['Grade must be between 1 and 6']; }
                         if (!section) { errors.section = ['Section is required']; }
 
                         if (Object.keys(errors).length) {

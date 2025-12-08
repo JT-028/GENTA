@@ -26,7 +26,9 @@
                     'class' => 'form-control' . ($question->hasErrors('description') ? ' is-invalid' : ''), 
                     'id' => 'description', 
                     'rows' => 3,
-                    'required' => true
+                    'required' => true,
+                    'onkeyup' => 'this.value = this.value.replace(/^\s+/, "");',
+                    'onblur' => 'if (this.value.trim() === "") { this.value = ""; }'
                 ]) ?>
                 <?php if ($question->hasErrors('description')): ?>
                     <div class="invalid-feedback d-block">

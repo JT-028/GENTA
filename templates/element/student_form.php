@@ -25,7 +25,13 @@
 
     <div class="row">
         <div class="col-md-6">
-            <?= $this->Form->control('grade', ['class' => 'form-control']) ?>
+            <?= $this->Form->control('grade', [
+                'class' => 'form-control',
+                'type' => 'number',
+                'min' => 1,
+                'max' => 6,
+                'step' => 1
+            ]) ?>
             <div class="invalid-feedback d-none" data-field="grade"></div>
         </div>
         <div class="col-md-6">

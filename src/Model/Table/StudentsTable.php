@@ -86,7 +86,8 @@ class StudentsTable extends Table
         $validator
             ->integer('grade')
             ->requirePresence('grade', 'create')
-            ->notEmptyString('grade');
+            ->notEmptyString('grade')
+            ->range('grade', [1, 6], 'Grade must be between 1 and 6');
 
         $validator
             ->scalar('section')

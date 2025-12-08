@@ -77,7 +77,14 @@ class QuestionsTable extends Table
 
         $validator
             ->scalar('description')
-            ->allowEmptyString('description');
+            ->requirePresence('description', 'create')
+            ->notEmptyString('description', __('Question is required.'))
+            ->add('description', 'notOnlyWhitespace', [
+                'rule' => function ($value, $context) {
+                    return !empty(trim($value));
+                },
+                'message' => __('Question cannot be empty or contain only spaces.')
+            ]);
 
         $validator
             ->scalar('image')
