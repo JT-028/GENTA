@@ -156,11 +156,23 @@
                         var name = $.trim($form.find('[name="name"]').val() || '');
                         var grade = $.trim($form.find('[name="grade"]').val() || '');
                         var section = $.trim($form.find('[name="section"]').val() || '');
-                            if (!/^[0-9]{12}$/.test(lrn)) { errors.lrn = ['LRN must be a 12-digit number']; }
+                        
+                        console.log('Validation - LRN:', lrn, 'Name:', name, 'Grade:', grade, 'Section:', section);
+                        
+                        if (!/^[0-9]{12}$/.test(lrn)) { errors.lrn = ['LRN must be a 12-digit number']; }
                         if (!name) { errors.name = ['Name is required']; }
-                        if (!grade) { errors.grade = ['Grade is required']; }
-                        else if (isNaN(grade) || parseInt(grade) < 1 || parseInt(grade) > 6) { errors.grade = ['Grade must be between 1 and 6']; }
+                        if (!grade) { 
+                            errors.grade = ['Grade is required']; 
+                        } else {
+                            var gradeNum = parseInt(grade, 10);
+                            console.log('Grade validation - input:', grade, 'parsed:', gradeNum, 'isNaN:', isNaN(gradeNum));
+                            if (isNaN(gradeNum) || gradeNum < 1 || gradeNum > 6) { 
+                                errors.grade = ['Grade must be between 1 and 6']; 
+                            }
+                        }
                         if (!section) { errors.section = ['Section is required']; }
+                        
+                        console.log('Validation errors:', errors);
 
                         if (Object.keys(errors).length) {
                             // display client-side errors
