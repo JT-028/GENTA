@@ -1688,6 +1688,10 @@ $(document).ready(function () {
                     if (typeof WalkthroughSystem.enableScroll === 'function') {
                         WalkthroughSystem.enableScroll();
                     }
+                    // Force restore scrollbars as a fallback
+                    document.documentElement.style.overflow = '';
+                    document.body.style.overflow = '';
+                    console.info('Scrollbars forcefully restored after tour completion');
                 }
                 return;
             }
@@ -1758,6 +1762,10 @@ $(document).ready(function () {
                             WalkthroughSystem.enableScroll();
                         }
                     }
+                    // Force restore scrollbars as a fallback
+                    document.documentElement.style.overflow = '';
+                    document.body.style.overflow = '';
+                    console.info('Scrollbars forcefully restored after tour cancel');
                 });
             }
 

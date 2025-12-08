@@ -186,6 +186,7 @@
 
                         var method = ($form.attr('method') || 'POST').toUpperCase();
                         var csrf = $('meta[name=csrfToken]').attr('content') || '';
+                        console.log('Submitting student form:', {url: $form.attr('action'), method: method, data: $form.serialize()});
                         $.ajax({
                             url: $form.attr('action'),
                             method: method,
@@ -193,6 +194,7 @@
                             dataType: 'json',
                             headers: { 'X-CSRF-Token': csrf }
                         }).done(function(res){
+                            console.log('Server response:', res);
                             if (res && res.success) {
                                 var s = res.student;
                                 if (dt && s && s.id) {
@@ -299,13 +301,17 @@
                             }
                         }).fail(function(jqXHR, textStatus, errorThrown){
                             console.error('Student save AJAX failed', {status: jqXHR.status, textStatus: textStatus, error: errorThrown, response: jqXHR.responseText});
-                            var msg = 'Server error';
+                            console.error('Request details:', {url: $form.attr('action'), method: method, data: $form.serialize()});
+                            var msg = 'Server error: ' + textStatus;
                             // Try to extract a helpful message from JSON response
                             try {
                                 var json = jqXHR.responseJSON || JSON.parse(jqXHR.responseText || '{}');
                                 if (json && json.message) { msg = json.message; }
                             } catch (e) {
                                 // ignore parse errors
+                                if (jqXHR.responseText && jqXHR.responseText.length < 200) {
+                                    msg = 'Server error: ' + jqXHR.responseText;
+                                }
                             }
                             if (window.Swal && typeof Swal.fire === 'function') {
                                 Swal.fire({icon:'error', title:'Error', text: msg});
