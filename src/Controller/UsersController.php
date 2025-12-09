@@ -232,17 +232,44 @@ class UsersController extends AppController
             $userId = null;
             $userEntity = null;
             
+            // Try to get user ID from the Authentication service first
+            try {
+                $authService = $this->request->getAttribute('authentication');
+                if ($authService) {
+                    $authIdentity = $authService->getIdentity();
+                    if ($authIdentity) {
+                        $userId = $authIdentity->getIdentifier();
+                        \Cake\Log\Log::write('error', '[LOGIN DEBUG] Got userId from AuthService: ' . ($userId ?? 'NULL'));
+                    }
+                }
+            } catch (\Throwable $e) {
+                \Cake\Log\Log::write('error', '[LOGIN DEBUG] Failed to get userId from AuthService: ' . $e->getMessage());
+            }
+            
             // Prevent users who are not approved (status != 1) from logging in.
             try {
                 $identity = null;
                 try { $identity = $result->getData(); } catch (\Throwable $_) { $identity = null; }
+                
+                // Log identity details for debugging
+                \Cake\Log\Log::write('error', '[LOGIN DEBUG] Identity type: ' . (is_object($identity) ? get_class($identity) : gettype($identity)));
+                if (is_object($identity)) {
+                    \Cake\Log\Log::write('error', '[LOGIN DEBUG] Identity properties: ' . implode(', ', array_keys(get_object_vars($identity))));
+                } elseif (is_array($identity)) {
+                    \Cake\Log\Log::write('error', '[LOGIN DEBUG] Identity keys: ' . implode(', ', array_keys($identity)));
+                }
+                
                 if (is_object($identity) && property_exists($identity, 'id')) {
                     $userId = $identity->id;
                 } elseif (is_array($identity) && array_key_exists('id', $identity)) {
                     $userId = $identity['id'];
+                } elseif (is_object($identity) && method_exists($identity, 'getIdentifier')) {
+                    $userId = $identity->getIdentifier();
+                } elseif (is_object($identity) && method_exists($identity, 'get')) {
+                    try { $userId = $identity->get('id'); } catch (\Throwable $_) {}
                 }
                 
-                \Cake\Log\Log::write('info', '[LOGIN SUCCESS] Extracted userId: ' . ($userId ?? 'NULL'));
+                \Cake\Log\Log::write('error', '[LOGIN SUCCESS] Extracted userId: ' . ($userId ?? 'NULL'));
 
                 if ($userId) {
                     $usersTable = $this->loadModel('Users');
