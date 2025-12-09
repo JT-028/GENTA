@@ -410,13 +410,22 @@ class UsersController extends AppController
                 $lockoutCount = ($user->lockout_count ?? 0) + 1;
                 $user->lockout_count = $lockoutCount;
                 
+                // Mark fields as dirty to ensure they're saved
+                $user->setDirty('failed_login_attempts', true);
+                $user->setDirty('lockout_count', true);
+                
+                \Cake\Log\Log::write('error', '[LOCKOUT] User ' . $email . ' - Setting lockout_count to ' . $lockoutCount);
+                
                 // Progressive lockout based on lockout count
                 if ($lockoutCount == 1) {
                     // First lockout: 15 minutes
                     $lockoutUntil = new \DateTime('now');
                     $lockoutUntil->modify('+15 minutes');
                     $user->account_locked_until = $lockoutUntil->format('Y-m-d H:i:s');
-                    $usersTable->save($user);
+                    $user->setDirty('account_locked_until', true);
+                    
+                    $saved = $usersTable->save($user);
+                    \Cake\Log\Log::write('error', '[LOCKOUT] Tier 1 (15min) save result: ' . ($saved ? 'SUCCESS' : 'FAILED'));
                     
                     $this->Flash->error(__('Account locked due to too many failed attempts. Please try again in 15 minutes.'));
                     $this->set('remainingAttempts', 0);
@@ -428,7 +437,10 @@ class UsersController extends AppController
                     $lockoutUntil = new \DateTime('now');
                     $lockoutUntil->modify('+30 minutes');
                     $user->account_locked_until = $lockoutUntil->format('Y-m-d H:i:s');
-                    $usersTable->save($user);
+                    $user->setDirty('account_locked_until', true);
+                    
+                    $saved = $usersTable->save($user);
+                    \Cake\Log\Log::write('error', '[LOCKOUT] Tier 2 (30min) save result: ' . ($saved ? 'SUCCESS' : 'FAILED'));
                     
                     $this->Flash->error(__('Account locked due to repeated failed attempts. Please try again in 30 minutes. Next lockout will be permanent.'));
                     $this->set('remainingAttempts', 0);
@@ -439,7 +451,11 @@ class UsersController extends AppController
                     // Third+ lockout: Permanent (requires admin reactivation)
                     $user->account_locked_until = null; // No expiry time
                     $user->status = 0; // Deactivate account
-                    $usersTable->save($user);
+                    $user->setDirty('account_locked_until', true);
+                    $user->setDirty('status', true);
+                    
+                    $saved = $usersTable->save($user);
+                    \Cake\Log\Log::write('error', '[LOCKOUT] Tier 3 (PERMANENT) save result: ' . ($saved ? 'SUCCESS' : 'FAILED'));
                     
                     $this->Flash->error(__('Account permanently locked due to repeated security violations. Please contact an administrator to reactivate your account.'));
                     $this->set('remainingAttempts', 0);
@@ -451,6 +467,7 @@ class UsersController extends AppController
                 // Don't return here - let the view render
             } else {
                 // Save incremented attempts
+                $user->setDirty('failed_login_attempts', true);
                 $usersTable->save($user);
                 
                 $remainingAttempts = max(0, 5 - $user->failed_login_attempts);
