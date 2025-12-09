@@ -266,15 +266,17 @@ class UsersController extends AppController
                             // Do not redirect into the app
                             return;
                         } else {
-                            // Lockout time has expired - reset failed attempts and lockout
-                            \Cake\Log\Log::write('info', 'Lockout expired for user ' . $userId . ' - resetting failed_login_attempts');
-                            $usersTable->updateAll(
-                                [
-                                    'failed_login_attempts' => 0,
-                                    'account_locked_until' => null
-                                ],
-                                ['id' => $userId]
+                            // Lockout time has expired - reset failed attempts but keep lockout count
+                            // User can try again, but if they fail 5 more times, lockout will escalate
+                            \Cake\Log\Log::write('info', 'Lockout expired for user ' . $userId . ' - resetting failed_login_attempts only');
+                            $connection = \Cake\Datasource\ConnectionManager::get('default');
+                            $connection->execute(
+                                'UPDATE users SET failed_login_attempts = 0, account_locked_until = NULL WHERE id = :id',
+                                ['id' => $userId],
+                                ['id' => 'integer']
                             );
+                            // Reload entity to get updated values
+                            $userEntity = $usersTable->get($userId);
                         }
                     }
                     
@@ -302,29 +304,19 @@ class UsersController extends AppController
                     }
                     
                     $previousAttempts = $userEntity->failed_login_attempts ?? 0;
+                    $previousLockoutCount = $userEntity->lockout_count ?? 0;
                     
-                    \Cake\Log\Log::write('debug', '[RESET ATTEMPTS] Starting reset for user ' . $userId . ' with previous attempts: ' . $previousAttempts);
+                    \Cake\Log\Log::write('debug', '[RESET ATTEMPTS] Starting reset for user ' . $userId . ' with previous attempts: ' . $previousAttempts . ', lockout_count: ' . $previousLockoutCount);
                     
-                    // Use direct UPDATE query to ensure the reset happens
-                    $updateResult = $usersTable->updateAll(
-                        [
-                            'failed_login_attempts' => 0,
-                            'account_locked_until' => null
-                        ],
-                        ['id' => $userId]
+                    // Reset both failed attempts and lockout count on successful login
+                    $connection = \Cake\Datasource\ConnectionManager::get('default');
+                    $connection->execute(
+                        'UPDATE users SET failed_login_attempts = 0, account_locked_until = NULL, lockout_count = 0 WHERE id = :id',
+                        ['id' => $userId],
+                        ['id' => 'integer']
                     );
                     
-                    \Cake\Log\Log::write('debug', '[RESET ATTEMPTS] updateAll result: ' . $updateResult . ' rows affected');
-                    
-                    // Verify the reset by re-fetching the user
-                    $verifyUser = $usersTable->get($userId);
-                    \Cake\Log\Log::write('debug', '[RESET ATTEMPTS] Verification - failed_login_attempts is now: ' . ($verifyUser->failed_login_attempts ?? 'NULL'));
-                    
-                    if ($updateResult > 0 || ($verifyUser->failed_login_attempts ?? 0) === 0) {
-                        \Cake\Log\Log::write('info', 'Successfully reset failed_login_attempts for user ' . $userId . ' (was: ' . $previousAttempts . ', now: 0) after successful login');
-                    } else {
-                        \Cake\Log\Log::write('error', 'Failed to reset failed_login_attempts for user ' . $userId . ' - updateAll returned ' . $updateResult);
-                    }
+                    \Cake\Log\Log::write('info', 'Successfully reset failed_login_attempts and lockout_count for user ' . $userId . ' after successful login');
                 } catch (\Throwable $e) {
                     \Cake\Log\Log::write('error', 'Exception while clearing failed attempts for user ' . $userId . ': ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
                 }
@@ -367,16 +359,48 @@ class UsersController extends AppController
             
             // Lock account if max attempts reached (5 attempts)
             if ($user->failed_login_attempts >= 5) {
-                $lockoutUntil = new \DateTime('now');
-                $lockoutUntil->modify('+15 minutes');
-                $user->account_locked_until = $lockoutUntil->format('Y-m-d H:i:s');
-                $usersTable->save($user);
+                // Get current lockout count and increment it
+                $lockoutCount = ($user->lockout_count ?? 0) + 1;
+                $user->lockout_count = $lockoutCount;
                 
-                $this->Flash->error(__('Account locked due to too many failed attempts. Please try again in 15 minutes.'));
-                $this->set('remainingAttempts', 0);
-                $this->set('rateLimited', true);
-                $this->set('lockoutMinutes', 15);
-                \Cake\Log\Log::write('warning', 'Account locked for: ' . $email . ' until ' . $user->account_locked_until);
+                // Progressive lockout based on lockout count
+                if ($lockoutCount == 1) {
+                    // First lockout: 15 minutes
+                    $lockoutUntil = new \DateTime('now');
+                    $lockoutUntil->modify('+15 minutes');
+                    $user->account_locked_until = $lockoutUntil->format('Y-m-d H:i:s');
+                    $usersTable->save($user);
+                    
+                    $this->Flash->error(__('Account locked due to too many failed attempts. Please try again in 15 minutes.'));
+                    $this->set('remainingAttempts', 0);
+                    $this->set('rateLimited', true);
+                    $this->set('lockoutMinutes', 15);
+                    \Cake\Log\Log::write('warning', 'Account locked (1st time - 15 min) for: ' . $email . ' until ' . $user->account_locked_until);
+                } elseif ($lockoutCount == 2) {
+                    // Second lockout: 30 minutes
+                    $lockoutUntil = new \DateTime('now');
+                    $lockoutUntil->modify('+30 minutes');
+                    $user->account_locked_until = $lockoutUntil->format('Y-m-d H:i:s');
+                    $usersTable->save($user);
+                    
+                    $this->Flash->error(__('Account locked due to repeated failed attempts. Please try again in 30 minutes. Next lockout will be permanent.'));
+                    $this->set('remainingAttempts', 0);
+                    $this->set('rateLimited', true);
+                    $this->set('lockoutMinutes', 30);
+                    \Cake\Log\Log::write('warning', 'Account locked (2nd time - 30 min) for: ' . $email . ' until ' . $user->account_locked_until);
+                } else {
+                    // Third+ lockout: Permanent (requires admin reactivation)
+                    $user->account_locked_until = null; // No expiry time
+                    $user->status = 0; // Deactivate account
+                    $usersTable->save($user);
+                    
+                    $this->Flash->error(__('Account permanently locked due to repeated security violations. Please contact an administrator to reactivate your account.'));
+                    $this->set('remainingAttempts', 0);
+                    $this->set('rateLimited', true);
+                    $this->set('lockoutMinutes', 999999);
+                    $this->set('permanentLock', true);
+                    \Cake\Log\Log::write('error', 'Account PERMANENTLY locked (3rd+ time) for: ' . $email . ' - admin reactivation required');
+                }
                 // Don't return here - let the view render
             } else {
                 // Save incremented attempts
