@@ -301,7 +301,7 @@ class UsersController extends AppController
                     // Use direct SQL for guaranteed execution
                     $connection = \Cake\Datasource\ConnectionManager::get('default');
                     
-                    // First, get current values
+                    // First, get current values for logging
                     $stmt = $connection->execute(
                         'SELECT failed_login_attempts, lockout_count FROM users WHERE id = ?',
                         [$userId],
@@ -311,7 +311,9 @@ class UsersController extends AppController
                     $previousAttempts = $currentValues['failed_login_attempts'] ?? 'NULL';
                     $previousLockout = $currentValues['lockout_count'] ?? 'NULL';
                     
-                    echo "<script>console.log('[RESET ATTEMPTS] User ID: {$userId} | Before: attempts={$previousAttempts}, lockout={$previousLockout}');</script>";
+                    // Log to both debug log and error log for visibility
+                    \Cake\Log\Log::write('debug', '[RESET ATTEMPTS] User ID: ' . $userId . ' | Before: attempts=' . $previousAttempts . ', lockout=' . $previousLockout);
+                    \Cake\Log\Log::write('error', '[RESET ATTEMPTS] User ID: ' . $userId . ' | Before: attempts=' . $previousAttempts . ', lockout=' . $previousLockout);
                     
                     // Execute the reset
                     $result = $connection->execute(
@@ -331,16 +333,15 @@ class UsersController extends AppController
                     $afterAttempts = $afterValues['failed_login_attempts'] ?? 'NULL';
                     $afterLockout = $afterValues['lockout_count'] ?? 'NULL';
                     
-                    echo "<script>console.log('[RESET ATTEMPTS] Rows affected: {$rowsAffected} | After: attempts={$afterAttempts}, lockout={$afterLockout}');</script>";
+                    // Log the result
+                    \Cake\Log\Log::write('debug', '[RESET ATTEMPTS] Rows affected: ' . $rowsAffected . ' | After: attempts=' . $afterAttempts . ', lockout=' . $afterLockout);
+                    \Cake\Log\Log::write('error', '[RESET ATTEMPTS] Rows affected: ' . $rowsAffected . ' | After: attempts=' . $afterAttempts . ', lockout=' . $afterLockout);
                     
                 } catch (\Throwable $e) {
-                    $msg = addslashes($e->getMessage());
-                    $file = addslashes($e->getFile());
-                    $line = $e->getLine();
-                    echo "<script>console.error('[RESET ATTEMPTS] Exception: {$msg} | File: {$file}:{$line}');</script>";
+                    \Cake\Log\Log::write('error', '[RESET ATTEMPTS] Exception: ' . $e->getMessage() . ' | File: ' . $e->getFile() . ':' . $e->getLine());
                 }
             } else {
-                echo "<script>console.error('[RESET ATTEMPTS] ERROR: userId is null/empty - cannot reset');</script>";
+                \Cake\Log\Log::write('error', '[RESET ATTEMPTS] ERROR: userId is null/empty - cannot reset');
             }
             
             // Regenerate session for security
