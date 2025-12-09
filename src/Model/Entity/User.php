@@ -50,6 +50,7 @@ class User extends Entity
         'password_reset_expires' => true,
         'failed_login_attempts' => true,
         'account_locked_until' => true,
+        'lockout_count' => true,
         'two_factor_secret' => true,
         'two_factor_enabled' => true,
     ];
