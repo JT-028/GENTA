@@ -308,15 +308,41 @@ class UsersController extends AppController
                     
                     \Cake\Log\Log::write('debug', '[RESET ATTEMPTS] Starting reset for user ' . $userId . ' with previous attempts: ' . $previousAttempts . ', lockout_count: ' . $previousLockoutCount);
                     
-                    // Reset both failed attempts and lockout count on successful login
-                    $connection = \Cake\Datasource\ConnectionManager::get('default');
-                    $connection->execute(
-                        'UPDATE users SET failed_login_attempts = 0, account_locked_until = NULL, lockout_count = 0 WHERE id = :id',
-                        ['id' => $userId],
-                        ['id' => 'integer']
-                    );
+                    // Use entity-based update with explicit dirty marking for maximum compatibility
+                    $userEntity->failed_login_attempts = 0;
+                    $userEntity->account_locked_until = null;
+                    $userEntity->lockout_count = 0;
                     
-                    \Cake\Log\Log::write('info', 'Successfully reset failed_login_attempts and lockout_count for user ' . $userId . ' after successful login');
+                    // Mark all fields as dirty to force update
+                    $userEntity->setDirty('failed_login_attempts', true);
+                    $userEntity->setDirty('account_locked_until', true);
+                    $userEntity->setDirty('lockout_count', true);
+                    
+                    \Cake\Log\Log::write('debug', '[RESET ATTEMPTS] Fields marked dirty, attempting save...');
+                    
+                    $saved = $usersTable->save($userEntity, [
+                        'checkRules' => false,
+                        'atomic' => true,
+                        'checkExisting' => false
+                    ]);
+                    
+                    if ($saved) {
+                        // Verify the save worked by re-fetching
+                        $verifyUser = $usersTable->get($userId);
+                        \Cake\Log\Log::write('info', '[RESET ATTEMPTS] Successfully saved. Verification - failed_login_attempts: ' . ($verifyUser->failed_login_attempts ?? 'NULL') . ', lockout_count: ' . ($verifyUser->lockout_count ?? 'NULL'));
+                    } else {
+                        \Cake\Log\Log::write('error', '[RESET ATTEMPTS] Save failed. Errors: ' . json_encode($userEntity->getErrors()));
+                        
+                        // Fallback to direct SQL
+                        \Cake\Log\Log::write('debug', '[RESET ATTEMPTS] Attempting direct SQL fallback...');
+                        $connection = \Cake\Datasource\ConnectionManager::get('default');
+                        $result = $connection->execute(
+                            'UPDATE users SET failed_login_attempts = 0, account_locked_until = NULL, lockout_count = 0 WHERE id = ?',
+                            [$userId],
+                            ['integer']
+                        );
+                        \Cake\Log\Log::write('info', '[RESET ATTEMPTS] Direct SQL executed, rows affected: ' . $result->rowCount());
+                    }
                 } catch (\Throwable $e) {
                     \Cake\Log\Log::write('error', 'Exception while clearing failed attempts for user ' . $userId . ': ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
                 }
