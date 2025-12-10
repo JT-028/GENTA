@@ -229,10 +229,13 @@
 
     // Bulk Actions Functionality for MELCs
     window.initBulkActionsMelcs = function() {
-        if (!window.jQuery || !$('.defaultDataTable').length) {
+        if (!window.jQuery) {
             return;
         }
         var $ = window.jQuery;
+        if (!$('.defaultDataTable').length) {
+            return;
+        }
         console.info('[MELCs] initBulkActionsMelcs called');            function tableApi() {
                 if ($.fn.DataTable && $.fn.DataTable.isDataTable('.defaultDataTable')) {
                     return $('.defaultDataTable').DataTable();

@@ -107,10 +107,13 @@
 <script>
 (function() {
     window.initBulkActionsQuestions = function() {
-        if (!window.jQuery || !$('.defaultDataTable').length) {
+        if (!window.jQuery) {
             return;
         }
         var $ = window.jQuery;
+        if (!$('.defaultDataTable').length) {
+            return;
+        }
         console.info('[Questions] initBulkActionsQuestions called');
 
         function tableApi() {

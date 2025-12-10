@@ -773,10 +773,13 @@ document.addEventListener('click', function (e) {
 // Bulk Actions Functionality for Assessments Summary
 (function() {
     window.initBulkActionsAssessments = function() {
-        if (!window.jQuery || !$('.defaultDataTable').length) {
+        if (!window.jQuery) {
             return;
         }
         var $ = window.jQuery;
+        if (!$('.defaultDataTable').length) {
+            return;
+        }
         console.info('[Assessments] initBulkActionsAssessments called');
 
         function tableApi() {

@@ -77,10 +77,13 @@
 <script>
 (function(){
     window.initBulkActionsStudents = function() {
-        if (!window.jQuery || !$('.defaultDataTable').length) {
-            return; // Page not loaded yet or wrong page
+        if (!window.jQuery) {
+            return;
         }
         var $ = window.jQuery;
+        if (!$('.defaultDataTable').length) {
+            return;
+        }
         console.info('[Students] initBulkActionsStudents called');
             
             // Small helper to escape HTML to avoid XSS when inserting values as HTML

@@ -136,19 +136,21 @@ function initPage() {
     // Any non-delegated handlers that must be re-attached can go here.
     // (Most of the behavior uses delegated handlers attached to document/body.)
 
-    // Initialize bulk actions for all pages
+    // Initialize bulk actions for all pages (only if jQuery is available)
     try {
-        if (typeof window.initBulkActionsStudents === 'function') {
-            window.initBulkActionsStudents();
-        }
-        if (typeof window.initBulkActionsQuestions === 'function') {
-            window.initBulkActionsQuestions();
-        }
-        if (typeof window.initBulkActionsAssessments === 'function') {
-            window.initBulkActionsAssessments();
-        }
-        if (typeof window.initBulkActionsMelcs === 'function') {
-            window.initBulkActionsMelcs();
+        if (typeof window.jQuery !== 'undefined' && window.jQuery) {
+            if (typeof window.initBulkActionsStudents === 'function') {
+                window.initBulkActionsStudents();
+            }
+            if (typeof window.initBulkActionsQuestions === 'function') {
+                window.initBulkActionsQuestions();
+            }
+            if (typeof window.initBulkActionsAssessments === 'function') {
+                window.initBulkActionsAssessments();
+            }
+            if (typeof window.initBulkActionsMelcs === 'function') {
+                window.initBulkActionsMelcs();
+            }
         }
     } catch (e) {
         console.warn('[initPage] Bulk actions init failed:', e);
