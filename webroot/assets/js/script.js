@@ -137,23 +137,31 @@ function initPage() {
     // (Most of the behavior uses delegated handlers attached to document/body.)
 
     // Initialize bulk actions for all pages (only if jQuery is available)
+    // Retry with a short delay to ensure DOM is ready after AJAX navigation
     try {
         if (typeof window.jQuery !== 'undefined' && window.jQuery) {
-            if (typeof window.initBulkActionsStudents === 'function') {
-                window.initBulkActionsStudents();
-            }
-            if (typeof window.initBulkActionsQuestions === 'function') {
-                window.initBulkActionsQuestions();
-            }
-            if (typeof window.initBulkActionsAssessments === 'function') {
-                window.initBulkActionsAssessments();
-            }
-            if (typeof window.initBulkActionsMelcs === 'function') {
-                window.initBulkActionsMelcs();
-            }
+            // Try immediately first
+            tryInitBulkActions();
+            // Then retry after a short delay to catch late-loading content
+            setTimeout(tryInitBulkActions, 200);
         }
     } catch (e) {
         console.warn('[initPage] Bulk actions init failed:', e);
+    }
+
+    function tryInitBulkActions() {
+        if (typeof window.initBulkActionsStudents === 'function') {
+            window.initBulkActionsStudents();
+        }
+        if (typeof window.initBulkActionsQuestions === 'function') {
+            window.initBulkActionsQuestions();
+        }
+        if (typeof window.initBulkActionsAssessments === 'function') {
+            window.initBulkActionsAssessments();
+        }
+        if (typeof window.initBulkActionsMelcs === 'function') {
+            window.initBulkActionsMelcs();
+        }
     }
 
     // Update sidebar active link based on current location
