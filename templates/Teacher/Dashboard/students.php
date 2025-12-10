@@ -204,18 +204,12 @@
                                     Swal.fire({icon: 'success', title: 'Success', text: res.message || 'Saved'})
                                         .then(function(){
                                             hideModal();
-                                            // Force a true browser navigation (bypass SPA loadPage)
-                                            // Add a cache-busting timestamp to force fresh load
-                                            var url = window.location.pathname;
-                                            var timestamp = new Date().getTime();
-                                            window.location.href = url + '?_t=' + timestamp;
+                                            window.location.reload();
                                         });
                                 } else {
                                     alert(res.message || 'Saved');
                                     hideModal();
-                                    var url = window.location.pathname;
-                                    var timestamp = new Date().getTime();
-                                    window.location.href = url + '?_t=' + timestamp;
+                                    window.location.reload();
                                 }
                             } else {
                                 if (res && res.errors) {
