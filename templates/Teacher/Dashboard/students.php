@@ -94,6 +94,8 @@
         }
 
         function init($) {
+            console.info('[Students] init() called, jQuery version:', $.fn.jquery);
+            
             // Small helper to escape HTML to avoid XSS when inserting values as HTML
             function escapeHtml(str) {
                 return String(str === undefined || str === null ? '' : str)
@@ -472,8 +474,11 @@
 
             // Select All checkbox - use event delegation (attach once, works forever)
             $(document).off('change.bulk', '#selectAllStudents').on('change.bulk', '#selectAllStudents', function() {
+                console.info('[Students] Select All triggered, checked:', $(this).prop('checked'));
                 var isChecked = $(this).prop('checked');
-                visibleCheckboxes().prop('checked', isChecked);
+                var $checkboxes = visibleCheckboxes();
+                console.info('[Students] Found', $checkboxes.length, 'visible checkboxes');
+                $checkboxes.prop('checked', isChecked);
                 updateBulkActionsBar();
             });
 
@@ -495,8 +500,10 @@
             // Keep header checkbox in sync after pagination/sort
             function ensureDataTableSync(attempts) {
                 attempts = attempts || 0;
+                console.info('[Students] ensureDataTableSync attempt', attempts);
                 var dtSync = tableApi();
                 if (dtSync) {
+                    console.info('[Students] DataTable found, attaching draw handler');
                     dtSync.off('draw.bulk').on('draw.bulk', function() {
                         var $visible = visibleCheckboxes();
                         var totalCheckboxes = $visible.length;
@@ -507,12 +514,15 @@
                     var $visible = visibleCheckboxes();
                     var totalCheckboxes = $visible.length;
                     var checkedCheckboxes = $visible.filter(':checked').length;
+                    console.info('[Students] Initial sync: visible=', totalCheckboxes, 'checked=', checkedCheckboxes);
                     $('#selectAllStudents').prop('checked', totalCheckboxes > 0 && totalCheckboxes === checkedCheckboxes);
                     updateBulkActionsBar();
                     return;
                 }
                 if (attempts < 20) {
                     setTimeout(function(){ ensureDataTableSync(attempts+1); }, 100);
+                } else {
+                    console.warn('[Students] DataTable not found after 20 attempts');
                 }
             }
 
