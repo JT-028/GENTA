@@ -397,8 +397,27 @@
             }
 
             // Prevent DataTables header click from sorting when toggling select-all / row checkboxes
+            // This needs to stop propagation at multiple levels to prevent DataTables sorting
             $(document).off('click.bulkstop', '#selectAllStudents, .student-checkbox').on('click.bulkstop', '#selectAllStudents, .student-checkbox', function(e) {
                 e.stopPropagation();
+                e.stopImmediatePropagation();
+            });
+            
+            // Also attach handler to the header cell containing the select-all checkbox
+            $(document).off('click.bulkstop2', 'th.no-sort').on('click.bulkstop2', 'th.no-sort', function(e) {
+                // Only prevent sorting if the click was on or near the checkbox
+                var $target = $(e.target);
+                if ($target.is('input[type="checkbox"]') || $target.closest('th').find('#selectAllStudents').length) {
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+                    // If clicked on the cell but not the checkbox itself, toggle the checkbox
+                    if (!$target.is('input[type="checkbox"]')) {
+                        var $cb = $(this).find('#selectAllStudents');
+                        if ($cb.length) {
+                            $cb.prop('checked', !$cb.prop('checked')).trigger('change');
+                        }
+                    }
+                }
             });
 
             // Select All checkbox - use event delegation (attach once, works forever)
@@ -698,9 +717,13 @@
 
     // Run on initial page load
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', window.initBulkActionsStudents);
+        document.addEventListener('DOMContentLoaded', function() {
+            // Small delay to ensure DataTables has finished initializing before we attach our handlers
+            setTimeout(window.initBulkActionsStudents, 50);
+        });
     } else {
-        window.initBulkActionsStudents();
+        // Small delay to ensure DataTables has finished initializing before we attach our handlers
+        setTimeout(window.initBulkActionsStudents, 50);
     }
 })();
 </script>
