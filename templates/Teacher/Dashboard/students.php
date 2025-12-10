@@ -5,14 +5,43 @@
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h4 class="card-title mb-0">Students</h4>
-                    <?php $addUrl = $this->Url->build(['controller' => 'Dashboard', 'action' => 'addStudent', 'prefix' => 'Teacher']); ?>
-                    <?= $this->Html->link(__('Add Student'), '#', ['class' => 'btn btn-primary btn-add-student', 'data-no-ajax' => 'true', 'data-href' => $addUrl]) ?>
+                    <div>
+                        <?php $addUrl = $this->Url->build(['controller' => 'Dashboard', 'action' => 'addStudent', 'prefix' => 'Teacher']); ?>
+                        <?= $this->Html->link(__('Add Student'), '#', ['class' => 'btn btn-primary btn-add-student', 'data-no-ajax' => 'true', 'data-href' => $addUrl]) ?>
+                    </div>
+                </div>
+
+                <!-- Bulk Actions Bar -->
+                <div class="bulk-actions-bar mb-3" style="display: none;">
+                    <div class="d-flex align-items-center gap-2 p-2 bg-light rounded">
+                        <span class="selected-count fw-bold">0 selected</span>
+                        <button type="button" class="btn btn-sm btn-danger bulk-delete-students">
+                            <i class="mdi mdi-delete"></i> Delete Selected
+                        </button>
+                        <button type="button" class="btn btn-sm btn-secondary bulk-deselect">
+                            <i class="mdi mdi-close"></i> Clear Selection
+                        </button>
+                        <div class="btn-group ms-auto" role="group">
+                            <button type="button" class="btn btn-sm btn-success" id="printStudents">
+                                <i class="mdi mdi-printer"></i> Print
+                            </button>
+                            <button type="button" class="btn btn-sm btn-info" id="exportStudentsCSV">
+                                <i class="mdi mdi-file-delimited"></i> Export CSV
+                            </button>
+                            <button type="button" class="btn btn-sm btn-primary" id="exportStudentsExcel">
+                                <i class="mdi mdi-file-excel"></i> Export Excel
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="table-responsive">
                 <table class="table table-striped table-hover defaultDataTable" style="width:100%">
                     <thead>
                         <tr>
+                            <th style="width: 40px;">
+                                <input type="checkbox" class="form-check-input" id="selectAllStudents">
+                            </th>
                             <th>LRN (Learner Reference Number)</th>
                             <th>Name</th>
                             <th>Grade / Section</th>
@@ -22,6 +51,9 @@
                     <tbody>
                         <?php foreach($students as $student) { ?>
                             <tr data-id="<?= $this->Encrypt->hex($student->id) ?>" data-lrn="<?= h($student->lrn) ?>">
+                                <td>
+                                    <input type="checkbox" class="form-check-input student-checkbox" value="<?= $this->Encrypt->hex($student->id) ?>">
+                                </td>
                                 <td class="fw-bold"><?= $student->lrn ?></td>
                                 <td><?= h($student->name) ?></td>
                                 <td><?= h($student->grade_section) ?></td>
@@ -427,6 +459,248 @@
                 e.preventDefault();
                 hideModal();
             });
+
+            // Bulk Actions Functionality
+            function updateBulkActionsBar() {
+                var selectedCount = $('.student-checkbox:checked').length;
+                if (selectedCount > 0) {
+                    $('.bulk-actions-bar').show();
+                    $('.selected-count').text(selectedCount + ' selected');
+                } else {
+                    $('.bulk-actions-bar').hide();
+                }
+            }
+
+            // Select All checkbox
+            $('#selectAllStudents').on('change', function() {
+                var isChecked = $(this).prop('checked');
+                $('.student-checkbox').prop('checked', isChecked);
+                updateBulkActionsBar();
+            });
+
+            // Individual checkbox
+            $(document).on('change', '.student-checkbox', function() {
+                var totalCheckboxes = $('.student-checkbox').length;
+                var checkedCheckboxes = $('.student-checkbox:checked').length;
+                $('#selectAllStudents').prop('checked', totalCheckboxes === checkedCheckboxes);
+                updateBulkActionsBar();
+            });
+
+            // Clear selection
+            $('.bulk-deselect').on('click', function() {
+                $('.student-checkbox, #selectAllStudents').prop('checked', false);
+                updateBulkActionsBar();
+            });
+
+            // Bulk Delete
+            $('.bulk-delete-students').on('click', function() {
+                var selectedIds = $('.student-checkbox:checked').map(function() {
+                    return $(this).val();
+                }).get();
+
+                if (selectedIds.length === 0) return;
+
+                var confirmText = 'Are you sure you want to delete ' + selectedIds.length + ' student(s)?';
+                
+                if (window.Swal && typeof Swal.fire === 'function') {
+                    Swal.fire({
+                        title: 'Delete Students?',
+                        text: confirmText,
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonText: 'Yes, delete them',
+                        cancelButtonText: 'Cancel',
+                        confirmButtonColor: '#d33'
+                    }).then(function(result) {
+                        if (result.isConfirmed) {
+                            performBulkDelete(selectedIds);
+                        }
+                    });
+                } else {
+                    if (confirm(confirmText)) {
+                        performBulkDelete(selectedIds);
+                    }
+                }
+            });
+
+            function performBulkDelete(selectedIds) {
+                var csrf = $('meta[name=csrfToken]').attr('content') || '';
+                var deletePromises = selectedIds.map(function(id) {
+                    var deleteUrl = '<?= $this->Url->build(['controller' => 'Dashboard', 'action' => 'deleteStudent', 'prefix' => 'Teacher', '__ID__']) ?>'.replace('__ID__', id);
+                    return $.ajax({
+                        url: deleteUrl,
+                        method: 'POST',
+                        headers: { 'X-CSRF-Token': csrf },
+                        dataType: 'json'
+                    });
+                });
+
+                Promise.all(deletePromises).then(function(responses) {
+                    var successCount = responses.filter(function(r) { return r && r.success; }).length;
+                    
+                    if (window.Swal && typeof Swal.fire === 'function') {
+                        Swal.fire({
+                            title: 'Deleted!',
+                            text: successCount + ' student(s) have been deleted.',
+                            icon: 'success'
+                        }).then(function() {
+                            window.location.reload();
+                        });
+                    } else {
+                        alert(successCount + ' student(s) have been deleted.');
+                        window.location.reload();
+                    }
+                }).catch(function(error) {
+                    console.error('Bulk delete error:', error);
+                    if (window.Swal && typeof Swal.fire === 'function') {
+                        Swal.fire('Error', 'Failed to delete some students.', 'error');
+                    } else {
+                        alert('Failed to delete some students.');
+                    }
+                });
+            }
+
+            // Print Functionality
+            $('#printStudents').on('click', function() {
+                var printContent = generateStudentsPrintContent();
+                var printWindow = window.open('', '_blank', 'width=800,height=600');
+                printWindow.document.write(printContent);
+                printWindow.document.close();
+                printWindow.focus();
+                setTimeout(function() {
+                    printWindow.print();
+                    printWindow.close();
+                }, 250);
+            });
+
+            // Export CSV
+            $('#exportStudentsCSV').on('click', function() {
+                exportStudentsToCSV();
+            });
+
+            // Export Excel (HTML table format)
+            $('#exportStudentsExcel').on('click', function() {
+                exportStudentsToExcel();
+            });
+
+            function getStudentsData() {
+                var data = [];
+                var checkedOnly = $('.student-checkbox:checked').length > 0;
+                var selector = checkedOnly ? '.student-checkbox:checked' : '.student-checkbox';
+                
+                $(selector).each(function() {
+                    var $row = $(this).closest('tr');
+                    data.push({
+                        lrn: $row.find('td:eq(1)').text().trim(),
+                        name: $row.find('td:eq(2)').text().trim(),
+                        gradeSection: $row.find('td:eq(3)').text().trim()
+                    });
+                });
+                return data;
+            }
+
+            function exportStudentsToCSV() {
+                var data = getStudentsData();
+                var csv = 'LRN,Name,Grade/Section\n';
+                data.forEach(function(row) {
+                    csv += '"' + row.lrn.replace(/"/g, '""') + '","' + 
+                           row.name.replace(/"/g, '""') + '","' + 
+                           row.gradeSection.replace(/"/g, '""') + '"\n';
+                });
+                
+                var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                var link = document.createElement('a');
+                var url = URL.createObjectURL(blob);
+                link.setAttribute('href', url);
+                link.setAttribute('download', 'students_report_' + new Date().getTime() + '.csv');
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+
+            function exportStudentsToExcel() {
+                var data = getStudentsData();
+                var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">';
+                html += '<head><meta charset="utf-8"><style>table { border-collapse: collapse; } th, td { border: 1px solid #ddd; padding: 8px; } th { background-color: #4B49AC; color: white; }</style></head>';
+                html += '<body><h2>Students Report</h2><p>Generated: ' + new Date().toLocaleString() + '</p>';
+                html += '<table><thead><tr><th>LRN</th><th>Name</th><th>Grade/Section</th></tr></thead><tbody>';
+                data.forEach(function(row) {
+                    html += '<tr><td>' + escapeHtml(row.lrn) + '</td><td>' + escapeHtml(row.name) + '</td><td>' + escapeHtml(row.gradeSection) + '</td></tr>';
+                });
+                html += '</tbody></table></body></html>';
+                
+                var blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+                var link = document.createElement('a');
+                var url = URL.createObjectURL(blob);
+                link.setAttribute('href', url);
+                link.setAttribute('download', 'students_report_' + new Date().getTime() + '.xls');
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+
+            function generateStudentsPrintContent() {
+                var today = new Date().toLocaleDateString();
+                var rows = '';
+                var checkedOnly = $('.student-checkbox:checked').length > 0;
+                
+                var selector = checkedOnly ? '.student-checkbox:checked' : '.student-checkbox';
+                $(selector).each(function() {
+                    var $row = $(this).closest('tr');
+                    var lrn = $row.find('td:eq(1)').text();
+                    var name = $row.find('td:eq(2)').text();
+                    var gradeSection = $row.find('td:eq(3)').text();
+                    rows += '<tr><td>' + escapeHtml(lrn) + '</td><td>' + escapeHtml(name) + '</td><td>' + escapeHtml(gradeSection) + '</td></tr>';
+                });
+
+                return `
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <title>Students Report</title>
+                        <style>
+                            body { font-family: Arial, sans-serif; margin: 20px; }
+                            h1 { text-align: center; color: #333; }
+                            .header { text-align: center; margin-bottom: 20px; }
+                            .date { text-align: right; margin-bottom: 10px; font-size: 12px; }
+                            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                            th { background-color: #4B49AC; color: white; padding: 10px; text-align: left; border: 1px solid #ddd; }
+                            td { padding: 8px; border: 1px solid #ddd; }
+                            tr:nth-child(even) { background-color: #f9f9f9; }
+                            .footer { margin-top: 30px; font-size: 12px; text-align: center; color: #666; }
+                            @media print {
+                                body { margin: 0; }
+                                button { display: none; }
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="header">
+                            <h1>Students Report</h1>
+                            <p>GENTA Learning Management System</p>
+                        </div>
+                        <div class="date">Generated: ${today}</div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>LRN (Learner Reference Number)</th>
+                                    <th>Name</th>
+                                    <th>Grade / Section</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${rows}
+                            </tbody>
+                        </table>
+                        <div class="footer">
+                            <p>© ${new Date().getFullYear()} GENTA - Department of Education</p>
+                        </div>
+                    </body>
+                    </html>
+                `;
+            }
 
             // Auto-open modal when redirected here with query params: ?open=add or ?open=edit&id=<hash>
             (function(){

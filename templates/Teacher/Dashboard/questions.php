@@ -20,9 +20,43 @@
                         <?= $this->Form->end() ?>
                     </div>
                 </div>
+
+                <!-- Bulk Actions Bar for Questions -->
+                <div class="bulk-actions-bar-questions mb-3" style="display: none;">
+                    <div class="d-flex align-items-center gap-2 p-2 bg-light rounded">
+                        <span class="selected-count-questions fw-bold">0 selected</span>
+                        <button type="button" class="btn btn-sm btn-danger bulk-delete-questions">
+                            <i class="mdi mdi-delete"></i> Delete Selected
+                        </button>
+                        <button type="button" class="btn btn-sm btn-warning bulk-suspend-questions">
+                            <i class="mdi mdi-power-plug"></i> Suspend Selected
+                        </button>
+                        <button type="button" class="btn btn-sm btn-success bulk-activate-questions">
+                            <i class="mdi mdi-check-circle"></i> Activate Selected
+                        </button>
+                        <button type="button" class="btn btn-sm btn-secondary bulk-deselect-questions">
+                            <i class="mdi mdi-close"></i> Clear Selection
+                        </button>
+                        <div class="btn-group ms-auto" role="group">
+                            <button type="button" class="btn btn-sm btn-success" id="printQuestions">
+                                <i class="mdi mdi-printer"></i> Print
+                            </button>
+                            <button type="button" class="btn btn-sm btn-info" id="exportQuestionsCSV">
+                                <i class="mdi mdi-file-delimited"></i> Export CSV
+                            </button>
+                            <button type="button" class="btn btn-sm btn-primary" id="exportQuestionsExcel">
+                                <i class="mdi mdi-file-excel"></i> Export Excel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <table class="table defaultDataTable">
                     <thead>
                         <tr>
+                            <th style="width: 40px;">
+                                <input type="checkbox" class="form-check-input" id="selectAllQuestions">
+                            </th>
                             <th width="14%">Subject</th>
                             <th width="32%">Question</th>
                             <th width="18%">Choices</th>
@@ -34,7 +68,10 @@
                     </thead>
                     <tbody>
                         <?php foreach($questions as $question) { ?>
-                            <tr>
+                            <tr data-question-id="<?= h($this->Encrypt->hex($question->id)) ?>" data-status="<?= $question->status ?>">
+                                <td>
+                                    <input type="checkbox" class="form-check-input question-checkbox" value="<?= h($this->Encrypt->hex($question->id)) ?>">
+                                </td>
                                 <td class="fw-bold"><?= $question->subject->name ?></td>
                                 <td class="text-wrap"><?= $question->description ?></td>
                                 <td class="text-center"><?= $question->choices_string ?></td>
@@ -65,3 +102,312 @@
 </div>
 
 <?= $this->element('modal/confirm_delete_question') ?>
+
+<?php $this->start('script'); ?>
+<script>
+(function() {
+    function init() {
+        if (!window.jQuery) {
+            setTimeout(init, 200);
+            return;
+        }
+        var $ = window.jQuery;
+
+        // Bulk Actions Functionality for Questions
+        function updateBulkActionsBarQuestions() {
+            var selectedCount = $('.question-checkbox:checked').length;
+            if (selectedCount > 0) {
+                $('.bulk-actions-bar-questions').show();
+                $('.selected-count-questions').text(selectedCount + ' selected');
+            } else {
+                $('.bulk-actions-bar-questions').hide();
+            }
+        }
+
+        // Select All checkbox for questions
+        $('#selectAllQuestions').on('change', function() {
+            var isChecked = $(this).prop('checked');
+            $('.question-checkbox').prop('checked', isChecked);
+            updateBulkActionsBarQuestions();
+        });
+
+        // Individual checkbox for questions
+        $(document).on('change', '.question-checkbox', function() {
+            var totalCheckboxes = $('.question-checkbox').length;
+            var checkedCheckboxes = $('.question-checkbox:checked').length;
+            $('#selectAllQuestions').prop('checked', totalCheckboxes === checkedCheckboxes);
+            updateBulkActionsBarQuestions();
+        });
+
+        // Clear selection for questions
+        $('.bulk-deselect-questions').on('click', function() {
+            $('.question-checkbox, #selectAllQuestions').prop('checked', false);
+            updateBulkActionsBarQuestions();
+        });
+
+        // Bulk Delete Questions
+        $('.bulk-delete-questions').on('click', function() {
+            var selectedIds = $('.question-checkbox:checked').map(function() {
+                return $(this).val();
+            }).get();
+
+            if (selectedIds.length === 0) return;
+
+            var confirmText = 'Are you sure you want to delete ' + selectedIds.length + ' question(s)?';
+            
+            if (window.Swal && typeof Swal.fire === 'function') {
+                Swal.fire({
+                    title: 'Delete Questions?',
+                    text: confirmText,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes, delete them',
+                    cancelButtonText: 'Cancel',
+                    confirmButtonColor: '#d33'
+                }).then(function(result) {
+                    if (result.isConfirmed) {
+                        performBulkActionQuestions(selectedIds, 'delete');
+                    }
+                });
+            } else {
+                if (confirm(confirmText)) {
+                    performBulkActionQuestions(selectedIds, 'delete');
+                }
+            }
+        });
+
+        // Bulk Suspend Questions
+        $('.bulk-suspend-questions').on('click', function() {
+            var selectedIds = $('.question-checkbox:checked').map(function() {
+                return $(this).val();
+            }).get();
+
+            if (selectedIds.length === 0) return;
+
+            performBulkActionQuestions(selectedIds, 'suspend');
+        });
+
+        // Bulk Activate Questions
+        $('.bulk-activate-questions').on('click', function() {
+            var selectedIds = $('.question-checkbox:checked').map(function() {
+                return $(this).val();
+            }).get();
+
+            if (selectedIds.length === 0) return;
+
+            performBulkActionQuestions(selectedIds, 'activate');
+        });
+
+        function performBulkActionQuestions(selectedIds, action) {
+            var csrf = $('meta[name=csrfToken]').attr('content') || '';
+            var actionPromises = selectedIds.map(function(id) {
+                var url;
+                if (action === 'delete') {
+                    url = '<?= $this->Url->build(['controller' => 'Dashboard', 'action' => 'deleteQuestion', 'prefix' => 'Teacher']) ?>/' + id;
+                } else {
+                    url = '<?= $this->Url->build(['controller' => 'Dashboard', 'action' => 'toggleQuestionStatus', 'prefix' => 'Teacher']) ?>/' + id;
+                }
+                return $.ajax({
+                    url: url,
+                    method: 'POST',
+                    headers: { 'X-CSRF-Token': csrf },
+                    dataType: 'json'
+                });
+            });
+
+            Promise.all(actionPromises).then(function(responses) {
+                var successCount = responses.filter(function(r) { return r && r.success; }).length;
+                var actionText = action === 'delete' ? 'deleted' : (action === 'suspend' ? 'suspended' : 'activated');
+                
+                if (window.Swal && typeof Swal.fire === 'function') {
+                    Swal.fire({
+                        title: 'Success!',
+                        text: successCount + ' question(s) have been ' + actionText + '.',
+                        icon: 'success'
+                    }).then(function() {
+                        window.location.reload();
+                    });
+                } else {
+                    alert(successCount + ' question(s) have been ' + actionText + '.');
+                    window.location.reload();
+                }
+            }).catch(function(error) {
+                console.error('Bulk action error:', error);
+                if (window.Swal && typeof Swal.fire === 'function') {
+                    Swal.fire('Error', 'Failed to perform action on some questions.', 'error');
+                } else {
+                    alert('Failed to perform action on some questions.');
+                }
+            });
+        }
+
+        // Print Functionality for Questions
+        $('#printQuestions').on('click', function() {
+            var printContent = generateQuestionsPrintContent();
+            var printWindow = window.open('', '_blank', 'width=800,height=600');
+            printWindow.document.write(printContent);
+            printWindow.document.close();
+            printWindow.focus();
+            setTimeout(function() {
+                printWindow.print();
+                printWindow.close();
+            }, 250);
+        });
+
+        // Export CSV
+        $('#exportQuestionsCSV').on('click', function() {
+            exportQuestionsToCSV();
+        });
+
+        // Export Excel
+        $('#exportQuestionsExcel').on('click', function() {
+            exportQuestionsToExcel();
+        });
+
+        function getQuestionsData() {
+            var data = [];
+            var checkedOnly = $('.question-checkbox:checked').length > 0;
+            var selector = checkedOnly ? '.question-checkbox:checked' : '.question-checkbox';
+            
+            $(selector).each(function() {
+                var $row = $(this).closest('tr');
+                data.push({
+                    subject: $row.find('td:eq(1)').text().trim(),
+                    question: $row.find('td:eq(2)').text().trim(),
+                    choices: $row.find('td:eq(3)').text().trim(),
+                    answer: $row.find('td:eq(4)').text().trim(),
+                    score: $row.find('td:eq(5)').text().trim(),
+                    status: $row.find('td:eq(6)').text().trim()
+                });
+            });
+            return data;
+        }
+
+        function exportQuestionsToCSV() {
+            var data = getQuestionsData();
+            var csv = 'Subject,Question,Choices,Answer,Score,Status\n';
+            data.forEach(function(row) {
+                csv += '"' + row.subject.replace(/"/g, '""') + '","' + 
+                       row.question.replace(/"/g, '""') + '","' + 
+                       row.choices.replace(/"/g, '""') + '","' + 
+                       row.answer.replace(/"/g, '""') + '","' + 
+                       row.score.replace(/"/g, '""') + '","' + 
+                       row.status.replace(/"/g, '""') + '"\n';
+            });
+            
+            var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            var link = document.createElement('a');
+            var url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', 'questions_report_' + new Date().getTime() + '.csv');
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function exportQuestionsToExcel() {
+            var data = getQuestionsData();
+            var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">';
+            html += '<head><meta charset="utf-8"><style>table { border-collapse: collapse; } th, td { border: 1px solid #ddd; padding: 8px; } th { background-color: #4B49AC; color: white; }</style></head>';
+            html += '<body><h2>Questions Report</h2><p>Generated: ' + new Date().toLocaleString() + '</p>';
+            html += '<table><thead><tr><th>Subject</th><th>Question</th><th>Choices</th><th>Answer</th><th>Score</th><th>Status</th></tr></thead><tbody>';
+            data.forEach(function(row) {
+                html += '<tr><td>' + escapeHtml(row.subject) + '</td><td>' + escapeHtml(row.question) + '</td><td>' + 
+                        escapeHtml(row.choices) + '</td><td>' + escapeHtml(row.answer) + '</td><td>' + 
+                        escapeHtml(row.score) + '</td><td>' + escapeHtml(row.status) + '</td></tr>';
+            });
+            html += '</tbody></table></body></html>';
+            
+            var blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+            var link = document.createElement('a');
+            var url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', 'questions_report_' + new Date().getTime() + '.xls');
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function escapeHtml(str) {
+            return String(str === undefined || str === null ? '' : str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function generateQuestionsPrintContent() {
+            var today = new Date().toLocaleDateString();
+            var rows = '';
+            var checkedOnly = $('.question-checkbox:checked').length > 0;
+            
+            var selector = checkedOnly ? '.question-checkbox:checked' : '.question-checkbox';
+            $(selector).each(function() {
+                var $row = $(this).closest('tr');
+                var subject = $row.find('td:eq(1)').text();
+                var question = $row.find('td:eq(2)').text();
+                var choices = $row.find('td:eq(3)').text();
+                var answer = $row.find('td:eq(4)').text();
+                var score = $row.find('td:eq(5)').text();
+                var status = $row.find('td:eq(6)').text().trim();
+                rows += '<tr><td>' + escapeHtml(subject) + '</td><td>' + escapeHtml(question) + '</td><td>' + escapeHtml(choices) + '</td><td>' + escapeHtml(answer) + '</td><td>' + escapeHtml(score) + '</td><td>' + escapeHtml(status) + '</td></tr>';
+            });
+
+            return `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Questions Report</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; margin: 20px; }
+                        h1 { text-align: center; color: #333; }
+                        .header { text-align: center; margin-bottom: 20px; }
+                        .date { text-align: right; margin-bottom: 10px; font-size: 12px; }
+                        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 11px; }
+                        th { background-color: #4B49AC; color: white; padding: 8px; text-align: left; border: 1px solid #ddd; }
+                        td { padding: 6px; border: 1px solid #ddd; vertical-align: top; }
+                        tr:nth-child(even) { background-color: #f9f9f9; }
+                        .footer { margin-top: 30px; font-size: 12px; text-align: center; color: #666; }
+                        @media print {
+                            body { margin: 0; }
+                            button { display: none; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <h1>Questions Report</h1>
+                        <p>GENTA Learning Management System</p>
+                    </div>
+                    <div class="date">Generated: ${today}</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Subject</th>
+                                <th>Question</th>
+                                <th>Choices</th>
+                                <th>Answer</th>
+                                <th>Score</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rows}
+                        </tbody>
+                    </table>
+                    <div class="footer">
+                        <p>© ${new Date().getFullYear()} GENTA - Department of Education</p>
+                    </div>
+                </body>
+                </html>
+            `;
+        }
+    }
+
+    init();
+})();
+</script>
+<?php $this->end(); ?>

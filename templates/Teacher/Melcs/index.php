@@ -88,10 +88,38 @@
         <div class="card">
             <div class="card-body">
                 <h4 class="card-title">MELC Records</h4>
+                
+                <!-- Bulk Actions Bar for MELCs -->
+                <div class="bulk-actions-bar-melcs mb-3" style="display: none;">
+                    <div class="d-flex align-items-center gap-2 p-2 bg-light rounded">
+                        <span class="selected-count-melcs fw-bold">0 selected</span>
+                        <button type="button" class="btn btn-sm btn-danger bulk-delete-melcs">
+                            <i class="mdi mdi-delete"></i> Delete Selected
+                        </button>
+                        <button type="button" class="btn btn-sm btn-secondary bulk-deselect-melcs">
+                            <i class="mdi mdi-close"></i> Clear Selection
+                        </button>
+                        <div class="btn-group ms-auto" role="group">
+                            <button type="button" class="btn btn-sm btn-success" id="printMelcs">
+                                <i class="mdi mdi-printer"></i> Print
+                            </button>
+                            <button type="button" class="btn btn-sm btn-info" id="exportMelcsCSV">
+                                <i class="mdi mdi-file-delimited"></i> Export CSV
+                            </button>
+                            <button type="button" class="btn btn-sm btn-primary" id="exportMelcsExcel">
+                                <i class="mdi mdi-file-excel"></i> Export Excel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="table-responsive">
                     <table class="table defaultDataTable">
                         <thead>
                             <tr>
+                                <th style="width: 40px;">
+                                    <input type="checkbox" class="form-check-input" id="selectAllMelcs">
+                                </th>
                                 <th>Upload Date</th>
                                 <th>Description</th>
                                 <th>Subject</th>
@@ -100,7 +128,10 @@
                         </thead>
                         <tbody>
                             <?php foreach ($melcs as $m): ?>
-                                <tr>
+                                <tr data-melc-id="<?= h($this->Encrypt->hex($m->id)) ?>">
+                                    <td>
+                                        <input type="checkbox" class="form-check-input melc-checkbox" value="<?= h($this->Encrypt->hex($m->id)) ?>">
+                                    </td>
                                     <td><?= h($m->upload_date) ?></td>
                                     <td><?= h($m->description) ?></td>
                                     <td><?= h($m->subject->name ?? $m->subject_id) ?></td>
@@ -193,6 +224,261 @@
         if (fileName && fileNameDisplay) {
             fileName.textContent = name;
             fileNameDisplay.style.display = 'block';
+        }
+    }
+
+    // Bulk Actions Functionality for MELCs
+    if (window.jQuery) {
+        var $ = window.jQuery;
+
+        function updateBulkActionsBarMelcs() {
+            var selectedCount = $('.melc-checkbox:checked').length;
+            if (selectedCount > 0) {
+                $('.bulk-actions-bar-melcs').show();
+                $('.selected-count-melcs').text(selectedCount + ' selected');
+            } else {
+                $('.bulk-actions-bar-melcs').hide();
+            }
+        }
+
+        // Select All checkbox for MELCs
+        $('#selectAllMelcs').on('change', function() {
+            var isChecked = $(this).prop('checked');
+            $('.melc-checkbox').prop('checked', isChecked);
+            updateBulkActionsBarMelcs();
+        });
+
+        // Individual checkbox for MELCs
+        $(document).on('change', '.melc-checkbox', function() {
+            var totalCheckboxes = $('.melc-checkbox').length;
+            var checkedCheckboxes = $('.melc-checkbox:checked').length;
+            $('#selectAllMelcs').prop('checked', totalCheckboxes === checkedCheckboxes);
+            updateBulkActionsBarMelcs();
+        });
+
+        // Clear selection for MELCs
+        $('.bulk-deselect-melcs').on('click', function() {
+            $('.melc-checkbox, #selectAllMelcs').prop('checked', false);
+            updateBulkActionsBarMelcs();
+        });
+
+        // Bulk Delete MELCs
+        $('.bulk-delete-melcs').on('click', function() {
+            var selectedIds = $('.melc-checkbox:checked').map(function() {
+                return $(this).val();
+            }).get();
+
+            if (selectedIds.length === 0) return;
+
+            var confirmText = 'Are you sure you want to delete ' + selectedIds.length + ' MELC(s)?';
+            
+            if (window.Swal && typeof Swal.fire === 'function') {
+                Swal.fire({
+                    title: 'Delete MELCs?',
+                    text: confirmText,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes, delete them',
+                    cancelButtonText: 'Cancel',
+                    confirmButtonColor: '#d33'
+                }).then(function(result) {
+                    if (result.isConfirmed) {
+                        performBulkDeleteMelcs(selectedIds);
+                    }
+                });
+            } else {
+                if (confirm(confirmText)) {
+                    performBulkDeleteMelcs(selectedIds);
+                }
+            }
+        });
+
+        function performBulkDeleteMelcs(selectedIds) {
+            var csrf = $('meta[name=csrfToken]').attr('content') || '';
+            var deletePromises = selectedIds.map(function(id) {
+                var deleteUrl = '<?= $this->Url->build(['prefix' => 'Teacher', 'controller' => 'Melcs', 'action' => 'delete', '__ID__']) ?>'.replace('__ID__', id);
+                return $.ajax({
+                    url: deleteUrl,
+                    method: 'POST',
+                    headers: { 'X-CSRF-Token': csrf },
+                    dataType: 'json'
+                });
+            });
+
+            Promise.all(deletePromises).then(function(responses) {
+                var successCount = responses.filter(function(r) { return r && r.success; }).length;
+                
+                if (window.Swal && typeof Swal.fire === 'function') {
+                    Swal.fire({
+                        title: 'Deleted!',
+                        text: successCount + ' MELC(s) have been deleted.',
+                        icon: 'success'
+                    }).then(function() {
+                        window.location.reload();
+                    });
+                } else {
+                    alert(successCount + ' MELC(s) have been deleted.');
+                    window.location.reload();
+                }
+            }).catch(function(error) {
+                console.error('Bulk delete error:', error);
+                if (window.Swal && typeof Swal.fire === 'function') {
+                    Swal.fire('Error', 'Failed to delete some MELCs.', 'error');
+                } else {
+                    alert('Failed to delete some MELCs.');
+                }
+            });
+        }
+
+        // Print Functionality for MELCs
+        $('#printMelcs').on('click', function() {
+            var printContent = generateMelcsPrintContent();
+            var printWindow = window.open('', '_blank', 'width=800,height=600');
+            printWindow.document.write(printContent);
+            printWindow.document.close();
+            printWindow.focus();
+            setTimeout(function() {
+                printWindow.print();
+                printWindow.close();
+            }, 250);
+        });
+
+        // Export CSV
+        $('#exportMelcsCSV').on('click', function() {
+            exportMelcsToCSV();
+        });
+
+        // Export Excel
+        $('#exportMelcsExcel').on('click', function() {
+            exportMelcsToExcel();
+        });
+
+        function getMelcsData() {
+            var data = [];
+            var checkedOnly = $('.melc-checkbox:checked').length > 0;
+            var selector = checkedOnly ? '.melc-checkbox:checked' : '.melc-checkbox';
+            
+            $(selector).each(function() {
+                var $row = $(this).closest('tr');
+                data.push({
+                    uploadDate: $row.find('td:eq(1)').text().trim(),
+                    description: $row.find('td:eq(2)').text().trim(),
+                    subject: $row.find('td:eq(3)').text().trim()
+                });
+            });
+            return data;
+        }
+
+        function exportMelcsToCSV() {
+            var data = getMelcsData();
+            var csv = 'Upload Date,Description,Subject\n';
+            data.forEach(function(row) {
+                csv += '"' + row.uploadDate.replace(/"/g, '""') + '","' + 
+                       row.description.replace(/"/g, '""') + '","' + 
+                       row.subject.replace(/"/g, '""') + '"\n';
+            });
+            
+            var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            var link = document.createElement('a');
+            var url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', 'melcs_report_' + new Date().getTime() + '.csv');
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function exportMelcsToExcel() {
+            var data = getMelcsData();
+            var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">';
+            html += '<head><meta charset="utf-8"><style>table { border-collapse: collapse; } th, td { border: 1px solid #ddd; padding: 8px; } th { background-color: #4B49AC; color: white; }</style></head>';
+            html += '<body><h2>MELCs Report</h2><p>Generated: ' + new Date().toLocaleString() + '</p>';
+            html += '<table><thead><tr><th>Upload Date</th><th>Description</th><th>Subject</th></tr></thead><tbody>';
+            data.forEach(function(row) {
+                html += '<tr><td>' + escapeHtml(row.uploadDate) + '</td><td>' + escapeHtml(row.description) + '</td><td>' + escapeHtml(row.subject) + '</td></tr>';
+            });
+            html += '</tbody></table></body></html>';
+            
+            var blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+            var link = document.createElement('a');
+            var url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', 'melcs_report_' + new Date().getTime() + '.xls');
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function escapeHtml(str) {
+            return String(str === undefined || str === null ? '' : str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function generateMelcsPrintContent() {
+            var today = new Date().toLocaleDateString();
+            var rows = '';
+            var checkedOnly = $('.melc-checkbox:checked').length > 0;
+            
+            var selector = checkedOnly ? '.melc-checkbox:checked' : '.melc-checkbox';
+            $(selector).each(function() {
+                var $row = $(this).closest('tr');
+                var uploadDate = $row.find('td:eq(1)').text();
+                var description = $row.find('td:eq(2)').text();
+                var subject = $row.find('td:eq(3)').text();
+                rows += '<tr><td>' + escapeHtml(uploadDate) + '</td><td>' + escapeHtml(description) + '</td><td>' + escapeHtml(subject) + '</td></tr>';
+            });
+
+            return `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>MELCs Report</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; margin: 20px; }
+                        h1 { text-align: center; color: #333; }
+                        .header { text-align: center; margin-bottom: 20px; }
+                        .date { text-align: right; margin-bottom: 10px; font-size: 12px; }
+                        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                        th { background-color: #4B49AC; color: white; padding: 10px; text-align: left; border: 1px solid #ddd; }
+                        td { padding: 8px; border: 1px solid #ddd; vertical-align: top; }
+                        tr:nth-child(even) { background-color: #f9f9f9; }
+                        .footer { margin-top: 30px; font-size: 12px; text-align: center; color: #666; }
+                        @media print {
+                            body { margin: 0; }
+                            button { display: none; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <h1>Most Essential Learning Competencies Report</h1>
+                        <p>GENTA Learning Management System</p>
+                    </div>
+                    <div class="date">Generated: ${today}</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Upload Date</th>
+                                <th>Description</th>
+                                <th>Subject</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rows}
+                        </tbody>
+                    </table>
+                    <div class="footer">
+                        <p>© ${new Date().getFullYear()} GENTA - Department of Education</p>
+                    </div>
+                </body>
+                </html>
+            `;
         }
     }
 })();
