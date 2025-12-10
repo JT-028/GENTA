@@ -157,9 +157,34 @@
                     This table groups assessments by student and subject. If a student took the same subject multiple times, 
                     you'll see their latest score, best score, and total attempts.
                 </p>
+
+                <!-- Bulk Actions Bar for Assessments -->
+                <div class="bulk-actions-bar-assessments mb-3" style="display: none;">
+                    <div class="d-flex align-items-center gap-2 p-2 bg-light rounded">
+                        <span class="selected-count-assessments fw-bold">0 selected</span>
+                        <button type="button" class="btn btn-sm btn-secondary bulk-deselect-assessments">
+                            <i class="mdi mdi-close"></i> Clear Selection
+                        </button>
+                        <div class="btn-group ms-auto" role="group">
+                            <button type="button" class="btn btn-sm btn-success" id="printAssessments">
+                                <i class="mdi mdi-printer"></i> Print
+                            </button>
+                            <button type="button" class="btn btn-sm btn-info" id="exportAssessmentsCSV">
+                                <i class="mdi mdi-file-delimited"></i> Export CSV
+                            </button>
+                            <button type="button" class="btn btn-sm btn-primary" id="exportAssessmentsExcel">
+                                <i class="mdi mdi-file-excel"></i> Export Excel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <table class="table defaultDataTable">
                     <thead>
                         <tr>
+                            <th style="width: 40px;">
+                                <input type="checkbox" class="form-check-input" id="selectAllAssessments">
+                            </th>
                             <th>LRN</th>
                             <th>Name</th>
                             <th>Grade-Section</th>
@@ -198,7 +223,10 @@
                             $latestScoreClass = $latestPercent >= 75 ? 'text-success fw-bold' : ($latestPercent >= 50 ? 'text-warning fw-bold' : 'text-danger fw-bold');
                             $bestScoreClass = $bestPercent >= 75 ? 'text-success fw-bold' : ($bestPercent >= 50 ? 'text-warning fw-bold' : 'text-danger fw-bold');
                         ?>
-                            <tr>
+                            <tr data-assessment-key="<?= h($student->id . '_' . $subject->id) ?>">
+                                <td>
+                                    <input type="checkbox" class="form-check-input assessment-checkbox" value="<?= h($student->id . '_' . $subject->id) ?>" data-lrn="<?= h($student->lrn ?? 'N/A') ?>" data-name="<?= h($student->name) ?>" data-grade="<?= h($student->grade . ' - ' . $student->section) ?>" data-subject="<?= h($subject->name ?? 'N/A') ?>" data-version="<?= isset($latestQuiz->quiz_version) && $latestQuiz->quiz_version ? h($latestQuiz->quiz_version->version_number) : '—' ?>" data-attempts="<?= $attempts ?>" data-latest="<?= $latestScoreDisplay ?>" data-best="<?= $bestScoreDisplay ?>">
+                                </td>
                                 <td class="fw-bold"><?= h($student->lrn ?? 'N/A') ?></td>
                                 <td><?= h($student->name) ?></td>
                                 <td><?= h($student->grade . ' - ' . $student->section) ?></td>
@@ -739,4 +767,235 @@ document.addEventListener('click', function (e) {
         console.error('[AttemptsModal][native] error', ex);
     }
 });
+</script>
+
+<script>
+// Bulk Actions Functionality for Assessments Summary
+(function() {
+    function initAssessmentsBulkActions() {
+        if (typeof jQuery === 'undefined') {
+            setTimeout(initAssessmentsBulkActions, 100);
+            return;
+        }
+        var $ = jQuery;
+
+        function updateBulkActionsBarAssessments() {
+            var selectedCount = $('.assessment-checkbox:checked').length;
+            if (selectedCount > 0) {
+                $('.bulk-actions-bar-assessments').show();
+                $('.selected-count-assessments').text(selectedCount + ' selected');
+            } else {
+                $('.bulk-actions-bar-assessments').hide();
+            }
+        }
+
+        // Select All checkbox for assessments
+        $('#selectAllAssessments').on('change', function() {
+            var isChecked = $(this).prop('checked');
+            $('.assessment-checkbox').prop('checked', isChecked);
+            updateBulkActionsBarAssessments();
+        });
+
+        // Individual checkbox for assessments
+        $(document).on('change', '.assessment-checkbox', function() {
+            var totalCheckboxes = $('.assessment-checkbox').length;
+            var checkedCheckboxes = $('.assessment-checkbox:checked').length;
+            $('#selectAllAssessments').prop('checked', totalCheckboxes === checkedCheckboxes);
+            updateBulkActionsBarAssessments();
+        });
+
+        // Clear selection for assessments
+        $('.bulk-deselect-assessments').on('click', function() {
+            $('.assessment-checkbox, #selectAllAssessments').prop('checked', false);
+            updateBulkActionsBarAssessments();
+        });
+
+        // Print Functionality for Assessments
+        $('#printAssessments').on('click', function() {
+            var printContent = generateAssessmentsPrintContent();
+            var printWindow = window.open('', '_blank', 'width=800,height=600');
+            printWindow.document.write(printContent);
+            printWindow.document.close();
+            printWindow.focus();
+            setTimeout(function() {
+                printWindow.print();
+                printWindow.close();
+            }, 250);
+        });
+
+        // Export CSV
+        $('#exportAssessmentsCSV').on('click', function() {
+            exportAssessmentsToCSV();
+        });
+
+        // Export Excel
+        $('#exportAssessmentsExcel').on('click', function() {
+            exportAssessmentsToExcel();
+        });
+
+        function getAssessmentsData() {
+            var data = [];
+            var checkedOnly = $('.assessment-checkbox:checked').length > 0;
+            var selector = checkedOnly ? '.assessment-checkbox:checked' : '.assessment-checkbox';
+            
+            $(selector).each(function() {
+                var $checkbox = $(this);
+                data.push({
+                    lrn: $checkbox.data('lrn'),
+                    name: $checkbox.data('name'),
+                    grade: $checkbox.data('grade'),
+                    subject: $checkbox.data('subject'),
+                    version: $checkbox.data('version'),
+                    attempts: $checkbox.data('attempts'),
+                    latest: $checkbox.data('latest'),
+                    best: $checkbox.data('best')
+                });
+            });
+            return data;
+        }
+
+        function exportAssessmentsToCSV() {
+            var data = getAssessmentsData();
+            var csv = 'LRN,Name,Grade-Section,Subject,Version,Attempts,Latest Score,Best Score\n';
+            data.forEach(function(row) {
+                csv += '"' + String(row.lrn).replace(/"/g, '""') + '","' + 
+                       String(row.name).replace(/"/g, '""') + '","' + 
+                       String(row.grade).replace(/"/g, '""') + '","' + 
+                       String(row.subject).replace(/"/g, '""') + '","' + 
+                       String(row.version).replace(/"/g, '""') + '","' + 
+                       String(row.attempts).replace(/"/g, '""') + '","' + 
+                       String(row.latest).replace(/"/g, '""') + '","' + 
+                       String(row.best).replace(/"/g, '""') + '"\n';
+            });
+            
+            var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            var link = document.createElement('a');
+            var url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', 'assessments_report_' + new Date().getTime() + '.csv');
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function exportAssessmentsToExcel() {
+            var data = getAssessmentsData();
+            var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">';
+            html += '<head><meta charset="utf-8"><style>table { border-collapse: collapse; } th, td { border: 1px solid #ddd; padding: 8px; } th { background-color: #4B49AC; color: white; }</style></head>';
+            html += '<body><h2>Students\' Assessments Summary Report</h2><p>Generated: ' + new Date().toLocaleString() + '</p>';
+            html += '<table><thead><tr><th>LRN</th><th>Name</th><th>Grade-Section</th><th>Subject</th><th>Version</th><th>Attempts</th><th>Latest Score</th><th>Best Score</th></tr></thead><tbody>';
+            data.forEach(function(row) {
+                html += '<tr><td>' + escapeHtml(row.lrn) + '</td><td>' + escapeHtml(row.name) + '</td><td>' + 
+                        escapeHtml(row.grade) + '</td><td>' + escapeHtml(row.subject) + '</td><td>' + 
+                        escapeHtml(row.version) + '</td><td>' + escapeHtml(row.attempts) + '</td><td>' + 
+                        escapeHtml(row.latest) + '</td><td>' + escapeHtml(row.best) + '</td></tr>';
+            });
+            html += '</tbody></table></body></html>';
+            
+            var blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+            var link = document.createElement('a');
+            var url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', 'assessments_report_' + new Date().getTime() + '.xls');
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function escapeHtml(str) {
+            return String(str === undefined || str === null ? '' : str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function generateAssessmentsPrintContent() {
+            var today = new Date().toLocaleDateString();
+            var rows = '';
+            var checkedOnly = $('.assessment-checkbox:checked').length > 0;
+            
+            var selector = checkedOnly ? '.assessment-checkbox:checked' : '.assessment-checkbox';
+            $(selector).each(function() {
+                var $checkbox = $(this);
+                rows += '<tr><td>' + escapeHtml($checkbox.data('lrn')) + '</td><td>' + 
+                        escapeHtml($checkbox.data('name')) + '</td><td>' + 
+                        escapeHtml($checkbox.data('grade')) + '</td><td>' + 
+                        escapeHtml($checkbox.data('subject')) + '</td><td>' + 
+                        escapeHtml($checkbox.data('version')) + '</td><td>' + 
+                        escapeHtml($checkbox.data('attempts')) + '</td><td>' + 
+                        escapeHtml($checkbox.data('latest')) + '</td><td>' + 
+                        escapeHtml($checkbox.data('best')) + '</td></tr>';
+            });
+
+            return `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Students' Assessments Summary Report</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; margin: 20px; }
+                        h1 { text-align: center; color: #333; }
+                        .header { text-align: center; margin-bottom: 20px; }
+                        .date { text-align: right; margin-bottom: 10px; font-size: 12px; }
+                        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 11px; }
+                        th { background-color: #4B49AC; color: white; padding: 8px; text-align: left; border: 1px solid #ddd; }
+                        td { padding: 6px; border: 1px solid #ddd; vertical-align: top; }
+                        tr:nth-child(even) { background-color: #f9f9f9; }
+                        .footer { margin-top: 30px; font-size: 12px; text-align: center; color: #666; }
+                        @media print {
+                            body { margin: 0; }
+                            button { display: none; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <h1>Students' Assessments Summary Report</h1>
+                        <p>GENTA Learning Management System</p>
+                    </div>
+                    <div class="date">Generated: ${today}</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>LRN</th>
+                                <th>Name</th>
+                                <th>Grade-Section</th>
+                                <th>Subject</th>
+                                <th>Version</th>
+                                <th>Attempts</th>
+                                <th>Latest Score</th>
+                                <th>Best Score</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rows}
+                        </tbody>
+                    </table>
+                    <div class="footer">
+                        <p>© ${new Date().getFullYear()} GENTA - Department of Education</p>
+                    </div>
+                </body>
+                </html>
+            `;
+        }
+
+        // Re-initialize event handlers after DataTable draw (pagination, sort, etc.)
+        $('.defaultDataTable').on('draw.dt', function() {
+            var totalCheckboxes = $('.assessment-checkbox').length;
+            var checkedCheckboxes = $('.assessment-checkbox:checked').length;
+            $('#selectAllAssessments').prop('checked', totalCheckboxes > 0 && totalCheckboxes === checkedCheckboxes);
+            updateBulkActionsBarAssessments();
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initAssessmentsBulkActions);
+    } else {
+        initAssessmentsBulkActions();
+    }
+})();
 </script>
