@@ -136,32 +136,225 @@ function initPage() {
     // Any non-delegated handlers that must be re-attached can go here.
     // (Most of the behavior uses delegated handlers attached to document/body.)
 
-    // Initialize bulk actions for all pages (only if jQuery is available)
-    // Retry with a short delay to ensure DOM is ready after AJAX navigation
+    // Initialize bulk actions for all pages (defined inline so always available)
     try {
         if (typeof window.jQuery !== 'undefined' && window.jQuery) {
-            // Try immediately first
-            tryInitBulkActions();
-            // Then retry after a short delay to catch late-loading content
-            setTimeout(tryInitBulkActions, 200);
+            var $ = window.jQuery;
+            
+            // ============ STUDENTS BULK ACTIONS ============
+            if ($('#selectAllStudents').length || $('.student-checkbox').length) {
+                console.info('[Students] Initializing bulk actions');
+                
+                function getStudentsTableApi() {
+                    if ($.fn.DataTable && $.fn.DataTable.isDataTable('.defaultDataTable')) {
+                        return $('.defaultDataTable').DataTable();
+                    }
+                    return null;
+                }
+
+                function getStudentsVisibleCheckboxes() {
+                    var dt = getStudentsTableApi();
+                    if (dt) {
+                        return $(dt.rows({ page: 'current' }).nodes()).find('.student-checkbox');
+                    }
+                    return $('.student-checkbox');
+                }
+
+                function updateStudentsBulkBar() {
+                    var selectedCount = $('.student-checkbox:checked').length;
+                    if (selectedCount > 0) {
+                        $('.bulk-actions-bar').show();
+                        $('.selected-count').text(selectedCount + ' selected');
+                    } else {
+                        $('.bulk-actions-bar').hide();
+                    }
+                }
+
+                $(document).off('click.bulkstop', '#selectAllStudents, .student-checkbox').on('click.bulkstop', '#selectAllStudents, .student-checkbox', function(e) {
+                    e.stopPropagation();
+                });
+
+                $(document).off('change.bulk', '#selectAllStudents').on('change.bulk', '#selectAllStudents', function() {
+                    var isChecked = $(this).prop('checked');
+                    getStudentsVisibleCheckboxes().prop('checked', isChecked);
+                    updateStudentsBulkBar();
+                });
+
+                $(document).off('change.bulk', '.student-checkbox').on('change.bulk', '.student-checkbox', function() {
+                    var $visible = getStudentsVisibleCheckboxes();
+                    var total = $visible.length;
+                    var checked = $visible.filter(':checked').length;
+                    $('#selectAllStudents').prop('checked', total === checked);
+                    updateStudentsBulkBar();
+                });
+
+                $(document).off('click.bulk', '.bulk-deselect').on('click.bulk', '.bulk-deselect', function() {
+                    $('.student-checkbox, #selectAllStudents').prop('checked', false);
+                    updateStudentsBulkBar();
+                });
+            }
+
+            // ============ QUESTIONS BULK ACTIONS ============
+            if ($('#selectAllQuestions').length || $('.question-checkbox').length) {
+                console.info('[Questions] Initializing bulk actions');
+                
+                function getQuestionsTableApi() {
+                    if ($.fn.DataTable && $.fn.DataTable.isDataTable('.defaultDataTable')) {
+                        return $('.defaultDataTable').DataTable();
+                    }
+                    return null;
+                }
+
+                function getQuestionsVisibleCheckboxes() {
+                    var dt = getQuestionsTableApi();
+                    if (dt) {
+                        return $(dt.rows({ page: 'current' }).nodes()).find('.question-checkbox');
+                    }
+                    return $('.question-checkbox');
+                }
+
+                function updateQuestionsBulkBar() {
+                    var selectedCount = $('.question-checkbox:checked').length;
+                    if (selectedCount > 0) {
+                        $('.bulk-actions-bar-questions').show();
+                        $('.selected-count-questions').text(selectedCount + ' selected');
+                    } else {
+                        $('.bulk-actions-bar-questions').hide();
+                    }
+                }
+
+                $(document).off('click.bulkactionsstop', '#selectAllQuestions, .question-checkbox').on('click.bulkactionsstop', '#selectAllQuestions, .question-checkbox', function(e) {
+                    e.stopPropagation();
+                });
+
+                $(document).off('change.bulkactions', '#selectAllQuestions').on('change.bulkactions', '#selectAllQuestions', function() {
+                    var isChecked = $(this).prop('checked');
+                    getQuestionsVisibleCheckboxes().prop('checked', isChecked);
+                    updateQuestionsBulkBar();
+                });
+
+                $(document).off('change.bulkactions', '.question-checkbox').on('change.bulkactions', '.question-checkbox', function() {
+                    var $visible = getQuestionsVisibleCheckboxes();
+                    var total = $visible.length;
+                    var checked = $visible.filter(':checked').length;
+                    $('#selectAllQuestions').prop('checked', total === checked);
+                    updateQuestionsBulkBar();
+                });
+
+                $(document).off('click.bulkactions', '.bulk-deselect-questions').on('click.bulkactions', '.bulk-deselect-questions', function() {
+                    $('.question-checkbox, #selectAllQuestions').prop('checked', false);
+                    updateQuestionsBulkBar();
+                });
+            }
+
+            // ============ ASSESSMENTS BULK ACTIONS ============
+            if ($('#selectAllAssessments').length || $('.assessment-checkbox').length) {
+                console.info('[Assessments] Initializing bulk actions');
+                
+                function getAssessmentsTableApi() {
+                    if ($.fn.DataTable && $.fn.DataTable.isDataTable('.defaultDataTable')) {
+                        return $('.defaultDataTable').DataTable();
+                    }
+                    return null;
+                }
+
+                function getAssessmentsVisibleCheckboxes() {
+                    var dt = getAssessmentsTableApi();
+                    if (dt) {
+                        return $(dt.rows({ page: 'current' }).nodes()).find('.assessment-checkbox');
+                    }
+                    return $('.assessment-checkbox');
+                }
+
+                function updateAssessmentsBulkBar() {
+                    var selectedCount = $('.assessment-checkbox:checked').length;
+                    if (selectedCount > 0) {
+                        $('.bulk-actions-bar-assessments').show();
+                        $('.selected-count-assessments').text(selectedCount + ' selected');
+                    } else {
+                        $('.bulk-actions-bar-assessments').hide();
+                    }
+                }
+
+                $(document).off('click.bulkactionsstop', '#selectAllAssessments, .assessment-checkbox').on('click.bulkactionsstop', '#selectAllAssessments, .assessment-checkbox', function(e) {
+                    e.stopPropagation();
+                });
+
+                $(document).off('change.bulkactions', '#selectAllAssessments').on('change.bulkactions', '#selectAllAssessments', function() {
+                    var isChecked = $(this).prop('checked');
+                    getAssessmentsVisibleCheckboxes().prop('checked', isChecked);
+                    updateAssessmentsBulkBar();
+                });
+
+                $(document).off('change.bulkactions', '.assessment-checkbox').on('change.bulkactions', '.assessment-checkbox', function() {
+                    var $visible = getAssessmentsVisibleCheckboxes();
+                    var total = $visible.length;
+                    var checked = $visible.filter(':checked').length;
+                    $('#selectAllAssessments').prop('checked', total === checked);
+                    updateAssessmentsBulkBar();
+                });
+
+                $(document).off('click.bulkactions', '.bulk-deselect-assessments').on('click.bulkactions', '.bulk-deselect-assessments', function() {
+                    $('.assessment-checkbox, #selectAllAssessments').prop('checked', false);
+                    updateAssessmentsBulkBar();
+                });
+            }
+
+            // ============ MELCS BULK ACTIONS ============
+            if ($('#selectAllMelcs').length || $('.melc-checkbox').length) {
+                console.info('[MELCs] Initializing bulk actions');
+                
+                function getMelcsTableApi() {
+                    if ($.fn.DataTable && $.fn.DataTable.isDataTable('.defaultDataTable')) {
+                        return $('.defaultDataTable').DataTable();
+                    }
+                    return null;
+                }
+
+                function getMelcsVisibleCheckboxes() {
+                    var dt = getMelcsTableApi();
+                    if (dt) {
+                        return $(dt.rows({ page: 'current' }).nodes()).find('.melc-checkbox');
+                    }
+                    return $('.melc-checkbox');
+                }
+
+                function updateMelcsBulkBar() {
+                    var selectedCount = $('.melc-checkbox:checked').length;
+                    if (selectedCount > 0) {
+                        $('.bulk-actions-bar-melcs').show();
+                        $('.selected-count-melcs').text(selectedCount + ' selected');
+                    } else {
+                        $('.bulk-actions-bar-melcs').hide();
+                    }
+                }
+
+                $(document).off('click.bulkactionsstop', '#selectAllMelcs, .melc-checkbox').on('click.bulkactionsstop', '#selectAllMelcs, .melc-checkbox', function(e) {
+                    e.stopPropagation();
+                });
+
+                $(document).off('change.bulkactions', '#selectAllMelcs').on('change.bulkactions', '#selectAllMelcs', function() {
+                    var isChecked = $(this).prop('checked');
+                    getMelcsVisibleCheckboxes().prop('checked', isChecked);
+                    updateMelcsBulkBar();
+                });
+
+                $(document).off('change.bulkactions', '.melc-checkbox').on('change.bulkactions', '.melc-checkbox', function() {
+                    var $visible = getMelcsVisibleCheckboxes();
+                    var total = $visible.length;
+                    var checked = $visible.filter(':checked').length;
+                    $('#selectAllMelcs').prop('checked', total === checked);
+                    updateMelcsBulkBar();
+                });
+
+                $(document).off('click.bulkactions', '.bulk-deselect-melcs').on('click.bulkactions', '.bulk-deselect-melcs', function() {
+                    $('.melc-checkbox, #selectAllMelcs').prop('checked', false);
+                    updateMelcsBulkBar();
+                });
+            }
         }
     } catch (e) {
         console.warn('[initPage] Bulk actions init failed:', e);
-    }
-
-    function tryInitBulkActions() {
-        if (typeof window.initBulkActionsStudents === 'function') {
-            window.initBulkActionsStudents();
-        }
-        if (typeof window.initBulkActionsQuestions === 'function') {
-            window.initBulkActionsQuestions();
-        }
-        if (typeof window.initBulkActionsAssessments === 'function') {
-            window.initBulkActionsAssessments();
-        }
-        if (typeof window.initBulkActionsMelcs === 'function') {
-            window.initBulkActionsMelcs();
-        }
     }
 
     // Update sidebar active link based on current location
