@@ -199,31 +199,18 @@
                         }).done(function(res){
                             console.log('Server response:', res);
                             if (res && res.success) {
-                                // Show success message, then refresh page content via AJAX
+                                // Show success message, then refresh the page
                                 if (window.Swal && typeof Swal.fire === 'function') {
                                     Swal.fire({icon: 'success', title: 'Success', text: res.message || 'Saved'})
                                         .then(function(){
                                             hideModal();
-                                            // Refresh page content via AJAX to properly update the table
-                                            if (typeof reloadCurrentPage === 'function') {
-                                                reloadCurrentPage();
-                                            } else if (typeof loadPage === 'function') {
-                                                loadPage(window.location.href, false);
-                                            } else {
-                                                window.location.reload();
-                                            }
+                                            // Use full page reload to ensure table is properly refreshed
+                                            window.location.reload();
                                         });
                                 } else {
                                     alert(res.message || 'Saved');
                                     hideModal();
-                                    // Refresh page content via AJAX
-                                    if (typeof reloadCurrentPage === 'function') {
-                                        reloadCurrentPage();
-                                    } else if (typeof loadPage === 'function') {
-                                        loadPage(window.location.href, false);
-                                    } else {
-                                        window.location.reload();
-                                    }
+                                    window.location.reload();
                                 }
                             } else {
                                 if (res && res.errors) {
