@@ -13,23 +13,24 @@
 
                 <!-- Bulk Actions Bar -->
                 <div class="bulk-actions-bar mb-3" style="display: none;">
-                    <div class="d-flex align-items-center gap-2 p-2 bg-light rounded">
-                        <span class="selected-count fw-bold">0 selected</span>
-                        <button type="button" class="btn btn-sm btn-danger bulk-delete-students">
-                            <i class="mdi mdi-delete"></i> Delete Selected
-                        </button>
-                        <button type="button" class="btn btn-sm btn-secondary bulk-deselect">
-                            <i class="mdi mdi-close"></i> Clear Selection
-                        </button>
-                        <div class="btn-group ms-auto" role="group">
+                    <div class="d-flex flex-wrap align-items-center gap-3 p-3 bg-light rounded border">
+                        <span class="selected-count fw-bold text-primary" style="min-width: 80px;">0 selected</span>
+                        <div class="vr d-none d-sm-block"></div>
+                        <div class="d-flex flex-wrap gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-danger bulk-delete-students">
+                                <i class="mdi mdi-delete"></i> Delete
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary bulk-deselect">
+                                <i class="mdi mdi-close"></i> Clear
+                            </button>
+                        </div>
+                        <div class="vr d-none d-sm-block"></div>
+                        <div class="d-flex flex-wrap gap-2 ms-sm-auto">
                             <button type="button" class="btn btn-sm btn-success" id="printStudents">
                                 <i class="mdi mdi-printer"></i> Print
                             </button>
-                            <button type="button" class="btn btn-sm btn-info" id="exportStudentsCSV">
-                                <i class="mdi mdi-file-delimited"></i> Export CSV
-                            </button>
-                            <button type="button" class="btn btn-sm btn-primary" id="exportStudentsExcel">
-                                <i class="mdi mdi-file-excel"></i> Export Excel
+                            <button type="button" class="btn btn-sm btn-danger" id="exportStudentsPDF">
+                                <i class="mdi mdi-file-pdf-box"></i> Export PDF
                             </button>
                         </div>
                     </div>
@@ -756,7 +757,6 @@
                     // ignore
                 }
             })();
-        })();
     };
 
     // Run on initial page load

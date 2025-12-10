@@ -352,6 +352,530 @@ function initPage() {
                     updateMelcsBulkBar();
                 });
             }
+
+            // ============ BULK ACTION BUTTONS (Print, Export PDF, Delete, Suspend, Activate) ============
+            
+            // Helper function to escape HTML
+            function escapeHtml(str) {
+                return String(str === undefined || str === null ? '' : str)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#039;');
+            }
+
+            // Helper function to get CSRF token
+            function getCsrfToken() {
+                return $('meta[name=csrfToken]').attr('content') || '';
+            }
+
+            // ---- STUDENTS BULK ACTIONS ----
+            if ($('.student-checkbox').length) {
+                // Get students data - columns: Checkbox(0), LRN(1), Name(2), Grade/Section(3), Action(4)
+                function getStudentsData() {
+                    var data = [];
+                    var checkedOnly = $('.student-checkbox:checked').length > 0;
+                    var selector = checkedOnly ? '.student-checkbox:checked' : '.student-checkbox';
+                    
+                    $(selector).each(function() {
+                        var $row = $(this).closest('tr');
+                        data.push({
+                            lrn: $row.find('td:eq(1)').text().trim(),
+                            name: $row.find('td:eq(2)').text().trim(),
+                            gradeSection: $row.find('td:eq(3)').text().trim()
+                        });
+                    });
+                    return data;
+                }
+
+                // Generate students print content
+                function generateStudentsPrintContent() {
+                    var today = new Date().toLocaleDateString();
+                    var data = getStudentsData();
+                    var rows = data.map(function(row) {
+                        return '<tr><td>' + escapeHtml(row.lrn) + '</td><td>' + escapeHtml(row.name) + '</td><td>' + escapeHtml(row.gradeSection) + '</td></tr>';
+                    }).join('');
+
+                    return '<!DOCTYPE html><html><head><title>Students Report</title><style>' +
+                        'body { font-family: Arial, sans-serif; margin: 20px; }' +
+                        'h1 { text-align: center; color: #333; }' +
+                        '.header { text-align: center; margin-bottom: 20px; }' +
+                        '.date { text-align: right; margin-bottom: 10px; font-size: 12px; }' +
+                        'table { width: 100%; border-collapse: collapse; margin-top: 20px; }' +
+                        'th { background-color: #4B49AC; color: white; padding: 10px; text-align: left; border: 1px solid #ddd; }' +
+                        'td { padding: 8px; border: 1px solid #ddd; }' +
+                        'tr:nth-child(even) { background-color: #f9f9f9; }' +
+                        '.footer { margin-top: 30px; font-size: 12px; text-align: center; color: #666; }' +
+                        '@media print { body { margin: 0; } }' +
+                        '</style></head><body>' +
+                        '<div class="header"><h1>Students Report</h1><p>GENTA Learning Management System</p></div>' +
+                        '<div class="date">Generated: ' + today + '</div>' +
+                        '<table><thead><tr><th>LRN</th><th>Name</th><th>Grade / Section</th></tr></thead>' +
+                        '<tbody>' + rows + '</tbody></table>' +
+                        '<div class="footer"><p>© ' + new Date().getFullYear() + ' GENTA - Department of Education</p></div>' +
+                        '</body></html>';
+                }
+
+                // Print Students
+                $(document).off('click.bulkactions', '#printStudents').on('click.bulkactions', '#printStudents', function() {
+                    var printContent = generateStudentsPrintContent();
+                    var printWindow = window.open('', '_blank', 'width=800,height=600');
+                    printWindow.document.write(printContent);
+                    printWindow.document.close();
+                    printWindow.focus();
+                    setTimeout(function() {
+                        printWindow.print();
+                        printWindow.close();
+                    }, 250);
+                });
+
+                // Export Students PDF (uses print dialog's Save as PDF)
+                $(document).off('click.bulkactions', '#exportStudentsPDF').on('click.bulkactions', '#exportStudentsPDF', function() {
+                    var printContent = generateStudentsPrintContent();
+                    var printWindow = window.open('', '_blank', 'width=800,height=600');
+                    printWindow.document.write(printContent.replace('<title>Students Report</title>', '<title>Students Report - Save as PDF</title>'));
+                    printWindow.document.close();
+                    printWindow.focus();
+                    setTimeout(function() {
+                        printWindow.print();
+                    }, 250);
+                });
+
+                // Bulk Delete Students
+                $(document).off('click.bulkactions', '.bulk-delete-students').on('click.bulkactions', '.bulk-delete-students', function() {
+                    var selectedIds = $('.student-checkbox:checked').map(function() {
+                        return $(this).val();
+                    }).get();
+
+                    if (selectedIds.length === 0) return;
+
+                    var confirmText = 'Are you sure you want to delete ' + selectedIds.length + ' student(s)? This action cannot be undone.';
+                    
+                    if (window.Swal && typeof Swal.fire === 'function') {
+                        Swal.fire({
+                            title: 'Delete Students?',
+                            text: confirmText,
+                            icon: 'warning',
+                            showCancelButton: true,
+                            confirmButtonText: 'Delete',
+                            cancelButtonText: 'Cancel',
+                            confirmButtonColor: '#d33'
+                        }).then(function(result) {
+                            if (result.isConfirmed) {
+                                performBulkActionStudents(selectedIds, 'delete');
+                            }
+                        });
+                    } else if (confirm(confirmText)) {
+                        performBulkActionStudents(selectedIds, 'delete');
+                    }
+                });
+
+                function performBulkActionStudents(selectedIds, action) {
+                    var csrf = getCsrfToken();
+                    var baseUrl = window.location.origin + (window.APP_BASE || '/GENTA');
+                    
+                    var actionPromises = selectedIds.map(function(id) {
+                        return $.ajax({
+                            url: baseUrl + '/teacher/dashboard/delete-student/' + id,
+                            method: 'POST',
+                            headers: { 'X-CSRF-Token': csrf },
+                            dataType: 'json'
+                        });
+                    });
+
+                    Promise.all(actionPromises.map(function(p) { return p.catch(function(e) { return e; }); })).then(function(responses) {
+                        var successCount = responses.filter(function(r) { return r && r.success; }).length;
+                        
+                        if (window.Swal && typeof Swal.fire === 'function') {
+                            Swal.fire({
+                                title: 'Success!',
+                                text: successCount + ' student(s) have been deleted.',
+                                icon: 'success'
+                            }).then(function() {
+                                window.location.reload();
+                            });
+                        } else {
+                            alert(successCount + ' student(s) have been deleted.');
+                            window.location.reload();
+                        }
+                    });
+                }
+            }
+
+            // ---- QUESTIONS BULK ACTIONS ----
+            if ($('.question-checkbox').length) {
+                // Get questions data
+                function getQuestionsData() {
+                    var data = [];
+                    var checkedOnly = $('.question-checkbox:checked').length > 0;
+                    var selector = checkedOnly ? '.question-checkbox:checked' : '.question-checkbox';
+                    
+                    $(selector).each(function() {
+                        var $row = $(this).closest('tr');
+                        data.push({
+                            subject: $row.find('td:eq(1)').text().trim(),
+                            question: $row.find('td:eq(2)').text().trim(),
+                            choices: $row.find('td:eq(3)').text().trim(),
+                            answer: $row.find('td:eq(4)').text().trim(),
+                            score: $row.find('td:eq(5)').text().trim(),
+                            status: $row.find('td:eq(6)').text().trim()
+                        });
+                    });
+                    return data;
+                }
+
+                // Generate questions print content
+                function generateQuestionsPrintContent() {
+                    var today = new Date().toLocaleDateString();
+                    var data = getQuestionsData();
+                    var rows = data.map(function(row) {
+                        return '<tr><td>' + escapeHtml(row.subject) + '</td><td>' + escapeHtml(row.question) + '</td><td>' + escapeHtml(row.choices) + '</td><td>' + escapeHtml(row.answer) + '</td><td>' + escapeHtml(row.score) + '</td><td>' + escapeHtml(row.status) + '</td></tr>';
+                    }).join('');
+
+                    return '<!DOCTYPE html><html><head><title>Questions Report</title><style>' +
+                        'body { font-family: Arial, sans-serif; margin: 20px; }' +
+                        'h1 { text-align: center; color: #333; }' +
+                        '.header { text-align: center; margin-bottom: 20px; }' +
+                        '.date { text-align: right; margin-bottom: 10px; font-size: 12px; }' +
+                        'table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 11px; }' +
+                        'th { background-color: #4B49AC; color: white; padding: 8px; text-align: left; border: 1px solid #ddd; }' +
+                        'td { padding: 6px; border: 1px solid #ddd; vertical-align: top; }' +
+                        'tr:nth-child(even) { background-color: #f9f9f9; }' +
+                        '.footer { margin-top: 30px; font-size: 12px; text-align: center; color: #666; }' +
+                        '@media print { body { margin: 0; } }' +
+                        '</style></head><body>' +
+                        '<div class="header"><h1>Questions Report</h1><p>GENTA Learning Management System</p></div>' +
+                        '<div class="date">Generated: ' + today + '</div>' +
+                        '<table><thead><tr><th>Subject</th><th>Question</th><th>Choices</th><th>Answer</th><th>Score</th><th>Status</th></tr></thead>' +
+                        '<tbody>' + rows + '</tbody></table>' +
+                        '<div class="footer"><p>© ' + new Date().getFullYear() + ' GENTA - Department of Education</p></div>' +
+                        '</body></html>';
+                }
+
+                // Print Questions
+                $(document).off('click.bulkactions', '#printQuestions').on('click.bulkactions', '#printQuestions', function() {
+                    var printContent = generateQuestionsPrintContent();
+                    var printWindow = window.open('', '_blank', 'width=800,height=600');
+                    printWindow.document.write(printContent);
+                    printWindow.document.close();
+                    printWindow.focus();
+                    setTimeout(function() {
+                        printWindow.print();
+                        printWindow.close();
+                    }, 250);
+                });
+
+                // Export Questions PDF
+                $(document).off('click.bulkactions', '#exportQuestionsPDF').on('click.bulkactions', '#exportQuestionsPDF', function() {
+                    var printContent = generateQuestionsPrintContent();
+                    var printWindow = window.open('', '_blank', 'width=800,height=600');
+                    printWindow.document.write(printContent.replace('<title>Questions Report</title>', '<title>Questions Report - Save as PDF</title>'));
+                    printWindow.document.close();
+                    printWindow.focus();
+                    setTimeout(function() {
+                        printWindow.print();
+                    }, 250);
+                });
+
+                // Bulk Delete Questions
+                $(document).off('click.bulkactions', '.bulk-delete-questions').on('click.bulkactions', '.bulk-delete-questions', function() {
+                    var selectedIds = $('.question-checkbox:checked').map(function() {
+                        return $(this).val();
+                    }).get();
+
+                    if (selectedIds.length === 0) return;
+
+                    var confirmText = 'Are you sure you want to delete ' + selectedIds.length + ' question(s)?';
+                    
+                    if (window.Swal && typeof Swal.fire === 'function') {
+                        Swal.fire({
+                            title: 'Delete Questions?',
+                            text: confirmText,
+                            icon: 'warning',
+                            showCancelButton: true,
+                            confirmButtonText: 'Delete',
+                            cancelButtonText: 'Cancel',
+                            confirmButtonColor: '#d33'
+                        }).then(function(result) {
+                            if (result.isConfirmed) {
+                                performBulkActionQuestions(selectedIds, 'delete');
+                            }
+                        });
+                    } else if (confirm(confirmText)) {
+                        performBulkActionQuestions(selectedIds, 'delete');
+                    }
+                });
+
+                // Bulk Suspend Questions
+                $(document).off('click.bulkactions', '.bulk-suspend-questions').on('click.bulkactions', '.bulk-suspend-questions', function() {
+                    var selectedIds = $('.question-checkbox:checked').map(function() {
+                        return $(this).val();
+                    }).get();
+
+                    if (selectedIds.length === 0) return;
+                    performBulkActionQuestions(selectedIds, 'suspend');
+                });
+
+                // Bulk Activate Questions
+                $(document).off('click.bulkactions', '.bulk-activate-questions').on('click.bulkactions', '.bulk-activate-questions', function() {
+                    var selectedIds = $('.question-checkbox:checked').map(function() {
+                        return $(this).val();
+                    }).get();
+
+                    if (selectedIds.length === 0) return;
+                    performBulkActionQuestions(selectedIds, 'activate');
+                });
+
+                function performBulkActionQuestions(selectedIds, action) {
+                    var csrf = getCsrfToken();
+                    var baseUrl = window.location.origin + (window.APP_BASE || '/GENTA');
+                    
+                    var actionPromises = selectedIds.map(function(id) {
+                        var url;
+                        if (action === 'delete') {
+                            url = baseUrl + '/teacher/dashboard/delete-question/' + id;
+                        } else {
+                            url = baseUrl + '/teacher/dashboard/toggle-question-status/' + id;
+                        }
+                        return $.ajax({
+                            url: url,
+                            method: 'POST',
+                            headers: { 'X-CSRF-Token': csrf },
+                            dataType: 'json'
+                        });
+                    });
+
+                    Promise.all(actionPromises.map(function(p) { return p.catch(function(e) { return e; }); })).then(function(responses) {
+                        var successCount = responses.filter(function(r) { return r && r.success; }).length;
+                        var actionText = action === 'delete' ? 'deleted' : (action === 'suspend' ? 'suspended' : 'activated');
+                        
+                        if (window.Swal && typeof Swal.fire === 'function') {
+                            Swal.fire({
+                                title: 'Success!',
+                                text: successCount + ' question(s) have been ' + actionText + '.',
+                                icon: 'success'
+                            }).then(function() {
+                                window.location.reload();
+                            });
+                        } else {
+                            alert(successCount + ' question(s) have been ' + actionText + '.');
+                            window.location.reload();
+                        }
+                    });
+                }
+            }
+
+            // ---- ASSESSMENTS BULK ACTIONS ----
+            if ($('.assessment-checkbox').length) {
+                // Get assessments data - columns: Checkbox(0), LRN(1), Name(2), Grade-Section(3), Subject(4), Version(5), Attempts(6), Latest Score(7), Best Score(8), Action(9)
+                function getAssessmentsData() {
+                    var data = [];
+                    var checkedOnly = $('.assessment-checkbox:checked').length > 0;
+                    var selector = checkedOnly ? '.assessment-checkbox:checked' : '.assessment-checkbox';
+                    
+                    $(selector).each(function() {
+                        var $row = $(this).closest('tr');
+                        data.push({
+                            lrn: $row.find('td:eq(1)').text().trim(),
+                            name: $row.find('td:eq(2)').text().trim(),
+                            gradeSection: $row.find('td:eq(3)').text().trim(),
+                            subject: $row.find('td:eq(4)').text().trim(),
+                            version: $row.find('td:eq(5)').text().trim(),
+                            attempts: $row.find('td:eq(6)').text().trim(),
+                            latestScore: $row.find('td:eq(7)').text().trim(),
+                            bestScore: $row.find('td:eq(8)').text().trim()
+                        });
+                    });
+                    return data;
+                }
+
+                // Generate assessments print content
+                function generateAssessmentsPrintContent() {
+                    var today = new Date().toLocaleDateString();
+                    var data = getAssessmentsData();
+                    var rows = data.map(function(row) {
+                        return '<tr><td>' + escapeHtml(row.lrn) + '</td><td>' + escapeHtml(row.name) + '</td><td>' + escapeHtml(row.gradeSection) + '</td><td>' + escapeHtml(row.subject) + '</td><td>' + escapeHtml(row.version) + '</td><td>' + escapeHtml(row.attempts) + '</td><td>' + escapeHtml(row.latestScore) + '</td><td>' + escapeHtml(row.bestScore) + '</td></tr>';
+                    }).join('');
+
+                    return '<!DOCTYPE html><html><head><title>Assessments Report</title><style>' +
+                        'body { font-family: Arial, sans-serif; margin: 20px; }' +
+                        'h1 { text-align: center; color: #333; }' +
+                        '.header { text-align: center; margin-bottom: 20px; }' +
+                        '.date { text-align: right; margin-bottom: 10px; font-size: 12px; }' +
+                        'table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 11px; }' +
+                        'th { background-color: #4B49AC; color: white; padding: 8px; text-align: left; border: 1px solid #ddd; }' +
+                        'td { padding: 6px; border: 1px solid #ddd; }' +
+                        'tr:nth-child(even) { background-color: #f9f9f9; }' +
+                        '.footer { margin-top: 30px; font-size: 12px; text-align: center; color: #666; }' +
+                        '@media print { body { margin: 0; } }' +
+                        '</style></head><body>' +
+                        '<div class="header"><h1>Assessments Summary Report</h1><p>GENTA Learning Management System</p></div>' +
+                        '<div class="date">Generated: ' + today + '</div>' +
+                        '<table><thead><tr><th>LRN</th><th>Name</th><th>Grade-Section</th><th>Subject</th><th>Version</th><th>Attempts</th><th>Latest Score</th><th>Best Score</th></tr></thead>' +
+                        '<tbody>' + rows + '</tbody></table>' +
+                        '<div class="footer"><p>© ' + new Date().getFullYear() + ' GENTA - Department of Education</p></div>' +
+                        '</body></html>';
+                }
+
+                // Print Assessments
+                $(document).off('click.bulkactions', '#printAssessments').on('click.bulkactions', '#printAssessments', function() {
+                    var printContent = generateAssessmentsPrintContent();
+                    var printWindow = window.open('', '_blank', 'width=800,height=600');
+                    printWindow.document.write(printContent);
+                    printWindow.document.close();
+                    printWindow.focus();
+                    setTimeout(function() {
+                        printWindow.print();
+                        printWindow.close();
+                    }, 250);
+                });
+
+                // Export Assessments PDF
+                $(document).off('click.bulkactions', '#exportAssessmentsPDF').on('click.bulkactions', '#exportAssessmentsPDF', function() {
+                    var printContent = generateAssessmentsPrintContent();
+                    var printWindow = window.open('', '_blank', 'width=800,height=600');
+                    printWindow.document.write(printContent.replace('<title>Assessments Report</title>', '<title>Assessments Report - Save as PDF</title>'));
+                    printWindow.document.close();
+                    printWindow.focus();
+                    setTimeout(function() {
+                        printWindow.print();
+                    }, 250);
+                });
+            }
+
+            // ---- MELCS BULK ACTIONS ----
+            if ($('.melc-checkbox').length) {
+                // Get MELCs data - columns: Checkbox(0), Upload Date(1), Description(2), Subject(3), Action(4)
+                function getMelcsData() {
+                    var data = [];
+                    var checkedOnly = $('.melc-checkbox:checked').length > 0;
+                    var selector = checkedOnly ? '.melc-checkbox:checked' : '.melc-checkbox';
+                    
+                    $(selector).each(function() {
+                        var $row = $(this).closest('tr');
+                        data.push({
+                            uploadDate: $row.find('td:eq(1)').text().trim(),
+                            description: $row.find('td:eq(2)').text().trim(),
+                            subject: $row.find('td:eq(3)').text().trim()
+                        });
+                    });
+                    return data;
+                }
+
+                // Generate MELCs print content
+                function generateMelcsPrintContent() {
+                    var today = new Date().toLocaleDateString();
+                    var data = getMelcsData();
+                    var rows = data.map(function(row) {
+                        return '<tr><td>' + escapeHtml(row.uploadDate) + '</td><td>' + escapeHtml(row.description) + '</td><td>' + escapeHtml(row.subject) + '</td></tr>';
+                    }).join('');
+
+                    return '<!DOCTYPE html><html><head><title>MELCs Report</title><style>' +
+                        'body { font-family: Arial, sans-serif; margin: 20px; }' +
+                        'h1 { text-align: center; color: #333; }' +
+                        '.header { text-align: center; margin-bottom: 20px; }' +
+                        '.date { text-align: right; margin-bottom: 10px; font-size: 12px; }' +
+                        'table { width: 100%; border-collapse: collapse; margin-top: 20px; }' +
+                        'th { background-color: #4B49AC; color: white; padding: 10px; text-align: left; border: 1px solid #ddd; }' +
+                        'td { padding: 8px; border: 1px solid #ddd; }' +
+                        'tr:nth-child(even) { background-color: #f9f9f9; }' +
+                        '.footer { margin-top: 30px; font-size: 12px; text-align: center; color: #666; }' +
+                        '@media print { body { margin: 0; } }' +
+                        '</style></head><body>' +
+                        '<div class="header"><h1>MELCs Report</h1><p>Most Essential Learning Competencies</p><p>GENTA Learning Management System</p></div>' +
+                        '<div class="date">Generated: ' + today + '</div>' +
+                        '<table><thead><tr><th>Upload Date</th><th>Description</th><th>Subject</th></tr></thead>' +
+                        '<tbody>' + rows + '</tbody></table>' +
+                        '<div class="footer"><p>© ' + new Date().getFullYear() + ' GENTA - Department of Education</p></div>' +
+                        '</body></html>';
+                }
+
+                // Print MELCs
+                $(document).off('click.bulkactions', '#printMelcs').on('click.bulkactions', '#printMelcs', function() {
+                    var printContent = generateMelcsPrintContent();
+                    var printWindow = window.open('', '_blank', 'width=800,height=600');
+                    printWindow.document.write(printContent);
+                    printWindow.document.close();
+                    printWindow.focus();
+                    setTimeout(function() {
+                        printWindow.print();
+                        printWindow.close();
+                    }, 250);
+                });
+
+                // Export MELCs PDF
+                $(document).off('click.bulkactions', '#exportMelcsPDF').on('click.bulkactions', '#exportMelcsPDF', function() {
+                    var printContent = generateMelcsPrintContent();
+                    var printWindow = window.open('', '_blank', 'width=800,height=600');
+                    printWindow.document.write(printContent.replace('<title>MELCs Report</title>', '<title>MELCs Report - Save as PDF</title>'));
+                    printWindow.document.close();
+                    printWindow.focus();
+                    setTimeout(function() {
+                        printWindow.print();
+                    }, 250);
+                });
+
+                // Bulk Delete MELCs
+                $(document).off('click.bulkactions', '.bulk-delete-melcs').on('click.bulkactions', '.bulk-delete-melcs', function() {
+                    var selectedIds = $('.melc-checkbox:checked').map(function() {
+                        return $(this).val();
+                    }).get();
+
+                    if (selectedIds.length === 0) return;
+
+                    var confirmText = 'Are you sure you want to delete ' + selectedIds.length + ' MELC(s)?';
+                    
+                    if (window.Swal && typeof Swal.fire === 'function') {
+                        Swal.fire({
+                            title: 'Delete MELCs?',
+                            text: confirmText,
+                            icon: 'warning',
+                            showCancelButton: true,
+                            confirmButtonText: 'Delete',
+                            cancelButtonText: 'Cancel',
+                            confirmButtonColor: '#d33'
+                        }).then(function(result) {
+                            if (result.isConfirmed) {
+                                performBulkActionMelcs(selectedIds, 'delete');
+                            }
+                        });
+                    } else if (confirm(confirmText)) {
+                        performBulkActionMelcs(selectedIds, 'delete');
+                    }
+                });
+
+                function performBulkActionMelcs(selectedIds, action) {
+                    var csrf = getCsrfToken();
+                    var baseUrl = window.location.origin + (window.APP_BASE || '/GENTA');
+                    
+                    var actionPromises = selectedIds.map(function(id) {
+                        return $.ajax({
+                            url: baseUrl + '/teacher/melcs/delete/' + id,
+                            method: 'POST',
+                            headers: { 'X-CSRF-Token': csrf },
+                            dataType: 'json'
+                        });
+                    });
+
+                    Promise.all(actionPromises.map(function(p) { return p.catch(function(e) { return e; }); })).then(function(responses) {
+                        var successCount = responses.filter(function(r) { return r && r.success; }).length;
+                        
+                        if (window.Swal && typeof Swal.fire === 'function') {
+                            Swal.fire({
+                                title: 'Success!',
+                                text: successCount + ' MELC(s) have been deleted.',
+                                icon: 'success'
+                            }).then(function() {
+                                window.location.reload();
+                            });
+                        } else {
+                            alert(successCount + ' MELC(s) have been deleted.');
+                            window.location.reload();
+                        }
+                    });
+                }
+            }
         }
     } catch (e) {
         console.warn('[initPage] Bulk actions init failed:', e);

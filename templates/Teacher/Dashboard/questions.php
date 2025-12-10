@@ -23,29 +23,30 @@
 
                 <!-- Bulk Actions Bar for Questions -->
                 <div class="bulk-actions-bar-questions mb-3" style="display: none;">
-                    <div class="d-flex align-items-center gap-2 p-2 bg-light rounded">
-                        <span class="selected-count-questions fw-bold">0 selected</span>
-                        <button type="button" class="btn btn-sm btn-danger bulk-delete-questions">
-                            <i class="mdi mdi-delete"></i> Delete Selected
-                        </button>
-                        <button type="button" class="btn btn-sm btn-warning bulk-suspend-questions">
-                            <i class="mdi mdi-power-plug"></i> Suspend Selected
-                        </button>
-                        <button type="button" class="btn btn-sm btn-success bulk-activate-questions">
-                            <i class="mdi mdi-check-circle"></i> Activate Selected
-                        </button>
-                        <button type="button" class="btn btn-sm btn-secondary bulk-deselect-questions">
-                            <i class="mdi mdi-close"></i> Clear Selection
-                        </button>
-                        <div class="btn-group ms-auto" role="group">
+                    <div class="d-flex flex-wrap align-items-center gap-3 p-3 bg-light rounded border">
+                        <span class="selected-count-questions fw-bold text-primary" style="min-width: 80px;">0 selected</span>
+                        <div class="vr d-none d-sm-block"></div>
+                        <div class="d-flex flex-wrap gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-danger bulk-delete-questions">
+                                <i class="mdi mdi-delete"></i> Delete
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-warning bulk-suspend-questions">
+                                <i class="mdi mdi-pause-circle"></i> Suspend
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-success bulk-activate-questions">
+                                <i class="mdi mdi-check-circle"></i> Activate
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary bulk-deselect-questions">
+                                <i class="mdi mdi-close"></i> Clear
+                            </button>
+                        </div>
+                        <div class="vr d-none d-sm-block"></div>
+                        <div class="d-flex flex-wrap gap-2 ms-sm-auto">
                             <button type="button" class="btn btn-sm btn-success" id="printQuestions">
                                 <i class="mdi mdi-printer"></i> Print
                             </button>
-                            <button type="button" class="btn btn-sm btn-info" id="exportQuestionsCSV">
-                                <i class="mdi mdi-file-delimited"></i> Export CSV
-                            </button>
-                            <button type="button" class="btn btn-sm btn-primary" id="exportQuestionsExcel">
-                                <i class="mdi mdi-file-excel"></i> Export Excel
+                            <button type="button" class="btn btn-sm btn-danger" id="exportQuestionsPDF">
+                                <i class="mdi mdi-file-pdf-box"></i> Export PDF
                             </button>
                         </div>
                     </div>

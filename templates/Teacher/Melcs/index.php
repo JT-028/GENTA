@@ -91,23 +91,24 @@
                 
                 <!-- Bulk Actions Bar for MELCs -->
                 <div class="bulk-actions-bar-melcs mb-3" style="display: none;">
-                    <div class="d-flex align-items-center gap-2 p-2 bg-light rounded">
-                        <span class="selected-count-melcs fw-bold">0 selected</span>
-                        <button type="button" class="btn btn-sm btn-danger bulk-delete-melcs">
-                            <i class="mdi mdi-delete"></i> Delete Selected
-                        </button>
-                        <button type="button" class="btn btn-sm btn-secondary bulk-deselect-melcs">
-                            <i class="mdi mdi-close"></i> Clear Selection
-                        </button>
-                        <div class="btn-group ms-auto" role="group">
+                    <div class="d-flex flex-wrap align-items-center gap-3 p-3 bg-light rounded border">
+                        <span class="selected-count-melcs fw-bold text-primary" style="min-width: 80px;">0 selected</span>
+                        <div class="vr d-none d-sm-block"></div>
+                        <div class="d-flex flex-wrap gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-danger bulk-delete-melcs">
+                                <i class="mdi mdi-delete"></i> Delete
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary bulk-deselect-melcs">
+                                <i class="mdi mdi-close"></i> Clear
+                            </button>
+                        </div>
+                        <div class="vr d-none d-sm-block"></div>
+                        <div class="d-flex flex-wrap gap-2 ms-sm-auto">
                             <button type="button" class="btn btn-sm btn-success" id="printMelcs">
                                 <i class="mdi mdi-printer"></i> Print
                             </button>
-                            <button type="button" class="btn btn-sm btn-info" id="exportMelcsCSV">
-                                <i class="mdi mdi-file-delimited"></i> Export CSV
-                            </button>
-                            <button type="button" class="btn btn-sm btn-primary" id="exportMelcsExcel">
-                                <i class="mdi mdi-file-excel"></i> Export Excel
+                            <button type="button" class="btn btn-sm btn-danger" id="exportMelcsPDF">
+                                <i class="mdi mdi-file-pdf-box"></i> Export PDF
                             </button>
                         </div>
                     </div>
