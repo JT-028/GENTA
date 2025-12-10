@@ -493,15 +493,30 @@
             });
 
             // Keep header checkbox in sync after pagination/sort
-            var dtSync = tableApi();
-            if (dtSync) {
-                dtSync.off('draw.bulk').on('draw.bulk', function() {
+            function ensureDataTableSync(attempts) {
+                attempts = attempts || 0;
+                var dtSync = tableApi();
+                if (dtSync) {
+                    dtSync.off('draw.bulk').on('draw.bulk', function() {
+                        var $visible = visibleCheckboxes();
+                        var totalCheckboxes = $visible.length;
+                        var checkedCheckboxes = $visible.filter(':checked').length;
+                        $('#selectAllStudents').prop('checked', totalCheckboxes > 0 && totalCheckboxes === checkedCheckboxes);
+                    });
+                    // Immediate sync on attach
                     var $visible = visibleCheckboxes();
                     var totalCheckboxes = $visible.length;
                     var checkedCheckboxes = $visible.filter(':checked').length;
                     $('#selectAllStudents').prop('checked', totalCheckboxes > 0 && totalCheckboxes === checkedCheckboxes);
-                });
+                    updateBulkActionsBar();
+                    return;
+                }
+                if (attempts < 20) {
+                    setTimeout(function(){ ensureDataTableSync(attempts+1); }, 100);
+                }
             }
+
+            ensureDataTableSync();
 
             // Bulk Delete
             $('.bulk-delete-students').on('click', function() {

@@ -166,15 +166,29 @@
             updateBulkActionsBarQuestions();
         });
 
-        var dtSync = tableApi();
-        if (dtSync) {
-            dtSync.off('draw.bulkactions').on('draw.bulkactions', function() {
+        function ensureDataTableSync(attempts) {
+            attempts = attempts || 0;
+            var dtSync = tableApi();
+            if (dtSync) {
+                dtSync.off('draw.bulkactions').on('draw.bulkactions', function() {
+                    var $visible = visibleCheckboxes();
+                    var totalCheckboxes = $visible.length;
+                    var checkedCheckboxes = $visible.filter(':checked').length;
+                    $('#selectAllQuestions').prop('checked', totalCheckboxes > 0 && totalCheckboxes === checkedCheckboxes);
+                });
                 var $visible = visibleCheckboxes();
                 var totalCheckboxes = $visible.length;
                 var checkedCheckboxes = $visible.filter(':checked').length;
                 $('#selectAllQuestions').prop('checked', totalCheckboxes > 0 && totalCheckboxes === checkedCheckboxes);
-            });
+                updateBulkActionsBarQuestions();
+                return;
+            }
+            if (attempts < 20) {
+                setTimeout(function(){ ensureDataTableSync(attempts+1); }, 100);
+            }
         }
+
+        ensureDataTableSync();
 
         // Bulk Delete Questions
         $('.bulk-delete-questions').on('click', function() {
