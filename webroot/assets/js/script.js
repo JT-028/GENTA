@@ -915,14 +915,17 @@ function loadPage(url, pushState = true) {
                                 });
 
                             // Execute collected scripts sequentially (append then remove)
-                            scriptList.forEach(function (item) {
+                            console.info('[loadPage] Found', scriptList.length, 'scripts to execute');
+                            scriptList.forEach(function (item, idx) {
                                 try {
                                     var ns = document.createElement("script");
                                     if (item.src) {
                                         ns.src = item.src;
                                         ns.async = false;
+                                        console.info('[loadPage] Executing external script', idx, ':', item.src);
                                     } else {
                                         ns.text = item.text;
+                                        console.info('[loadPage] Executing inline script', idx, 'length:', item.text.length);
                                     }
                                     document.body.appendChild(ns);
                                     setTimeout(function () {
@@ -930,7 +933,7 @@ function loadPage(url, pushState = true) {
                                             ns.parentNode.removeChild(ns);
                                     }, 0);
                                 } catch (e) {
-                                    /* ignore script injection errors */
+                                    console.error('[loadPage] Script execution error:', e);
                                 }
                             });
 
