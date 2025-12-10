@@ -789,6 +789,11 @@ document.addEventListener('click', function (e) {
             }
         }
 
+        // Prevent DataTables header click from sorting when toggling select-all / row checkboxes
+        $(document).off('click.bulkactionsstop', '#selectAllAssessments, .assessment-checkbox').on('click.bulkactionsstop', '#selectAllAssessments, .assessment-checkbox', function(e) {
+            e.stopPropagation();
+        });
+
         // Select All checkbox for assessments - use event delegation (attach once)
         $(document).off('change.bulkactions', '#selectAllAssessments').on('change.bulkactions', '#selectAllAssessments', function() {
             var isChecked = $(this).prop('checked');

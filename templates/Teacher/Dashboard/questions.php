@@ -124,6 +124,11 @@
             }
         }
 
+        // Prevent DataTables header click from sorting when toggling select-all / row checkboxes
+        $(document).off('click.bulkactionsstop', '#selectAllQuestions, .question-checkbox').on('click.bulkactionsstop', '#selectAllQuestions, .question-checkbox', function(e) {
+            e.stopPropagation();
+        });
+
         // Select All checkbox for questions - use event delegation (attach once)
         $(document).off('change.bulkactions', '#selectAllQuestions').on('change.bulkactions', '#selectAllQuestions', function() {
             var isChecked = $(this).prop('checked');

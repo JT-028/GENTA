@@ -451,6 +451,11 @@
                 }
             }
 
+            // Prevent DataTables header click from sorting when toggling select-all / row checkboxes
+            $(document).off('click.bulkstop', '#selectAllStudents, .student-checkbox').on('click.bulkstop', '#selectAllStudents, .student-checkbox', function(e) {
+                e.stopPropagation();
+            });
+
             // Select All checkbox - use event delegation (attach once, works forever)
             $(document).off('change.bulk', '#selectAllStudents').on('change.bulk', '#selectAllStudents', function() {
                 var isChecked = $(this).prop('checked');
