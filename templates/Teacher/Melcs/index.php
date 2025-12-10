@@ -330,8 +330,8 @@
             });
         }
 
-        // Print Functionality for MELCs
-        $('#printMelcs').on('click', function() {
+        // Print Functionality for MELCs - use event delegation
+        $(document).on('click', '#printMelcs', function() {
             var printContent = generateMelcsPrintContent();
             var printWindow = window.open('', '_blank', 'width=800,height=600');
             printWindow.document.write(printContent);
@@ -343,13 +343,13 @@
             }, 250);
         });
 
-        // Export CSV
-        $('#exportMelcsCSV').on('click', function() {
+        // Export CSV - use event delegation
+        $(document).on('click', '#exportMelcsCSV', function() {
             exportMelcsToCSV();
         });
 
-        // Export Excel
-        $('#exportMelcsExcel').on('click', function() {
+        // Export Excel - use event delegation
+        $(document).on('click', '#exportMelcsExcel', function() {
             exportMelcsToExcel();
         });
 

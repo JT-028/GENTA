@@ -789,49 +789,29 @@ document.addEventListener('click', function (e) {
             }
         }
 
-        function attachAssessmentCheckboxHandlers() {
-            // Select All checkbox for assessments - use event delegation
-            $(document).off('change.bulkactions', '#selectAllAssessments').on('change.bulkactions', '#selectAllAssessments', function() {
-                var isChecked = $(this).prop('checked');
-                $('.assessment-checkbox').prop('checked', isChecked);
-                updateBulkActionsBarAssessments();
-            });
+        // Select All checkbox for assessments - use event delegation (attach once)
+        $(document).off('change.bulkactions', '#selectAllAssessments').on('change.bulkactions', '#selectAllAssessments', function() {
+            var isChecked = $(this).prop('checked');
+            $('.assessment-checkbox').prop('checked', isChecked);
+            updateBulkActionsBarAssessments();
+        });
 
-            // Individual checkbox for assessments
-            $(document).off('change.bulkactions', '.assessment-checkbox').on('change.bulkactions', '.assessment-checkbox', function() {
-                var totalCheckboxes = $('.assessment-checkbox').length;
-                var checkedCheckboxes = $('.assessment-checkbox:checked').length;
-                $('#selectAllAssessments').prop('checked', totalCheckboxes === checkedCheckboxes);
-                updateBulkActionsBarAssessments();
-            });
+        // Individual checkbox for assessments - use event delegation
+        $(document).off('change.bulkactions', '.assessment-checkbox').on('change.bulkactions', '.assessment-checkbox', function() {
+            var totalCheckboxes = $('.assessment-checkbox').length;
+            var checkedCheckboxes = $('.assessment-checkbox:checked').length;
+            $('#selectAllAssessments').prop('checked', totalCheckboxes === checkedCheckboxes);
+            updateBulkActionsBarAssessments();
+        });
 
-            // Clear selection for assessments - use event delegation
-            $(document).off('click.bulkactions', '.bulk-deselect-assessments').on('click.bulkactions', '.bulk-deselect-assessments', function() {
-                $('.assessment-checkbox, #selectAllAssessments').prop('checked', false);
-                updateBulkActionsBarAssessments();
-            });
-        }
+        // Clear selection for assessments - use event delegation
+        $(document).off('click.bulkactions', '.bulk-deselect-assessments').on('click.bulkactions', '.bulk-deselect-assessments', function() {
+            $('.assessment-checkbox, #selectAllAssessments').prop('checked', false);
+            updateBulkActionsBarAssessments();
+        });
 
-        // Use setTimeout to ensure DataTables initialization completes first
-        setTimeout(function() {
-            attachAssessmentCheckboxHandlers();
-            
-            // Re-attach handlers after DataTable redraw
-            if ($.fn.DataTable && $.fn.DataTable.isDataTable('.defaultDataTable')) {
-                $('.defaultDataTable').DataTable().off('draw.dt.bulkactions').on('draw.dt.bulkactions', function() {
-                    setTimeout(function() {
-                        attachAssessmentCheckboxHandlers();
-                        var totalCheckboxes = $('.assessment-checkbox').length;
-                        var checkedCheckboxes = $('.assessment-checkbox:checked').length;
-                        $('#selectAllAssessments').prop('checked', totalCheckboxes > 0 && totalCheckboxes === checkedCheckboxes);
-                        updateBulkActionsBarAssessments();
-                    }, 50);
-                });
-            }
-        }, 200);
-
-        // Print Functionality for Assessments
-        $('#printAssessments').on('click', function() {
+        // Print Functionality for Assessments - use event delegation
+        $(document).on('click', '#printAssessments', function() {
             var printContent = generateAssessmentsPrintContent();
             var printWindow = window.open('', '_blank', 'width=800,height=600');
             printWindow.document.write(printContent);
@@ -843,13 +823,13 @@ document.addEventListener('click', function (e) {
             }, 250);
         });
 
-        // Export CSV
-        $('#exportAssessmentsCSV').on('click', function() {
+        // Export CSV - use event delegation
+        $(document).on('click', '#exportAssessmentsCSV', function() {
             exportAssessmentsToCSV();
         });
 
-        // Export Excel
-        $('#exportAssessmentsExcel').on('click', function() {
+        // Export Excel - use event delegation
+        $(document).on('click', '#exportAssessmentsExcel', function() {
             exportAssessmentsToExcel();
         });
 
@@ -1002,31 +982,6 @@ document.addEventListener('click', function (e) {
                 </html>
             `;
         }
-
-        // Check if DataTable already exists (initialized by global script.js)
-        function initBulkActions() {
-            if ($.fn.DataTable && $.fn.DataTable.isDataTable('.defaultDataTable')) {
-                attachAssessmentCheckboxHandlers();
-                
-                // Re-attach handlers after DataTable redraw
-                var table = $('.defaultDataTable').DataTable();
-                table.off('draw.dt.bulk').on('draw.dt.bulk', function() {
-                    setTimeout(function() {
-                        attachAssessmentCheckboxHandlers();
-                        var totalCheckboxes = $('.assessment-checkbox').length;
-                        var checkedCheckboxes = $('.assessment-checkbox:checked').length;
-                        $('#selectAllAssessments').prop('checked', totalCheckboxes > 0 && totalCheckboxes === checkedCheckboxes);
-                        updateBulkActionsBarAssessments();
-                    }, 10);
-                });
-            } else {
-                // DataTable not initialized yet, wait and retry
-                setTimeout(initBulkActions, 100);
-            }
-        }
-
-        // Start initialization
-        initBulkActions();
     }
 
     if (document.readyState === 'loading') {

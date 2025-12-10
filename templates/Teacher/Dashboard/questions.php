@@ -124,26 +124,24 @@
             }
         }
 
-        function attachCheckboxHandlers() {
-            // Select All checkbox for questions - use event delegation
-            $(document).off('change.bulkactions', '#selectAllQuestions').on('change.bulkactions', '#selectAllQuestions', function() {
-                var isChecked = $(this).prop('checked');
-                $('.question-checkbox').prop('checked', isChecked);
-                updateBulkActionsBarQuestions();
-            });
+        // Select All checkbox for questions - use event delegation (attach once)
+        $(document).off('change.bulkactions', '#selectAllQuestions').on('change.bulkactions', '#selectAllQuestions', function() {
+            var isChecked = $(this).prop('checked');
+            $('.question-checkbox').prop('checked', isChecked);
+            updateBulkActionsBarQuestions();
+        });
 
-            // Clear selection for questions - use event delegation
-            $(document).off('click.bulkactions', '.bulk-deselect-questions').on('click.bulkactions', '.bulk-deselect-questions', function() {
-                $('.question-checkbox, #selectAllQuestions').prop('checked', false);
-                updateBulkActionsBarQuestions();
-            });
-        }
-
-        // Individual checkbox for questions - use event delegation on document
-        $(document).on('change', '.question-checkbox', function() {
+        // Individual checkbox for questions - use event delegation
+        $(document).off('change.bulkactions', '.question-checkbox').on('change.bulkactions', '.question-checkbox', function() {
             var totalCheckboxes = $('.question-checkbox').length;
             var checkedCheckboxes = $('.question-checkbox:checked').length;
             $('#selectAllQuestions').prop('checked', totalCheckboxes === checkedCheckboxes);
+            updateBulkActionsBarQuestions();
+        });
+
+        // Clear selection for questions - use event delegation
+        $(document).off('click.bulkactions', '.bulk-deselect-questions').on('click.bulkactions', '.bulk-deselect-questions', function() {
+            $('.question-checkbox, #selectAllQuestions').prop('checked', false);
             updateBulkActionsBarQuestions();
         });
 
@@ -243,8 +241,8 @@
             });
         }
 
-        // Print Functionality for Questions
-        $('#printQuestions').on('click', function() {
+        // Print Functionality for Questions - use event delegation
+        $(document).on('click', '#printQuestions', function() {
             var printContent = generateQuestionsPrintContent();
             var printWindow = window.open('', '_blank', 'width=800,height=600');
             printWindow.document.write(printContent);
@@ -256,13 +254,13 @@
             }, 250);
         });
 
-        // Export CSV
-        $('#exportQuestionsCSV').on('click', function() {
+        // Export CSV - use event delegation
+        $(document).on('click', '#exportQuestionsCSV', function() {
             exportQuestionsToCSV();
         });
 
-        // Export Excel
-        $('#exportQuestionsExcel').on('click', function() {
+        // Export Excel - use event delegation
+        $(document).on('click', '#exportQuestionsExcel', function() {
             exportQuestionsToExcel();
         });
 
@@ -407,32 +405,6 @@
                 </html>
             `;
         }
-
-        // Check if DataTable already exists (initialized by global script.js)
-        // If so, attach handlers immediately. Otherwise, wait.
-        function initBulkActions() {
-            if ($.fn.DataTable && $.fn.DataTable.isDataTable('.defaultDataTable')) {
-                attachCheckboxHandlers();
-                
-                // Re-attach handlers after DataTable redraw
-                var table = $('.defaultDataTable').DataTable();
-                table.off('draw.dt.bulk').on('draw.dt.bulk', function() {
-                    setTimeout(function() {
-                        attachCheckboxHandlers();
-                        var totalCheckboxes = $('.question-checkbox').length;
-                        var checkedCheckboxes = $('.question-checkbox:checked').length;
-                        $('#selectAllQuestions').prop('checked', totalCheckboxes > 0 && totalCheckboxes === checkedCheckboxes);
-                        updateBulkActionsBarQuestions();
-                    }, 10);
-                });
-            } else {
-                // DataTable not initialized yet, wait and retry
-                setTimeout(initBulkActions, 100);
-            }
-        }
-
-        // Start initialization
-        initBulkActions();
     }
 
     init();

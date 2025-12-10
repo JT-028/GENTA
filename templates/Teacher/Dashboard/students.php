@@ -451,26 +451,24 @@
                 }
             }
 
-            function attachBulkHandlers() {
-                // Select All checkbox - use event delegation
-                $(document).off('change.bulk', '#selectAllStudents').on('change.bulk', '#selectAllStudents', function() {
-                    var isChecked = $(this).prop('checked');
-                    $('.student-checkbox').prop('checked', isChecked);
-                    updateBulkActionsBar();
-                });
+            // Select All checkbox - use event delegation (attach once, works forever)
+            $(document).off('change.bulk', '#selectAllStudents').on('change.bulk', '#selectAllStudents', function() {
+                var isChecked = $(this).prop('checked');
+                $('.student-checkbox').prop('checked', isChecked);
+                updateBulkActionsBar();
+            });
 
-                // Clear selection - use event delegation
-                $(document).off('click.bulk', '.bulk-deselect').on('click.bulk', '.bulk-deselect', function() {
-                    $('.student-checkbox, #selectAllStudents').prop('checked', false);
-                    updateBulkActionsBar();
-                });
-            }
-
-            // Individual checkbox - MUST use event delegation
+            // Individual checkbox - use event delegation
             $(document).off('change.bulk', '.student-checkbox').on('change.bulk', '.student-checkbox', function() {
                 var totalCheckboxes = $('.student-checkbox').length;
                 var checkedCheckboxes = $('.student-checkbox:checked').length;
                 $('#selectAllStudents').prop('checked', totalCheckboxes === checkedCheckboxes);
+                updateBulkActionsBar();
+            });
+
+            // Clear selection - use event delegation
+            $(document).off('click.bulk', '.bulk-deselect').on('click.bulk', '.bulk-deselect', function() {
+                $('.student-checkbox, #selectAllStudents').prop('checked', false);
                 updateBulkActionsBar();
             });
 
@@ -542,8 +540,8 @@
                 });
             }
 
-            // Print Functionality
-            $('#printStudents').on('click', function() {
+            // Print Functionality - use event delegation
+            $(document).on('click', '#printStudents', function() {
                 var printContent = generateStudentsPrintContent();
                 var printWindow = window.open('', '_blank', 'width=800,height=600');
                 printWindow.document.write(printContent);
@@ -555,13 +553,13 @@
                 }, 250);
             });
 
-            // Export CSV
-            $('#exportStudentsCSV').on('click', function() {
+            // Export CSV - use event delegation
+            $(document).on('click', '#exportStudentsCSV', function() {
                 exportStudentsToCSV();
             });
 
-            // Export Excel (HTML table format)
-            $('#exportStudentsExcel').on('click', function() {
+            // Export Excel (HTML table format) - use event delegation
+            $(document).on('click', '#exportStudentsExcel', function() {
                 exportStudentsToExcel();
             });
 
@@ -682,51 +680,6 @@
                     </body>
                     </html>
                 `;
-            }
-
-            // Initialize DataTable (after all functions are defined)
-            var dt = null;
-            try {
-                if ($.fn && $.fn.DataTable) {
-                    // Prevent reinitialisation: only init if not already a DataTable
-                    if (!$.fn.DataTable.isDataTable('.defaultDataTable')) {
-                        dt = $('.defaultDataTable').DataTable({
-                            responsive: true,
-                            pageLength: 25,
-                            ordering: true,
-                            columnDefs: [ 
-                                { orderable: false, targets: [0, -1] }, // Disable sorting on checkbox and action columns
-                                { className: 'select-checkbox', targets: 0 }
-                            ],
-                            language: { search: "Filter:" },
-                            initComplete: function() {
-                                // Attach handlers after DataTable completes initialization
-                                attachBulkHandlers();
-                            }
-                        });
-                    } else {
-                        dt = $('.defaultDataTable').DataTable();
-                        // If already initialized, attach handlers now
-                        attachBulkHandlers();
-                    }
-                    
-                    // Re-initialize event handlers after DataTable draw (pagination, sort, etc.)
-                    if (dt) {
-                        dt.on('draw.dt', function() {
-                            // Reattach handlers
-                            attachBulkHandlers();
-                            // Recheck "select all" state
-                            var totalCheckboxes = $('.student-checkbox').length;
-                            var checkedCheckboxes = $('.student-checkbox:checked').length;
-                            $('#selectAllStudents').prop('checked', totalCheckboxes > 0 && totalCheckboxes === checkedCheckboxes);
-                            updateBulkActionsBar();
-                        });
-                    }
-                }
-            } catch (e) {
-                console.warn('DataTable init failed', e);
-                // Try to attach handlers anyway
-                attachBulkHandlers();
             }
 
             // Auto-open modal when redirected here with query params: ?open=add or ?open=edit&id=<hash>
