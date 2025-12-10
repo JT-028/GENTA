@@ -200,6 +200,16 @@
                             console.log('Server response:', res);
                             if (res && res.success) {
                                 var s = res.student;
+                                // Get DataTable reference
+                                var dt = null;
+                                try {
+                                    if ($.fn.DataTable && $.fn.DataTable.isDataTable('.defaultDataTable')) {
+                                        dt = $('.defaultDataTable').DataTable();
+                                    }
+                                } catch (e) {
+                                    console.warn('Could not get DataTable reference:', e);
+                                }
+                                
                                 if (dt && s && s.id) {
                                     // update or add row
                                     var id = String(s.id || '').trim();

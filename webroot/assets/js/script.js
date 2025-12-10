@@ -52,14 +52,12 @@ function reloadCurrentPage() {
 function initPage() {
     // DataTable init (idempotent)
     try {
-        // Prevent DataTables from showing browser alert() on Ajax errors.
-        // Instead route errors to console so users don't see a blocking modal.
+        // Prevent DataTables from showing browser alert() on ANY errors.
+        // Route all errors to console so users don't see blocking modals.
         try {
-            if ($ && $.fn && $.fn.DataTable && $.fn.DataTable.ext) {
-                $.fn.DataTable.ext.errMode = function (settings, helpPage, message) {
-                    try { console.error('[DataTables] ajax error', {settings: settings, helpPage: helpPage, message: message}); } catch (e) {}
-                    // do not show alert()
-                };
+            if ($ && $.fn && $.fn.DataTable) {
+                // Suppress all DataTables alerts (parameter errors, ajax errors, etc.)
+                $.fn.DataTable.ext.errMode = 'none';
             }
         } catch (e) { /* ignore if DataTables not loaded yet */ }
         if ($.fn && $.fn.DataTable) {
@@ -385,35 +383,48 @@ function initPage() {
             // Helper function to print via hidden iframe (no new tab opens)
             function printViaIframe(content) {
                 // Remove any existing print iframe
-                var existingFrame = document.getElementById('printFrame');
+                var existingFrame = document.getElementById('gentaPrintFrame');
                 if (existingFrame) {
                     existingFrame.parentNode.removeChild(existingFrame);
                 }
                 
                 // Create hidden iframe
                 var iframe = document.createElement('iframe');
-                iframe.id = 'printFrame';
-                iframe.style.position = 'absolute';
+                iframe.id = 'gentaPrintFrame';
+                iframe.name = 'gentaPrintFrame';
+                iframe.style.position = 'fixed';
+                iframe.style.right = '0';
+                iframe.style.bottom = '0';
                 iframe.style.width = '0';
                 iframe.style.height = '0';
-                iframe.style.border = 'none';
-                iframe.style.left = '-9999px';
+                iframe.style.border = '0';
+                iframe.style.visibility = 'hidden';
                 document.body.appendChild(iframe);
                 
-                // Write content and print
-                var doc = iframe.contentWindow || iframe.contentDocument;
-                if (doc.document) doc = doc.document;
+                // Write content to iframe
+                var doc = iframe.contentWindow.document;
                 doc.open();
                 doc.write(content);
                 doc.close();
                 
-                // Wait for content to load then print
-                iframe.onload = function() {
-                    setTimeout(function() {
+                // Use setTimeout to ensure content is rendered before printing
+                setTimeout(function() {
+                    try {
                         iframe.contentWindow.focus();
                         iframe.contentWindow.print();
-                    }, 100);
-                };
+                    } catch (e) {
+                        // Fallback: if iframe print fails, use window.print on the content
+                        console.warn('Iframe print failed, using fallback:', e);
+                        var printWindow = window.open('', '_blank', 'width=800,height=600');
+                        if (printWindow) {
+                            printWindow.document.write(content);
+                            printWindow.document.close();
+                            printWindow.focus();
+                            printWindow.print();
+                            setTimeout(function() { printWindow.close(); }, 1000);
+                        }
+                    }
+                }, 250);
             }
 
             // ---- STUDENTS BULK ACTIONS ----
@@ -866,6 +877,62 @@ function initPage() {
                     }
                     
                     deleteNext(0);
+                }
+
+                // Individual MELC delete button handler (uses SweetAlert)
+                $(document).off('click.melcdelete', '.btn-delete-melc-single').on('click.melcdelete', '.btn-delete-melc-single', function(e) {
+                    e.preventDefault();
+                    var $btn = $(this);
+                    var melcId = $btn.data('id');
+                    var deleteUrl = $btn.data('url');
+                    
+                    if (window.Swal && typeof Swal.fire === 'function') {
+                        Swal.fire({
+                            title: 'Delete MELC?',
+                            text: 'Are you sure you want to delete this MELC?',
+                            icon: 'warning',
+                            showCancelButton: true,
+                            confirmButtonText: 'Yes, delete it',
+                            cancelButtonText: 'Cancel',
+                            confirmButtonColor: '#d33'
+                        }).then(function(result) {
+                            if (result.isConfirmed) {
+                                performSingleMelcDelete(deleteUrl);
+                            }
+                        });
+                    } else if (confirm('Are you sure you want to delete this MELC?')) {
+                        performSingleMelcDelete(deleteUrl);
+                    }
+                });
+
+                function performSingleMelcDelete(url) {
+                    var csrf = getCsrfToken();
+                    $.ajax({
+                        url: url,
+                        method: 'POST',
+                        headers: { 'X-CSRF-Token': csrf }
+                    }).always(function(data, textStatus) {
+                        if (textStatus === 'success' || textStatus === 'parsererror') {
+                            if (window.Swal && typeof Swal.fire === 'function') {
+                                Swal.fire({
+                                    title: 'Deleted!',
+                                    text: 'MELC has been deleted.',
+                                    icon: 'success'
+                                }).then(function() {
+                                    reloadCurrentPage();
+                                });
+                            } else {
+                                alert('MELC has been deleted.');
+                                reloadCurrentPage();
+                            }
+                        } else {
+                            if (window.Swal && typeof Swal.fire === 'function') {
+                                Swal.fire('Error', 'Failed to delete MELC.', 'error');
+                            } else {
+                                alert('Failed to delete MELC.');
+                            }
+                        }
+                    });
                 }
             }
         }

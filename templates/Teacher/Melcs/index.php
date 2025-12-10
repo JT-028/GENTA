@@ -136,7 +136,11 @@
                                     <td class="text-center">
                                         <?php $editUrl = $this->Url->build(['prefix' => 'Teacher', 'controller' => 'Melcs', 'action' => 'edit', $this->Encrypt->hex($m->id)]); ?>
                                         <?= $this->Html->link('Edit', '#', ['class' => 'btn btn-sm btn-outline-primary btn-edit-melc', 'data-no-ajax' => 'true', 'data-href' => $editUrl]) ?>
-                                        <?= $this->Form->postLink('Delete', ['prefix' => 'Teacher', 'controller' => 'Melcs', 'action' => 'delete', $this->Encrypt->hex($m->id)], ['confirm' => 'Delete this MELC?', 'class' => 'btn btn-sm btn-danger ms-2']) ?>
+                                        <button type="button" class="btn btn-sm btn-danger ms-2 btn-delete-melc-single" 
+                                            data-id="<?= h($this->Encrypt->hex($m->id)) ?>"
+                                            data-url="<?= $this->Url->build(['prefix' => 'Teacher', 'controller' => 'Melcs', 'action' => 'delete', $this->Encrypt->hex($m->id)]) ?>">
+                                            Delete
+                                        </button>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
