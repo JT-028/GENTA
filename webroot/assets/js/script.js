@@ -353,7 +353,7 @@ function initPage() {
                 });
             }
 
-            // ============ BULK ACTION BUTTONS (Print, Export PDF, Delete, Suspend, Activate) ============
+            // ============ BULK ACTION BUTTONS (Print, Delete, Suspend, Activate) ============
             
             // Helper function to escape HTML
             function escapeHtml(str) {
@@ -368,6 +368,51 @@ function initPage() {
             // Helper function to get CSRF token
             function getCsrfToken() {
                 return $('meta[name=csrfToken]').attr('content') || '';
+            }
+
+            // Helper function to print via hidden iframe (no new tab opens)
+            function printViaIframe(content) {
+                // Remove any existing print iframe
+                var existingFrame = document.getElementById('printFrame');
+                if (existingFrame) {
+                    existingFrame.parentNode.removeChild(existingFrame);
+                }
+                
+                // Create hidden iframe
+                var iframe = document.createElement('iframe');
+                iframe.id = 'printFrame';
+                iframe.style.position = 'absolute';
+                iframe.style.width = '0';
+                iframe.style.height = '0';
+                iframe.style.border = 'none';
+                iframe.style.left = '-9999px';
+                document.body.appendChild(iframe);
+                
+                // Write content and print
+                var doc = iframe.contentWindow || iframe.contentDocument;
+                if (doc.document) doc = doc.document;
+                doc.open();
+                doc.write(content);
+                doc.close();
+                
+                // Wait for content to load then print
+                iframe.onload = function() {
+                    setTimeout(function() {
+                        iframe.contentWindow.focus();
+                        iframe.contentWindow.print();
+                    }, 100);
+                };
+            }
+
+            // Helper function to reload current page via AJAX (preserves DataTable styling)
+            function reloadCurrentPage() {
+                var currentUrl = window.location.href;
+                if (typeof loadPage === 'function') {
+                    loadPage(currentUrl, false);
+                } else {
+                    // Fallback to regular reload
+                    window.location.reload();
+                }
             }
 
             // ---- STUDENTS BULK ACTIONS ----
@@ -417,29 +462,10 @@ function initPage() {
                         '</body></html>';
                 }
 
-                // Print Students
+                // Print Students - using hidden iframe to avoid opening new tab
                 $(document).off('click.bulkactions', '#printStudents').on('click.bulkactions', '#printStudents', function() {
                     var printContent = generateStudentsPrintContent();
-                    var printWindow = window.open('', '_blank', 'width=800,height=600');
-                    printWindow.document.write(printContent);
-                    printWindow.document.close();
-                    printWindow.focus();
-                    setTimeout(function() {
-                        printWindow.print();
-                        printWindow.close();
-                    }, 250);
-                });
-
-                // Export Students PDF (uses print dialog's Save as PDF)
-                $(document).off('click.bulkactions', '#exportStudentsPDF').on('click.bulkactions', '#exportStudentsPDF', function() {
-                    var printContent = generateStudentsPrintContent();
-                    var printWindow = window.open('', '_blank', 'width=800,height=600');
-                    printWindow.document.write(printContent.replace('<title>Students Report</title>', '<title>Students Report - Save as PDF</title>'));
-                    printWindow.document.close();
-                    printWindow.focus();
-                    setTimeout(function() {
-                        printWindow.print();
-                    }, 250);
+                    printViaIframe(printContent);
                 });
 
                 // Bulk Delete Students
@@ -493,11 +519,11 @@ function initPage() {
                                 text: successCount + ' student(s) have been deleted.',
                                 icon: 'success'
                             }).then(function() {
-                                window.location.reload();
+                                reloadCurrentPage();
                             });
                         } else {
                             alert(successCount + ' student(s) have been deleted.');
-                            window.location.reload();
+                            reloadCurrentPage();
                         }
                     });
                 }
@@ -553,29 +579,10 @@ function initPage() {
                         '</body></html>';
                 }
 
-                // Print Questions
+                // Print Questions - using hidden iframe to avoid opening new tab
                 $(document).off('click.bulkactions', '#printQuestions').on('click.bulkactions', '#printQuestions', function() {
                     var printContent = generateQuestionsPrintContent();
-                    var printWindow = window.open('', '_blank', 'width=800,height=600');
-                    printWindow.document.write(printContent);
-                    printWindow.document.close();
-                    printWindow.focus();
-                    setTimeout(function() {
-                        printWindow.print();
-                        printWindow.close();
-                    }, 250);
-                });
-
-                // Export Questions PDF
-                $(document).off('click.bulkactions', '#exportQuestionsPDF').on('click.bulkactions', '#exportQuestionsPDF', function() {
-                    var printContent = generateQuestionsPrintContent();
-                    var printWindow = window.open('', '_blank', 'width=800,height=600');
-                    printWindow.document.write(printContent.replace('<title>Questions Report</title>', '<title>Questions Report - Save as PDF</title>'));
-                    printWindow.document.close();
-                    printWindow.focus();
-                    setTimeout(function() {
-                        printWindow.print();
-                    }, 250);
+                    printViaIframe(printContent);
                 });
 
                 // Bulk Delete Questions
@@ -656,11 +663,11 @@ function initPage() {
                                 text: successCount + ' question(s) have been ' + actionText + '.',
                                 icon: 'success'
                             }).then(function() {
-                                window.location.reload();
+                                reloadCurrentPage();
                             });
                         } else {
                             alert(successCount + ' question(s) have been ' + actionText + '.');
-                            window.location.reload();
+                            reloadCurrentPage();
                         }
                     });
                 }
@@ -718,29 +725,10 @@ function initPage() {
                         '</body></html>';
                 }
 
-                // Print Assessments
+                // Print Assessments - using hidden iframe to avoid opening new tab
                 $(document).off('click.bulkactions', '#printAssessments').on('click.bulkactions', '#printAssessments', function() {
                     var printContent = generateAssessmentsPrintContent();
-                    var printWindow = window.open('', '_blank', 'width=800,height=600');
-                    printWindow.document.write(printContent);
-                    printWindow.document.close();
-                    printWindow.focus();
-                    setTimeout(function() {
-                        printWindow.print();
-                        printWindow.close();
-                    }, 250);
-                });
-
-                // Export Assessments PDF
-                $(document).off('click.bulkactions', '#exportAssessmentsPDF').on('click.bulkactions', '#exportAssessmentsPDF', function() {
-                    var printContent = generateAssessmentsPrintContent();
-                    var printWindow = window.open('', '_blank', 'width=800,height=600');
-                    printWindow.document.write(printContent.replace('<title>Assessments Report</title>', '<title>Assessments Report - Save as PDF</title>'));
-                    printWindow.document.close();
-                    printWindow.focus();
-                    setTimeout(function() {
-                        printWindow.print();
-                    }, 250);
+                    printViaIframe(printContent);
                 });
             }
 
@@ -791,29 +779,10 @@ function initPage() {
                         '</body></html>';
                 }
 
-                // Print MELCs
+                // Print MELCs - using hidden iframe to avoid opening new tab
                 $(document).off('click.bulkactions', '#printMelcs').on('click.bulkactions', '#printMelcs', function() {
                     var printContent = generateMelcsPrintContent();
-                    var printWindow = window.open('', '_blank', 'width=800,height=600');
-                    printWindow.document.write(printContent);
-                    printWindow.document.close();
-                    printWindow.focus();
-                    setTimeout(function() {
-                        printWindow.print();
-                        printWindow.close();
-                    }, 250);
-                });
-
-                // Export MELCs PDF
-                $(document).off('click.bulkactions', '#exportMelcsPDF').on('click.bulkactions', '#exportMelcsPDF', function() {
-                    var printContent = generateMelcsPrintContent();
-                    var printWindow = window.open('', '_blank', 'width=800,height=600');
-                    printWindow.document.write(printContent.replace('<title>MELCs Report</title>', '<title>MELCs Report - Save as PDF</title>'));
-                    printWindow.document.close();
-                    printWindow.focus();
-                    setTimeout(function() {
-                        printWindow.print();
-                    }, 250);
+                    printViaIframe(printContent);
                 });
 
                 // Bulk Delete MELCs
@@ -867,11 +836,11 @@ function initPage() {
                                 text: successCount + ' MELC(s) have been deleted.',
                                 icon: 'success'
                             }).then(function() {
-                                window.location.reload();
+                                reloadCurrentPage();
                             });
                         } else {
                             alert(successCount + ' MELC(s) have been deleted.');
-                            window.location.reload();
+                            reloadCurrentPage();
                         }
                     });
                 }

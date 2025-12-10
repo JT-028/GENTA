@@ -29,9 +29,6 @@
                             <button type="button" class="btn btn-sm btn-success" id="printStudents">
                                 <i class="mdi mdi-printer"></i> Print
                             </button>
-                            <button type="button" class="btn btn-sm btn-danger" id="exportStudentsPDF">
-                                <i class="mdi mdi-file-pdf-box"></i> Export PDF
-                            </button>
                         </div>
                     </div>
                 </div>

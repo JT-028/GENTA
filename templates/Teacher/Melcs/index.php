@@ -107,9 +107,6 @@
                             <button type="button" class="btn btn-sm btn-success" id="printMelcs">
                                 <i class="mdi mdi-printer"></i> Print
                             </button>
-                            <button type="button" class="btn btn-sm btn-danger" id="exportMelcsPDF">
-                                <i class="mdi mdi-file-pdf-box"></i> Export PDF
-                            </button>
                         </div>
                     </div>
                 </div>
