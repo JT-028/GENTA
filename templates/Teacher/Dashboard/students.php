@@ -94,26 +94,6 @@
         }
 
         function init($) {
-            var dt = null;
-            try {
-                if ($.fn && $.fn.DataTable) {
-                    // Prevent reinitialisation: only init if not already a DataTable
-                    if (!$.fn.DataTable.isDataTable('.defaultDataTable')) {
-                        dt = $('.defaultDataTable').DataTable({
-                            responsive: true,
-                            pageLength: 25,
-                            ordering: true,
-                            columnDefs: [ { orderable: false, targets: -1 } ],
-                            language: { search: "Filter:" }
-                        });
-                    } else {
-                        dt = $('.defaultDataTable').DataTable();
-                    }
-                }
-            } catch (e) {
-                console.warn('DataTable init failed', e);
-            }
-
             // Small helper to escape HTML to avoid XSS when inserting values as HTML
             function escapeHtml(str) {
                 return String(str === undefined || str === null ? '' : str)
@@ -700,6 +680,41 @@
                     </body>
                     </html>
                 `;
+            }
+
+            // Initialize DataTable (after all functions are defined)
+            var dt = null;
+            try {
+                if ($.fn && $.fn.DataTable) {
+                    // Prevent reinitialisation: only init if not already a DataTable
+                    if (!$.fn.DataTable.isDataTable('.defaultDataTable')) {
+                        dt = $('.defaultDataTable').DataTable({
+                            responsive: true,
+                            pageLength: 25,
+                            ordering: true,
+                            columnDefs: [ 
+                                { orderable: false, targets: [0, -1] }, // Disable sorting on checkbox and action columns
+                                { className: 'select-checkbox', targets: 0 }
+                            ],
+                            language: { search: "Filter:" }
+                        });
+                    } else {
+                        dt = $('.defaultDataTable').DataTable();
+                    }
+                    
+                    // Re-initialize event handlers after DataTable draw (pagination, sort, etc.)
+                    if (dt) {
+                        dt.on('draw', function() {
+                            // Recheck "select all" state
+                            var totalCheckboxes = $('.student-checkbox').length;
+                            var checkedCheckboxes = $('.student-checkbox:checked').length;
+                            $('#selectAllStudents').prop('checked', totalCheckboxes > 0 && totalCheckboxes === checkedCheckboxes);
+                            updateBulkActionsBar();
+                        });
+                    }
+                }
+            } catch (e) {
+                console.warn('DataTable init failed', e);
             }
 
             // Auto-open modal when redirected here with query params: ?open=add or ?open=edit&id=<hash>
