@@ -241,8 +241,8 @@
             }
         }
 
-        // Select All checkbox for MELCs
-        $('#selectAllMelcs').on('change', function() {
+        // Select All checkbox for MELCs - use event delegation
+        $(document).on('change', '#selectAllMelcs', function() {
             var isChecked = $(this).prop('checked');
             $('.melc-checkbox').prop('checked', isChecked);
             updateBulkActionsBarMelcs();
@@ -256,8 +256,8 @@
             updateBulkActionsBarMelcs();
         });
 
-        // Clear selection for MELCs
-        $('.bulk-deselect-melcs').on('click', function() {
+        // Clear selection for MELCs - use event delegation
+        $(document).on('click', '.bulk-deselect-melcs', function() {
             $('.melc-checkbox, #selectAllMelcs').prop('checked', false);
             updateBulkActionsBarMelcs();
         });

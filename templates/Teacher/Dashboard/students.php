@@ -452,15 +452,15 @@
             }
 
             function attachBulkHandlers() {
-                // Select All checkbox
-                $('#selectAllStudents').off('change.bulk').on('change.bulk', function() {
+                // Select All checkbox - use event delegation
+                $(document).off('change.bulk', '#selectAllStudents').on('change.bulk', '#selectAllStudents', function() {
                     var isChecked = $(this).prop('checked');
                     $('.student-checkbox').prop('checked', isChecked);
                     updateBulkActionsBar();
                 });
 
-                // Clear selection
-                $('.bulk-deselect').off('click.bulk').on('click.bulk', function() {
+                // Clear selection - use event delegation
+                $(document).off('click.bulk', '.bulk-deselect').on('click.bulk', '.bulk-deselect', function() {
                     $('.student-checkbox, #selectAllStudents').prop('checked', false);
                     updateBulkActionsBar();
                 });

@@ -125,15 +125,15 @@
         }
 
         function attachCheckboxHandlers() {
-            // Select All checkbox for questions
-            $('#selectAllQuestions').off('change.bulkactions').on('change.bulkactions', function() {
+            // Select All checkbox for questions - use event delegation
+            $(document).off('change.bulkactions', '#selectAllQuestions').on('change.bulkactions', '#selectAllQuestions', function() {
                 var isChecked = $(this).prop('checked');
                 $('.question-checkbox').prop('checked', isChecked);
                 updateBulkActionsBarQuestions();
             });
 
-            // Clear selection for questions
-            $('.bulk-deselect-questions').off('click.bulkactions').on('click.bulkactions', function() {
+            // Clear selection for questions - use event delegation
+            $(document).off('click.bulkactions', '.bulk-deselect-questions').on('click.bulkactions', '.bulk-deselect-questions', function() {
                 $('.question-checkbox, #selectAllQuestions').prop('checked', false);
                 updateBulkActionsBarQuestions();
             });

@@ -790,8 +790,8 @@ document.addEventListener('click', function (e) {
         }
 
         function attachAssessmentCheckboxHandlers() {
-            // Select All checkbox for assessments
-            $('#selectAllAssessments').off('change.bulkactions').on('change.bulkactions', function() {
+            // Select All checkbox for assessments - use event delegation
+            $(document).off('change.bulkactions', '#selectAllAssessments').on('change.bulkactions', '#selectAllAssessments', function() {
                 var isChecked = $(this).prop('checked');
                 $('.assessment-checkbox').prop('checked', isChecked);
                 updateBulkActionsBarAssessments();
@@ -805,8 +805,8 @@ document.addEventListener('click', function (e) {
                 updateBulkActionsBarAssessments();
             });
 
-            // Clear selection for assessments
-            $('.bulk-deselect-assessments').off('click.bulkactions').on('click.bulkactions', function() {
+            // Clear selection for assessments - use event delegation
+            $(document).off('click.bulkactions', '.bulk-deselect-assessments').on('click.bulkactions', '.bulk-deselect-assessments', function() {
                 $('.assessment-checkbox, #selectAllAssessments').prop('checked', false);
                 updateBulkActionsBarAssessments();
             });
