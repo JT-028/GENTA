@@ -779,6 +779,21 @@ document.addEventListener('click', function (e) {
         }
         var $ = jQuery;
 
+        function tableApi() {
+            if ($.fn.DataTable && $.fn.DataTable.isDataTable('.defaultDataTable')) {
+                return $('.defaultDataTable').DataTable();
+            }
+            return null;
+        }
+
+        function visibleCheckboxes() {
+            var dt = tableApi();
+            if (dt) {
+                return $(dt.rows({ page: 'current' }).nodes()).find('.assessment-checkbox');
+            }
+            return $('.assessment-checkbox');
+        }
+
         function updateBulkActionsBarAssessments() {
             var selectedCount = $('.assessment-checkbox:checked').length;
             if (selectedCount > 0) {
@@ -797,14 +812,15 @@ document.addEventListener('click', function (e) {
         // Select All checkbox for assessments - use event delegation (attach once)
         $(document).off('change.bulkactions', '#selectAllAssessments').on('change.bulkactions', '#selectAllAssessments', function() {
             var isChecked = $(this).prop('checked');
-            $('.assessment-checkbox').prop('checked', isChecked);
+            visibleCheckboxes().prop('checked', isChecked);
             updateBulkActionsBarAssessments();
         });
 
         // Individual checkbox for assessments - use event delegation
         $(document).off('change.bulkactions', '.assessment-checkbox').on('change.bulkactions', '.assessment-checkbox', function() {
-            var totalCheckboxes = $('.assessment-checkbox').length;
-            var checkedCheckboxes = $('.assessment-checkbox:checked').length;
+            var $visible = visibleCheckboxes();
+            var totalCheckboxes = $visible.length;
+            var checkedCheckboxes = $visible.filter(':checked').length;
             $('#selectAllAssessments').prop('checked', totalCheckboxes === checkedCheckboxes);
             updateBulkActionsBarAssessments();
         });
@@ -814,6 +830,16 @@ document.addEventListener('click', function (e) {
             $('.assessment-checkbox, #selectAllAssessments').prop('checked', false);
             updateBulkActionsBarAssessments();
         });
+
+        var dtSync = tableApi();
+        if (dtSync) {
+            dtSync.off('draw.bulkactions').on('draw.bulkactions', function() {
+                var $visible = visibleCheckboxes();
+                var totalCheckboxes = $visible.length;
+                var checkedCheckboxes = $visible.filter(':checked').length;
+                $('#selectAllAssessments').prop('checked', totalCheckboxes > 0 && totalCheckboxes === checkedCheckboxes);
+            });
+        }
 
         // Print Functionality for Assessments - use event delegation
         $(document).on('click', '#printAssessments', function() {

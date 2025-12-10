@@ -231,6 +231,21 @@
         if (window.jQuery) {
             var $ = window.jQuery;
 
+            function tableApi() {
+                if ($.fn.DataTable && $.fn.DataTable.isDataTable('.defaultDataTable')) {
+                    return $('.defaultDataTable').DataTable();
+                }
+                return null;
+            }
+
+            function visibleCheckboxes() {
+                var dt = tableApi();
+                if (dt) {
+                    return $(dt.rows({ page: 'current' }).nodes()).find('.melc-checkbox');
+                }
+                return $('.melc-checkbox');
+            }
+
             function updateBulkActionsBarMelcs() {
                 var selectedCount = $('.melc-checkbox:checked').length;
                 if (selectedCount > 0) {
@@ -249,14 +264,15 @@
         // Select All checkbox for MELCs - use event delegation
         $(document).off('change.bulkactions', '#selectAllMelcs').on('change.bulkactions', '#selectAllMelcs', function() {
             var isChecked = $(this).prop('checked');
-            $('.melc-checkbox').prop('checked', isChecked);
+            visibleCheckboxes().prop('checked', isChecked);
             updateBulkActionsBarMelcs();
         });
 
         // Individual checkbox for MELCs
         $(document).off('change.bulkactions', '.melc-checkbox').on('change.bulkactions', '.melc-checkbox', function() {
-            var totalCheckboxes = $('.melc-checkbox').length;
-            var checkedCheckboxes = $('.melc-checkbox:checked').length;
+            var $visible = visibleCheckboxes();
+            var totalCheckboxes = $visible.length;
+            var checkedCheckboxes = $visible.filter(':checked').length;
             $('#selectAllMelcs').prop('checked', totalCheckboxes === checkedCheckboxes);
             updateBulkActionsBarMelcs();
         });
@@ -266,6 +282,16 @@
             $('.melc-checkbox, #selectAllMelcs').prop('checked', false);
             updateBulkActionsBarMelcs();
         });
+
+        var dtSync = tableApi();
+        if (dtSync) {
+            dtSync.off('draw.bulkactions').on('draw.bulkactions', function() {
+                var $visible = visibleCheckboxes();
+                var totalCheckboxes = $visible.length;
+                var checkedCheckboxes = $visible.filter(':checked').length;
+                $('#selectAllMelcs').prop('checked', totalCheckboxes > 0 && totalCheckboxes === checkedCheckboxes);
+            });
+        }
 
         // Bulk Delete MELCs
         $('.bulk-delete-melcs').on('click', function() {

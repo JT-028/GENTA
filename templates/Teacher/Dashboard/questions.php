@@ -113,6 +113,21 @@
         }
         var $ = window.jQuery;
 
+        function tableApi() {
+            if ($.fn.DataTable && $.fn.DataTable.isDataTable('.defaultDataTable')) {
+                return $('.defaultDataTable').DataTable();
+            }
+            return null;
+        }
+
+        function visibleCheckboxes() {
+            var dt = tableApi();
+            if (dt) {
+                return $(dt.rows({ page: 'current' }).nodes()).find('.question-checkbox');
+            }
+            return $('.question-checkbox');
+        }
+
         // Bulk Actions Functionality for Questions
         function updateBulkActionsBarQuestions() {
             var selectedCount = $('.question-checkbox:checked').length;
@@ -132,14 +147,15 @@
         // Select All checkbox for questions - use event delegation (attach once)
         $(document).off('change.bulkactions', '#selectAllQuestions').on('change.bulkactions', '#selectAllQuestions', function() {
             var isChecked = $(this).prop('checked');
-            $('.question-checkbox').prop('checked', isChecked);
+            visibleCheckboxes().prop('checked', isChecked);
             updateBulkActionsBarQuestions();
         });
 
         // Individual checkbox for questions - use event delegation
         $(document).off('change.bulkactions', '.question-checkbox').on('change.bulkactions', '.question-checkbox', function() {
-            var totalCheckboxes = $('.question-checkbox').length;
-            var checkedCheckboxes = $('.question-checkbox:checked').length;
+            var $visible = visibleCheckboxes();
+            var totalCheckboxes = $visible.length;
+            var checkedCheckboxes = $visible.filter(':checked').length;
             $('#selectAllQuestions').prop('checked', totalCheckboxes === checkedCheckboxes);
             updateBulkActionsBarQuestions();
         });
@@ -149,6 +165,16 @@
             $('.question-checkbox, #selectAllQuestions').prop('checked', false);
             updateBulkActionsBarQuestions();
         });
+
+        var dtSync = tableApi();
+        if (dtSync) {
+            dtSync.off('draw.bulkactions').on('draw.bulkactions', function() {
+                var $visible = visibleCheckboxes();
+                var totalCheckboxes = $visible.length;
+                var checkedCheckboxes = $visible.filter(':checked').length;
+                $('#selectAllQuestions').prop('checked', totalCheckboxes > 0 && totalCheckboxes === checkedCheckboxes);
+            });
+        }
 
         // Bulk Delete Questions
         $('.bulk-delete-questions').on('click', function() {

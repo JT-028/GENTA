@@ -440,7 +440,21 @@
                 hideModal();
             });
 
-            // Bulk Actions Functionality
+            function tableApi() {
+                if ($.fn.DataTable && $.fn.DataTable.isDataTable('.defaultDataTable')) {
+                    return $('.defaultDataTable').DataTable();
+                }
+                return null;
+            }
+
+            function visibleCheckboxes() {
+                var dt = tableApi();
+                if (dt) {
+                    return $(dt.rows({ page: 'current' }).nodes()).find('.student-checkbox');
+                }
+                return $('.student-checkbox');
+            }
+
             function updateBulkActionsBar() {
                 var selectedCount = $('.student-checkbox:checked').length;
                 if (selectedCount > 0) {
@@ -459,14 +473,15 @@
             // Select All checkbox - use event delegation (attach once, works forever)
             $(document).off('change.bulk', '#selectAllStudents').on('change.bulk', '#selectAllStudents', function() {
                 var isChecked = $(this).prop('checked');
-                $('.student-checkbox').prop('checked', isChecked);
+                visibleCheckboxes().prop('checked', isChecked);
                 updateBulkActionsBar();
             });
 
             // Individual checkbox - use event delegation
             $(document).off('change.bulk', '.student-checkbox').on('change.bulk', '.student-checkbox', function() {
-                var totalCheckboxes = $('.student-checkbox').length;
-                var checkedCheckboxes = $('.student-checkbox:checked').length;
+                var $visible = visibleCheckboxes();
+                var totalCheckboxes = $visible.length;
+                var checkedCheckboxes = $visible.filter(':checked').length;
                 $('#selectAllStudents').prop('checked', totalCheckboxes === checkedCheckboxes);
                 updateBulkActionsBar();
             });
@@ -476,6 +491,17 @@
                 $('.student-checkbox, #selectAllStudents').prop('checked', false);
                 updateBulkActionsBar();
             });
+
+            // Keep header checkbox in sync after pagination/sort
+            var dtSync = tableApi();
+            if (dtSync) {
+                dtSync.off('draw.bulk').on('draw.bulk', function() {
+                    var $visible = visibleCheckboxes();
+                    var totalCheckboxes = $visible.length;
+                    var checkedCheckboxes = $visible.filter(':checked').length;
+                    $('#selectAllStudents').prop('checked', totalCheckboxes > 0 && totalCheckboxes === checkedCheckboxes);
+                });
+            }
 
             // Bulk Delete
             $('.bulk-delete-students').on('click', function() {
