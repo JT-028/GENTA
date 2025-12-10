@@ -227,11 +227,13 @@
         }
     }
 
-        // Bulk Actions Functionality for MELCs
-        if (window.jQuery) {
-            var $ = window.jQuery;
-
-            function tableApi() {
+    // Bulk Actions Functionality for MELCs
+    window.initBulkActionsMelcs = function() {
+        if (!window.jQuery || !$('.defaultDataTable').length) {
+            return;
+        }
+        var $ = window.jQuery;
+        console.info('[MELCs] initBulkActionsMelcs called');            function tableApi() {
                 if ($.fn.DataTable && $.fn.DataTable.isDataTable('.defaultDataTable')) {
                     return $('.defaultDataTable').DataTable();
                 }
@@ -379,7 +381,19 @@
                 }
             });
         }
+    };
 
+    // Run on initial page load
+    if (window.jQuery) {
+        window.initBulkActionsMelcs();
+    } else {
+        setTimeout(function() { if (window.jQuery) window.initBulkActionsMelcs(); }, 200);
+    }
+
+    // Print/Export functions (outside init, triggered by delegated handlers)
+    if (window.jQuery) {
+        var $ = window.jQuery;
+        
         // Print Functionality for MELCs - use event delegation
         $(document).on('click', '#printMelcs', function() {
             var printContent = generateMelcsPrintContent();
@@ -531,7 +545,7 @@
             `;
         }
     }
-})();
+    })();
 </script>
 <?php $this->end(); ?>
 

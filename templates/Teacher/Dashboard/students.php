@@ -75,26 +75,13 @@
 
 <?php $this->start('script'); ?>
 <script>
-    (function(){
-        // Wait for jQuery and Swal to be available before initializing; this avoids the script running
-        // before the global vendor scripts are loaded by the layout.
-        var retries = 0;
-        function ensureReady() {
-            retries++;
-            if (window.jQuery) {
-                init(window.jQuery);
-                return;
-            }
-            if (retries < 50) { // ~10s max
-                setTimeout(ensureReady, 200);
-            } else {
-                // give up silently to avoid blocking the page
-                console.warn('students.js: jQuery not available, skipping init');
-            }
+(function(){
+    window.initBulkActionsStudents = function() {
+        if (!window.jQuery || !$('.defaultDataTable').length) {
+            return; // Page not loaded yet or wrong page
         }
-
-        function init($) {
-            console.info('[Students] init() called, jQuery version:', $.fn.jquery);
+        var $ = window.jQuery;
+        console.info('[Students] initBulkActionsStudents called');
             
             // Small helper to escape HTML to avoid XSS when inserting values as HTML
             function escapeHtml(str) {
@@ -765,9 +752,15 @@
                     // ignore
                 }
             })();
-        }
+        })();
+    };
 
-        ensureReady();
-    })();
+    // Run on initial page load
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', window.initBulkActionsStudents);
+    } else {
+        window.initBulkActionsStudents();
+    }
+})();
 </script>
 <?php $this->end(); ?>

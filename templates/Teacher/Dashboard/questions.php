@@ -106,12 +106,12 @@
 <?php $this->start('script'); ?>
 <script>
 (function() {
-    function init() {
-        if (!window.jQuery) {
-            setTimeout(init, 200);
+    window.initBulkActionsQuestions = function() {
+        if (!window.jQuery || !$('.defaultDataTable').length) {
             return;
         }
         var $ = window.jQuery;
+        console.info('[Questions] initBulkActionsQuestions called');
 
         function tableApi() {
             if ($.fn.DataTable && $.fn.DataTable.isDataTable('.defaultDataTable')) {
@@ -453,11 +453,16 @@
                     </div>
                 </body>
                 </html>
-            `;
+                `;
         }
-    }
+    };
 
-    init();
+    // Run on initial page load
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', window.initBulkActionsQuestions);
+    } else {
+        window.initBulkActionsQuestions();
+    }
 })();
 </script>
 <?php $this->end(); ?>

@@ -136,6 +136,24 @@ function initPage() {
     // Any non-delegated handlers that must be re-attached can go here.
     // (Most of the behavior uses delegated handlers attached to document/body.)
 
+    // Initialize bulk actions for all pages
+    try {
+        if (typeof window.initBulkActionsStudents === 'function') {
+            window.initBulkActionsStudents();
+        }
+        if (typeof window.initBulkActionsQuestions === 'function') {
+            window.initBulkActionsQuestions();
+        }
+        if (typeof window.initBulkActionsAssessments === 'function') {
+            window.initBulkActionsAssessments();
+        }
+        if (typeof window.initBulkActionsMelcs === 'function') {
+            window.initBulkActionsMelcs();
+        }
+    } catch (e) {
+        console.warn('[initPage] Bulk actions init failed:', e);
+    }
+
     // Update sidebar active link based on current location
     try {
         updateActiveNav();

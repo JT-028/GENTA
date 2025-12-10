@@ -772,12 +772,12 @@ document.addEventListener('click', function (e) {
 <script>
 // Bulk Actions Functionality for Assessments Summary
 (function() {
-    function initAssessmentsBulkActions() {
-        if (typeof jQuery === 'undefined') {
-            setTimeout(initAssessmentsBulkActions, 100);
+    window.initBulkActionsAssessments = function() {
+        if (!window.jQuery || !$('.defaultDataTable').length) {
             return;
         }
-        var $ = jQuery;
+        var $ = window.jQuery;
+        console.info('[Assessments] initBulkActionsAssessments called');
 
         function tableApi() {
             if ($.fn.DataTable && $.fn.DataTable.isDataTable('.defaultDataTable')) {
