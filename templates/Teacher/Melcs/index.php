@@ -307,6 +307,11 @@
 
         ensureDataTableSync();
 
+        // Re-sync after AJAX page loads
+        $(document).off('genta.page.melcs').on('genta:page-ready', function(){
+            ensureDataTableSync(0);
+        });
+
         // Bulk Delete MELCs
         $('.bulk-delete-melcs').on('click', function() {
             var selectedIds = $('.melc-checkbox:checked').map(function() {

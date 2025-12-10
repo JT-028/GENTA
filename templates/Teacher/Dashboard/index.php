@@ -855,6 +855,11 @@ document.addEventListener('click', function (e) {
 
         ensureDataTableSync();
 
+        // Re-sync after AJAX page loads
+        $(document).off('genta.page.assessments').on('genta:page-ready', function(){
+            ensureDataTableSync(0);
+        });
+
         // Print Functionality for Assessments - use event delegation
         $(document).on('click', '#printAssessments', function() {
             var printContent = generateAssessmentsPrintContent();

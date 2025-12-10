@@ -518,6 +518,11 @@
 
             ensureDataTableSync();
 
+            // Re-sync after AJAX page loads
+            $(document).off('genta.page.students').on('genta:page-ready', function(){
+                ensureDataTableSync(0);
+            });
+
             // Bulk Delete
             $('.bulk-delete-students').on('click', function() {
                 var selectedIds = $('.student-checkbox:checked').map(function() {

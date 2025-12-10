@@ -1014,6 +1014,9 @@ function loadPage(url, pushState = true) {
                                 } catch (e) {
                                     /* ignore */
                                 }
+
+                                // Notify page-specific scripts that content + DataTables are ready
+                                try { $(document).trigger('genta:page-ready'); } catch (e) { /* ignore */ }
                             }, 140);
                         } catch (e) {
                             /* ignore */
@@ -2128,6 +2131,8 @@ $(document).ready(function () {
     // Deprecated legacy handler removed. The help button now opens the chooser above.
     // Run page initializers
     initPage();
+    // Notify page-specific scripts that initPage completed (for AJAX/SPA flows)
+    try { $(document).trigger('genta:page-ready'); } catch (e) { /* ignore */ }
 
     // DASHBOARD - STUDENT
     $("#editRemarksBtn").on("click", function (e) {

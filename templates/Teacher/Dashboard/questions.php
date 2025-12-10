@@ -190,6 +190,11 @@
 
         ensureDataTableSync();
 
+        // Re-sync after AJAX page loads
+        $(document).off('genta.page.questions').on('genta:page-ready', function(){
+            ensureDataTableSync(0);
+        });
+
         // Bulk Delete Questions
         $('.bulk-delete-questions').on('click', function() {
             var selectedIds = $('.question-checkbox:checked').map(function() {
