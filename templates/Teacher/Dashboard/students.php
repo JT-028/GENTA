@@ -39,7 +39,7 @@
                 <table class="table table-striped table-hover defaultDataTable" style="width:100%">
                     <thead>
                         <tr>
-                            <th style="width: 40px;">
+                            <th style="width: 40px;" class="no-sort">
                                 <input type="checkbox" class="form-check-input" id="selectAllStudents">
                             </th>
                             <th>LRN (Learner Reference Number)</th>

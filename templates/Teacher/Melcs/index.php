@@ -117,7 +117,7 @@
                     <table class="table defaultDataTable">
                         <thead>
                             <tr>
-                                <th style="width: 40px;">
+                                <th style="width: 40px;" class="no-sort">
                                     <input type="checkbox" class="form-check-input" id="selectAllMelcs">
                                 </th>
                                 <th>Upload Date</th>
@@ -227,29 +227,34 @@
         }
     }
 
-    // Bulk Actions Functionality for MELCs
-    if (window.jQuery) {
-        var $ = window.jQuery;
+        // Bulk Actions Functionality for MELCs
+        if (window.jQuery) {
+            var $ = window.jQuery;
 
-        function updateBulkActionsBarMelcs() {
-            var selectedCount = $('.melc-checkbox:checked').length;
-            if (selectedCount > 0) {
-                $('.bulk-actions-bar-melcs').show();
-                $('.selected-count-melcs').text(selectedCount + ' selected');
-            } else {
-                $('.bulk-actions-bar-melcs').hide();
+            function updateBulkActionsBarMelcs() {
+                var selectedCount = $('.melc-checkbox:checked').length;
+                if (selectedCount > 0) {
+                    $('.bulk-actions-bar-melcs').show();
+                    $('.selected-count-melcs').text(selectedCount + ' selected');
+                } else {
+                    $('.bulk-actions-bar-melcs').hide();
+                }
             }
-        }
+
+        // Prevent DataTables sort when toggling checkboxes
+        $(document).off('click.bulkactionsstop', '#selectAllMelcs, .melc-checkbox').on('click.bulkactionsstop', '#selectAllMelcs, .melc-checkbox', function(e) {
+            e.stopPropagation();
+        });
 
         // Select All checkbox for MELCs - use event delegation
-        $(document).on('change', '#selectAllMelcs', function() {
+        $(document).off('change.bulkactions', '#selectAllMelcs').on('change.bulkactions', '#selectAllMelcs', function() {
             var isChecked = $(this).prop('checked');
             $('.melc-checkbox').prop('checked', isChecked);
             updateBulkActionsBarMelcs();
         });
 
         // Individual checkbox for MELCs
-        $(document).on('change', '.melc-checkbox', function() {
+        $(document).off('change.bulkactions', '.melc-checkbox').on('change.bulkactions', '.melc-checkbox', function() {
             var totalCheckboxes = $('.melc-checkbox').length;
             var checkedCheckboxes = $('.melc-checkbox:checked').length;
             $('#selectAllMelcs').prop('checked', totalCheckboxes === checkedCheckboxes);
@@ -257,7 +262,7 @@
         });
 
         // Clear selection for MELCs - use event delegation
-        $(document).on('click', '.bulk-deselect-melcs', function() {
+        $(document).off('click.bulkactions', '.bulk-deselect-melcs').on('click.bulkactions', '.bulk-deselect-melcs', function() {
             $('.melc-checkbox, #selectAllMelcs').prop('checked', false);
             updateBulkActionsBarMelcs();
         });

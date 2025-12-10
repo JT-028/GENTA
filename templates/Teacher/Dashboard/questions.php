@@ -54,7 +54,7 @@
                 <table class="table defaultDataTable">
                     <thead>
                         <tr>
-                            <th style="width: 40px;">
+                            <th style="width: 40px;" class="no-sort">
                                 <input type="checkbox" class="form-check-input" id="selectAllQuestions">
                             </th>
                             <th width="14%">Subject</th>

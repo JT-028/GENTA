@@ -73,6 +73,13 @@ function initPage() {
                         var tblApi = $tbl.DataTable({
                             responsive: true,
                             autoWidth: false,
+                            columnDefs: [
+                                {
+                                    targets: 'no-sort',
+                                    orderable: false,
+                                    searchable: false
+                                }
+                            ]
                         });
                         // A short delay to allow CSS/layout to settle, then adjust
                         setTimeout(function () {
