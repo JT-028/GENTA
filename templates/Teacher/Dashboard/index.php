@@ -779,23 +779,6 @@ document.addEventListener('click', function (e) {
         }
         var $ = jQuery;
 
-        // Wait for DataTables to be initialized
-        function waitForDataTable(callback) {
-            var attempts = 0;
-            function check() {
-                attempts++;
-                if ($.fn.DataTable && $.fn.DataTable.isDataTable('.defaultDataTable')) {
-                    callback();
-                } else if (attempts < 50) {
-                    setTimeout(check, 100);
-                } else {
-                    // Timeout - initialize anyway
-                    callback();
-                }
-            }
-            check();
-        }
-
         function updateBulkActionsBarAssessments() {
             var selectedCount = $('.assessment-checkbox:checked').length;
             if (selectedCount > 0) {
@@ -814,6 +797,14 @@ document.addEventListener('click', function (e) {
                 updateBulkActionsBarAssessments();
             });
 
+            // Individual checkbox for assessments
+            $(document).off('change.bulkactions', '.assessment-checkbox').on('change.bulkactions', '.assessment-checkbox', function() {
+                var totalCheckboxes = $('.assessment-checkbox').length;
+                var checkedCheckboxes = $('.assessment-checkbox:checked').length;
+                $('#selectAllAssessments').prop('checked', totalCheckboxes === checkedCheckboxes);
+                updateBulkActionsBarAssessments();
+            });
+
             // Clear selection for assessments
             $('.bulk-deselect-assessments').off('click.bulkactions').on('click.bulkactions', function() {
                 $('.assessment-checkbox, #selectAllAssessments').prop('checked', false);
@@ -821,13 +812,23 @@ document.addEventListener('click', function (e) {
             });
         }
 
-        // Individual checkbox for assessments - use event delegation
-        $(document).off('change.bulkactions', '.assessment-checkbox').on('change.bulkactions', '.assessment-checkbox', function() {
-            var totalCheckboxes = $('.assessment-checkbox').length;
-            var checkedCheckboxes = $('.assessment-checkbox:checked').length;
-            $('#selectAllAssessments').prop('checked', totalCheckboxes === checkedCheckboxes);
-            updateBulkActionsBarAssessments();
-        });
+        // Use setTimeout to ensure DataTables initialization completes first
+        setTimeout(function() {
+            attachAssessmentCheckboxHandlers();
+            
+            // Re-attach handlers after DataTable redraw
+            if ($.fn.DataTable && $.fn.DataTable.isDataTable('.defaultDataTable')) {
+                $('.defaultDataTable').DataTable().off('draw.dt.bulkactions').on('draw.dt.bulkactions', function() {
+                    setTimeout(function() {
+                        attachAssessmentCheckboxHandlers();
+                        var totalCheckboxes = $('.assessment-checkbox').length;
+                        var checkedCheckboxes = $('.assessment-checkbox:checked').length;
+                        $('#selectAllAssessments').prop('checked', totalCheckboxes > 0 && totalCheckboxes === checkedCheckboxes);
+                        updateBulkActionsBarAssessments();
+                    }, 50);
+                });
+            }
+        }, 200);
 
         // Print Functionality for Assessments
         $('#printAssessments').on('click', function() {

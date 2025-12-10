@@ -113,15 +113,6 @@
         }
         var $ = window.jQuery;
 
-        // Wait for DataTables to be ready
-        function waitForDataTable(callback) {
-            if ($.fn.DataTable && $.fn.DataTable.isDataTable('.defaultDataTable')) {
-                callback();
-            } else {
-                setTimeout(function() { waitForDataTable(callback); }, 100);
-            }
-        }
-
         // Bulk Actions Functionality for Questions
         function updateBulkActionsBarQuestions() {
             var selectedCount = $('.question-checkbox:checked').length;
@@ -135,26 +126,26 @@
 
         function attachCheckboxHandlers() {
             // Select All checkbox for questions
-            $('#selectAllQuestions').off('change').on('change', function() {
+            $('#selectAllQuestions').off('change.bulkactions').on('change.bulkactions', function() {
                 var isChecked = $(this).prop('checked');
                 $('.question-checkbox').prop('checked', isChecked);
                 updateBulkActionsBarQuestions();
             });
 
-            // Individual checkbox for questions - use event delegation
-            $(document).off('change', '.question-checkbox').on('change', '.question-checkbox', function() {
-                var totalCheckboxes = $('.question-checkbox').length;
-                var checkedCheckboxes = $('.question-checkbox:checked').length;
-                $('#selectAllQuestions').prop('checked', totalCheckboxes === checkedCheckboxes);
-                updateBulkActionsBarQuestions();
-            });
-
             // Clear selection for questions
-            $('.bulk-deselect-questions').off('click').on('click', function() {
+            $('.bulk-deselect-questions').off('click.bulkactions').on('click.bulkactions', function() {
                 $('.question-checkbox, #selectAllQuestions').prop('checked', false);
                 updateBulkActionsBarQuestions();
             });
         }
+
+        // Individual checkbox for questions - use event delegation on document
+        $(document).on('change', '.question-checkbox', function() {
+            var totalCheckboxes = $('.question-checkbox').length;
+            var checkedCheckboxes = $('.question-checkbox:checked').length;
+            $('#selectAllQuestions').prop('checked', totalCheckboxes === checkedCheckboxes);
+            updateBulkActionsBarQuestions();
+        });
 
         // Bulk Delete Questions
         $('.bulk-delete-questions').on('click', function() {
@@ -417,19 +408,23 @@
             `;
         }
 
-        // Initialize after DataTables is ready
-        waitForDataTable(function() {
+        // Use setTimeout to ensure DataTables initialization completes first
+        setTimeout(function() {
             attachCheckboxHandlers();
             
             // Re-attach handlers after DataTable redraw
-            $('.defaultDataTable').off('draw.dt.bulkactions').on('draw.dt.bulkactions', function() {
-                attachCheckboxHandlers();
-                var totalCheckboxes = $('.question-checkbox').length;
-                var checkedCheckboxes = $('.question-checkbox:checked').length;
-                $('#selectAllQuestions').prop('checked', totalCheckboxes > 0 && totalCheckboxes === checkedCheckboxes);
-                updateBulkActionsBarQuestions();
-            });
-        });
+            if ($.fn.DataTable && $.fn.DataTable.isDataTable('.defaultDataTable')) {
+                $('.defaultDataTable').DataTable().on('draw.dt', function() {
+                    setTimeout(function() {
+                        attachCheckboxHandlers();
+                        var totalCheckboxes = $('.question-checkbox').length;
+                        var checkedCheckboxes = $('.question-checkbox:checked').length;
+                        $('#selectAllQuestions').prop('checked', totalCheckboxes > 0 && totalCheckboxes === checkedCheckboxes);
+                        updateBulkActionsBarQuestions();
+                    }, 50);
+                });
+            }
+        }, 200);
     }
 
     init();
