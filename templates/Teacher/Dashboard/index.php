@@ -1038,9 +1038,9 @@ document.addEventListener('click', function (e) {
     }
 
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initAssessmentsBulkActions);
+        document.addEventListener('DOMContentLoaded', window.initBulkActionsAssessments);
     } else {
-        initAssessmentsBulkActions();
+        window.initBulkActionsAssessments();
     }
 })();
 </script>
