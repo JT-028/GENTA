@@ -111,7 +111,8 @@
             return;
         }
         var $ = window.jQuery;
-        if (!$('.defaultDataTable').length) {
+        // Only run on Questions page
+        if (!$('.question-checkbox').length && !$('#selectAllQuestions').length) {
             return;
         }
         console.info('[Questions] initBulkActionsQuestions called');

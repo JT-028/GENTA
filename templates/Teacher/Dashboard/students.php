@@ -81,7 +81,8 @@
             return;
         }
         var $ = window.jQuery;
-        if (!$('.defaultDataTable').length) {
+        // Only run on Students page
+        if (!$('.student-checkbox').length && !$('#selectAllStudents').length) {
             return;
         }
         console.info('[Students] initBulkActionsStudents called');

@@ -233,7 +233,8 @@
             return;
         }
         var $ = window.jQuery;
-        if (!$('.defaultDataTable').length) {
+        // Only run on MELCs page
+        if (!$('.melc-checkbox').length && !$('#selectAllMelcs').length) {
             return;
         }
         console.info('[MELCs] initBulkActionsMelcs called');            function tableApi() {

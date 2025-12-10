@@ -777,7 +777,8 @@ document.addEventListener('click', function (e) {
             return;
         }
         var $ = window.jQuery;
-        if (!$('.defaultDataTable').length) {
+        // Only run on Assessments Summary page
+        if (!$('.assessment-checkbox').length && !$('#selectAllAssessments').length) {
             return;
         }
         console.info('[Assessments] initBulkActionsAssessments called');
