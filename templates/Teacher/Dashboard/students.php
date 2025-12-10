@@ -200,25 +200,57 @@
                             console.log('Server response:', res);
                             if (res && res.success) {
                                 // Show success message, then refresh the page
+                                console.log('[Students] Save successful, will reload page');
                                 if (window.Swal && typeof Swal.fire === 'function') {
                                     Swal.fire({icon: 'success', title: 'Success', text: res.message || 'Saved'})
                                         .then(function(){
+                                            console.log('[Students] SweetAlert closed, hiding modal and reloading...');
                                             hideModal();
-                                            window.location.reload();
+                                            // Force reload - use true to bypass cache
+                                            window.location.reload(true);
                                         });
                                 } else {
                                     alert(res.message || 'Saved');
                                     hideModal();
-                                    window.location.reload();
+                                    window.location.reload(true);
                                 }
                             } else {
-                                if (res && res.errors) {
+                                // Check for duplicate LRN error specifically
+                                var lrnValue = $form.find('[name="lrn"]').val() || '';
+                                var isDuplicateLrn = res && res.errors && res.errors.lrn;
+                                
+                                if (isDuplicateLrn) {
+                                    // Show SweetAlert for duplicate LRN
+                                    var lrnErrorMsg = 'The LRN "' + lrnValue + '" is already assigned to another student. Please use a different LRN.';
+                                    if (window.Swal && typeof Swal.fire === 'function') {
+                                        Swal.fire({
+                                            icon: 'warning',
+                                            title: 'Duplicate LRN',
+                                            text: lrnErrorMsg
+                                        });
+                                    } else {
+                                        alert(lrnErrorMsg);
+                                    }
+                                    // Also highlight the LRN field
+                                    var $lrnInput = $form.find('[name="lrn"]');
+                                    $lrnInput.addClass('is-invalid');
+                                    var $lrnFb = $('#studentModal').find('.invalid-feedback[data-field="lrn"]');
+                                    $lrnFb.removeClass('d-none').text('This LRN is already in use.');
+                                } else if (res && res.errors) {
+                                    // Show other field errors
                                     $.each(res.errors, function(field, fieldErrs){
                                         var $input = $('#studentModal').find('[name="' + field + '"]');
                                         $input.addClass('is-invalid');
                                         var $fb = $('#studentModal').find('.invalid-feedback[data-field="' + field + '"]');
                                         $fb.removeClass('d-none').text(Object.values(fieldErrs).map(function(v){ return v.join ? v.join(', ') : v; }).join(', '));
                                     });
+                                    // Show a general error SweetAlert
+                                    var msg = (res && res.message) ? res.message : 'Please check the form for errors.';
+                                    if (window.Swal && typeof Swal.fire === 'function') {
+                                        Swal.fire({icon:'error', title:'Error', text: msg});
+                                    } else {
+                                        alert(msg);
+                                    }
                                 } else {
                                     var msg = (res && res.message) ? res.message : 'Please check the form for errors.';
                                     if (window.Swal && typeof Swal.fire === 'function') {
