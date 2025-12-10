@@ -191,7 +191,7 @@
         ensureDataTableSync();
 
         // Re-sync after AJAX page loads
-        $(document).off('genta.page.questions').on('genta:page-ready', function(){
+        $(document).off('genta:page-ready.questions').on('genta:page-ready.questions', function(){
             ensureDataTableSync(0);
         });
 

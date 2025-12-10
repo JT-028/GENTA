@@ -856,7 +856,7 @@ document.addEventListener('click', function (e) {
         ensureDataTableSync();
 
         // Re-sync after AJAX page loads
-        $(document).off('genta.page.assessments').on('genta:page-ready', function(){
+        $(document).off('genta:page-ready.assessments').on('genta:page-ready.assessments', function(){
             ensureDataTableSync(0);
         });
 

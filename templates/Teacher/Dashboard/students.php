@@ -519,7 +519,7 @@
             ensureDataTableSync();
 
             // Re-sync after AJAX page loads
-            $(document).off('genta.page.students').on('genta:page-ready', function(){
+            $(document).off('genta:page-ready.students').on('genta:page-ready.students', function(){
                 ensureDataTableSync(0);
             });
 

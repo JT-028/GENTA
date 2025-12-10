@@ -308,7 +308,7 @@
         ensureDataTableSync();
 
         // Re-sync after AJAX page loads
-        $(document).off('genta.page.melcs').on('genta:page-ready', function(){
+        $(document).off('genta:page-ready.melcs').on('genta:page-ready.melcs', function(){
             ensureDataTableSync(0);
         });
 
