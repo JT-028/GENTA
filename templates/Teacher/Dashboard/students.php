@@ -451,24 +451,26 @@
                 }
             }
 
-            // Select All checkbox
-            $('#selectAllStudents').on('change', function() {
-                var isChecked = $(this).prop('checked');
-                $('.student-checkbox').prop('checked', isChecked);
-                updateBulkActionsBar();
-            });
+            function attachBulkCheckboxHandlers() {
+                // Select All checkbox
+                $('#selectAllStudents').off('change.bulkactions').on('change.bulkactions', function() {
+                    var isChecked = $(this).prop('checked');
+                    $('.student-checkbox').prop('checked', isChecked);
+                    updateBulkActionsBar();
+                });
 
-            // Individual checkbox
-            $(document).on('change', '.student-checkbox', function() {
+                // Clear selection
+                $('.bulk-deselect').off('click.bulkactions').on('click.bulkactions', function() {
+                    $('.student-checkbox, #selectAllStudents').prop('checked', false);
+                    updateBulkActionsBar();
+                });
+            }
+
+            // Individual checkbox - use event delegation on document
+            $(document).off('change.bulkactions', '.student-checkbox').on('change.bulkactions', '.student-checkbox', function() {
                 var totalCheckboxes = $('.student-checkbox').length;
                 var checkedCheckboxes = $('.student-checkbox:checked').length;
                 $('#selectAllStudents').prop('checked', totalCheckboxes === checkedCheckboxes);
-                updateBulkActionsBar();
-            });
-
-            // Clear selection
-            $('.bulk-deselect').on('click', function() {
-                $('.student-checkbox, #selectAllStudents').prop('checked', false);
                 updateBulkActionsBar();
             });
 
@@ -702,9 +704,14 @@
                         dt = $('.defaultDataTable').DataTable();
                     }
                     
+                    // Initialize bulk checkbox handlers after DataTable is ready
+                    attachBulkCheckboxHandlers();
+                    
                     // Re-initialize event handlers after DataTable draw (pagination, sort, etc.)
                     if (dt) {
-                        dt.on('draw', function() {
+                        dt.off('draw.dt.bulkactions').on('draw.dt.bulkactions', function() {
+                            // Reattach handlers
+                            attachBulkCheckboxHandlers();
                             // Recheck "select all" state
                             var totalCheckboxes = $('.student-checkbox').length;
                             var checkedCheckboxes = $('.student-checkbox:checked').length;
@@ -715,6 +722,8 @@
                 }
             } catch (e) {
                 console.warn('DataTable init failed', e);
+                // Initialize handlers anyway
+                attachBulkCheckboxHandlers();
             }
 
             // Auto-open modal when redirected here with query params: ?open=add or ?open=edit&id=<hash>

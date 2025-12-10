@@ -113,6 +113,15 @@
         }
         var $ = window.jQuery;
 
+        // Wait for DataTables to be ready
+        function waitForDataTable(callback) {
+            if ($.fn.DataTable && $.fn.DataTable.isDataTable('.defaultDataTable')) {
+                callback();
+            } else {
+                setTimeout(function() { waitForDataTable(callback); }, 100);
+            }
+        }
+
         // Bulk Actions Functionality for Questions
         function updateBulkActionsBarQuestions() {
             var selectedCount = $('.question-checkbox:checked').length;
@@ -124,26 +133,28 @@
             }
         }
 
-        // Select All checkbox for questions
-        $('#selectAllQuestions').on('change', function() {
-            var isChecked = $(this).prop('checked');
-            $('.question-checkbox').prop('checked', isChecked);
-            updateBulkActionsBarQuestions();
-        });
+        function attachCheckboxHandlers() {
+            // Select All checkbox for questions
+            $('#selectAllQuestions').off('change').on('change', function() {
+                var isChecked = $(this).prop('checked');
+                $('.question-checkbox').prop('checked', isChecked);
+                updateBulkActionsBarQuestions();
+            });
 
-        // Individual checkbox for questions
-        $(document).on('change', '.question-checkbox', function() {
-            var totalCheckboxes = $('.question-checkbox').length;
-            var checkedCheckboxes = $('.question-checkbox:checked').length;
-            $('#selectAllQuestions').prop('checked', totalCheckboxes === checkedCheckboxes);
-            updateBulkActionsBarQuestions();
-        });
+            // Individual checkbox for questions - use event delegation
+            $(document).off('change', '.question-checkbox').on('change', '.question-checkbox', function() {
+                var totalCheckboxes = $('.question-checkbox').length;
+                var checkedCheckboxes = $('.question-checkbox:checked').length;
+                $('#selectAllQuestions').prop('checked', totalCheckboxes === checkedCheckboxes);
+                updateBulkActionsBarQuestions();
+            });
 
-        // Clear selection for questions
-        $('.bulk-deselect-questions').on('click', function() {
-            $('.question-checkbox, #selectAllQuestions').prop('checked', false);
-            updateBulkActionsBarQuestions();
-        });
+            // Clear selection for questions
+            $('.bulk-deselect-questions').off('click').on('click', function() {
+                $('.question-checkbox, #selectAllQuestions').prop('checked', false);
+                updateBulkActionsBarQuestions();
+            });
+        }
 
         // Bulk Delete Questions
         $('.bulk-delete-questions').on('click', function() {
@@ -405,6 +416,20 @@
                 </html>
             `;
         }
+
+        // Initialize after DataTables is ready
+        waitForDataTable(function() {
+            attachCheckboxHandlers();
+            
+            // Re-attach handlers after DataTable redraw
+            $('.defaultDataTable').off('draw.dt.bulkactions').on('draw.dt.bulkactions', function() {
+                attachCheckboxHandlers();
+                var totalCheckboxes = $('.question-checkbox').length;
+                var checkedCheckboxes = $('.question-checkbox:checked').length;
+                $('#selectAllQuestions').prop('checked', totalCheckboxes > 0 && totalCheckboxes === checkedCheckboxes);
+                updateBulkActionsBarQuestions();
+            });
+        });
     }
 
     init();
