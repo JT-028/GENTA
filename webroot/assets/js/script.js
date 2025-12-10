@@ -36,6 +36,18 @@ function normalizeAppPath(path) {
 }
 // Expose a placeholder so other scripts (shepherd-init) can detect WalkthroughSystem presence
 if (!window.WalkthroughSystem) window.WalkthroughSystem = {};
+
+// Global helper function to reload current page via AJAX (preserves DataTable styling)
+function reloadCurrentPage() {
+    var currentUrl = window.location.href;
+    if (typeof loadPage === 'function') {
+        loadPage(currentUrl, false);
+    } else {
+        // Fallback to regular reload
+        window.location.reload();
+    }
+}
+
 // Helper: initialize page-specific behaviors that need to run after AJAX page swaps
 function initPage() {
     // DataTable init (idempotent)
@@ -404,17 +416,6 @@ function initPage() {
                 };
             }
 
-            // Helper function to reload current page via AJAX (preserves DataTable styling)
-            function reloadCurrentPage() {
-                var currentUrl = window.location.href;
-                if (typeof loadPage === 'function') {
-                    loadPage(currentUrl, false);
-                } else {
-                    // Fallback to regular reload
-                    window.location.reload();
-                }
-            }
-
             // ---- STUDENTS BULK ACTIONS ----
             if ($('.student-checkbox').length) {
                 // Get students data - columns: Checkbox(0), LRN(1), Name(2), Grade/Section(3), Action(4)
@@ -499,32 +500,42 @@ function initPage() {
 
                 function performBulkActionStudents(selectedIds, action) {
                     var csrf = getCsrfToken();
+                    var completed = 0;
+                    var total = selectedIds.length;
                     
-                    var actionPromises = selectedIds.map(function(id) {
-                        return $.ajax({
-                            url: buildUrl('teacher/dashboard/delete-student/' + id),
-                            method: 'POST',
-                            headers: { 'X-CSRF-Token': csrf },
-                            dataType: 'json'
-                        });
-                    });
-
-                    Promise.all(actionPromises.map(function(p) { return p.catch(function(e) { return e; }); })).then(function(responses) {
-                        var successCount = responses.filter(function(r) { return r && r.success; }).length;
-                        
-                        if (window.Swal && typeof Swal.fire === 'function') {
-                            Swal.fire({
-                                title: 'Success!',
-                                text: successCount + ' student(s) have been deleted.',
-                                icon: 'success'
-                            }).then(function() {
+                    // Process deletions sequentially to avoid race conditions
+                    function deleteNext(index) {
+                        if (index >= total) {
+                            // All done
+                            if (window.Swal && typeof Swal.fire === 'function') {
+                                Swal.fire({
+                                    title: 'Success!',
+                                    text: completed + ' student(s) have been deleted.',
+                                    icon: 'success'
+                                }).then(function() {
+                                    reloadCurrentPage();
+                                });
+                            } else {
+                                alert(completed + ' student(s) have been deleted.');
                                 reloadCurrentPage();
-                            });
-                        } else {
-                            alert(successCount + ' student(s) have been deleted.');
-                            reloadCurrentPage();
+                            }
+                            return;
                         }
-                    });
+                        
+                        $.ajax({
+                            url: buildUrl('teacher/dashboard/delete-student/' + selectedIds[index]),
+                            method: 'POST',
+                            headers: { 'X-CSRF-Token': csrf }
+                        }).always(function(data, textStatus) {
+                            if (textStatus === 'success' || textStatus === 'parsererror') {
+                                // parsererror happens when server returns HTML redirect but we still succeeded
+                                completed++;
+                            }
+                            deleteNext(index + 1);
+                        });
+                    }
+                    
+                    deleteNext(0);
                 }
             }
 
@@ -635,39 +646,47 @@ function initPage() {
 
                 function performBulkActionQuestions(selectedIds, action) {
                     var csrf = getCsrfToken();
+                    var completed = 0;
+                    var total = selectedIds.length;
+                    var actionText = action === 'delete' ? 'deleted' : (action === 'suspend' ? 'suspended' : 'activated');
                     
-                    var actionPromises = selectedIds.map(function(id) {
+                    function processNext(index) {
+                        if (index >= total) {
+                            if (window.Swal && typeof Swal.fire === 'function') {
+                                Swal.fire({
+                                    title: 'Success!',
+                                    text: completed + ' question(s) have been ' + actionText + '.',
+                                    icon: 'success'
+                                }).then(function() {
+                                    reloadCurrentPage();
+                                });
+                            } else {
+                                alert(completed + ' question(s) have been ' + actionText + '.');
+                                reloadCurrentPage();
+                            }
+                            return;
+                        }
+                        
                         var url;
                         if (action === 'delete') {
-                            url = buildUrl('teacher/dashboard/delete-question/' + id);
+                            url = buildUrl('teacher/dashboard/delete-question/' + selectedIds[index]);
                         } else {
-                            url = buildUrl('teacher/dashboard/toggle-question-status/' + id);
+                            url = buildUrl('teacher/dashboard/toggle-question-status/' + selectedIds[index]);
                         }
-                        return $.ajax({
+                        
+                        $.ajax({
                             url: url,
                             method: 'POST',
-                            headers: { 'X-CSRF-Token': csrf },
-                            dataType: 'json'
+                            headers: { 'X-CSRF-Token': csrf }
+                        }).always(function(data, textStatus) {
+                            if (textStatus === 'success' || textStatus === 'parsererror') {
+                                completed++;
+                            }
+                            processNext(index + 1);
                         });
-                    });
-
-                    Promise.all(actionPromises.map(function(p) { return p.catch(function(e) { return e; }); })).then(function(responses) {
-                        var successCount = responses.filter(function(r) { return r && r.success; }).length;
-                        var actionText = action === 'delete' ? 'deleted' : (action === 'suspend' ? 'suspended' : 'activated');
-                        
-                        if (window.Swal && typeof Swal.fire === 'function') {
-                            Swal.fire({
-                                title: 'Success!',
-                                text: successCount + ' question(s) have been ' + actionText + '.',
-                                icon: 'success'
-                            }).then(function() {
-                                reloadCurrentPage();
-                            });
-                        } else {
-                            alert(successCount + ' question(s) have been ' + actionText + '.');
-                            reloadCurrentPage();
-                        }
-                    });
+                    }
+                    
+                    processNext(0);
                 }
             }
 
@@ -814,32 +833,39 @@ function initPage() {
 
                 function performBulkActionMelcs(selectedIds, action) {
                     var csrf = getCsrfToken();
+                    var completed = 0;
+                    var total = selectedIds.length;
                     
-                    var actionPromises = selectedIds.map(function(id) {
-                        return $.ajax({
-                            url: buildUrl('teacher/melcs/delete/' + id),
-                            method: 'POST',
-                            headers: { 'X-CSRF-Token': csrf },
-                            dataType: 'json'
-                        });
-                    });
-
-                    Promise.all(actionPromises.map(function(p) { return p.catch(function(e) { return e; }); })).then(function(responses) {
-                        var successCount = responses.filter(function(r) { return r && r.success; }).length;
-                        
-                        if (window.Swal && typeof Swal.fire === 'function') {
-                            Swal.fire({
-                                title: 'Success!',
-                                text: successCount + ' MELC(s) have been deleted.',
-                                icon: 'success'
-                            }).then(function() {
+                    function deleteNext(index) {
+                        if (index >= total) {
+                            if (window.Swal && typeof Swal.fire === 'function') {
+                                Swal.fire({
+                                    title: 'Success!',
+                                    text: completed + ' MELC(s) have been deleted.',
+                                    icon: 'success'
+                                }).then(function() {
+                                    reloadCurrentPage();
+                                });
+                            } else {
+                                alert(completed + ' MELC(s) have been deleted.');
                                 reloadCurrentPage();
-                            });
-                        } else {
-                            alert(successCount + ' MELC(s) have been deleted.');
-                            reloadCurrentPage();
+                            }
+                            return;
                         }
-                    });
+                        
+                        $.ajax({
+                            url: buildUrl('teacher/melcs/delete/' + selectedIds[index]),
+                            method: 'POST',
+                            headers: { 'X-CSRF-Token': csrf }
+                        }).always(function(data, textStatus) {
+                            if (textStatus === 'success' || textStatus === 'parsererror') {
+                                completed++;
+                            }
+                            deleteNext(index + 1);
+                        });
+                    }
+                    
+                    deleteNext(0);
                 }
             }
         }
@@ -2848,30 +2874,48 @@ $(document).ready(function () {
     // Notify page-specific scripts that initPage completed (for AJAX/SPA flows)
     try { $(document).trigger('genta:page-ready'); } catch (e) { /* ignore */ }
 
-    // Re-run initPage after all resources are fully loaded (handles DataTables on first page load)
+    // Re-run DataTable initialization after all resources are fully loaded (handles DataTables on first page load)
     $(window).on('load', function() {
-        // Check if DataTables are properly initialized with controls
-        if ($.fn && $.fn.DataTable && $('.defaultDataTable').length > 0) {
-            var $tables = $('.defaultDataTable');
-            var needsReinit = false;
-            
-            $tables.each(function() {
-                var $tbl = $(this);
-                // Check if the table wrapper has the DataTables controls (search, pagination)
-                var $wrapper = $tbl.closest('.dataTables_wrapper');
-                if (!$wrapper.length || !$wrapper.find('.dataTables_filter').length) {
-                    needsReinit = true;
-                    return false; // break
-                }
-            });
-            
-            if (needsReinit) {
-                console.info('[window.load] DataTables need re-initialization');
-                setTimeout(function() {
-                    initPage();
-                }, 100);
+        setTimeout(function() {
+            // Check if DataTables are properly initialized with controls
+            if ($.fn && $.fn.DataTable && $('.defaultDataTable').length > 0) {
+                $('.defaultDataTable').each(function() {
+                    var $tbl = $(this);
+                    var $wrapper = $tbl.closest('.dataTables_wrapper');
+                    
+                    // If table exists but wrapper doesn't have filter/pagination, reinitialize
+                    if (!$wrapper.length || !$wrapper.find('.dataTables_filter').length) {
+                        console.info('[window.load] DataTable missing controls, reinitializing...');
+                        
+                        // Destroy if partially initialized
+                        if ($.fn.DataTable.isDataTable($tbl)) {
+                            try {
+                                $tbl.DataTable().destroy();
+                            } catch (e) {
+                                console.warn('Failed to destroy DataTable:', e);
+                            }
+                        }
+                        
+                        // Reinitialize with full options
+                        try {
+                            $tbl.DataTable({
+                                responsive: true,
+                                autoWidth: false,
+                                columnDefs: [
+                                    {
+                                        targets: 'no-sort',
+                                        orderable: false,
+                                        searchable: false
+                                    }
+                                ]
+                            });
+                        } catch (e) {
+                            console.warn('Failed to reinitialize DataTable:', e);
+                        }
+                    }
+                });
             }
-        }
+        }, 200); // Small delay to ensure DOM is ready
     });
 
     // DASHBOARD - STUDENT
