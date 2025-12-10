@@ -98,6 +98,11 @@ function initPage() {
                                     targets: 'no-sort',
                                     orderable: false,
                                     searchable: false
+                                },
+                                {
+                                    // Ensure first column (checkbox) is never hidden by responsive
+                                    targets: 0,
+                                    responsivePriority: 1
                                 }
                             ]
                         });
@@ -1751,12 +1756,14 @@ function loadPage(url, pushState = true) {
                                 }
                             });
 
-                            // Initialize page widgets while content is already in DOM but hidden
-                            try {
-                                initPage();
-                            } catch (e) {
-                                /* ignore */
-                            }
+                            // Initialize page widgets after a short delay to ensure DOM is settled
+                            setTimeout(function() {
+                                try {
+                                    initPage();
+                                } catch (e) {
+                                    /* ignore */
+                                }
+                            }, 50);
 
                             // Trigger walkthrough resume check after AJAX navigation
                             try {
@@ -2983,6 +2990,11 @@ $(document).ready(function () {
                                         targets: 'no-sort',
                                         orderable: false,
                                         searchable: false
+                                    },
+                                    {
+                                        // Ensure first column (checkbox) is never hidden by responsive
+                                        targets: 0,
+                                        responsivePriority: 1
                                     }
                                 ]
                             });

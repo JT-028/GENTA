@@ -204,13 +204,18 @@
                                     Swal.fire({icon: 'success', title: 'Success', text: res.message || 'Saved'})
                                         .then(function(){
                                             hideModal();
-                                            // Use full page reload to ensure table is properly refreshed
-                                            window.location.reload();
+                                            // Force a true browser navigation (bypass SPA loadPage)
+                                            // Add a cache-busting timestamp to force fresh load
+                                            var url = window.location.pathname;
+                                            var timestamp = new Date().getTime();
+                                            window.location.href = url + '?_t=' + timestamp;
                                         });
                                 } else {
                                     alert(res.message || 'Saved');
                                     hideModal();
-                                    window.location.reload();
+                                    var url = window.location.pathname;
+                                    var timestamp = new Date().getTime();
+                                    window.location.href = url + '?_t=' + timestamp;
                                 }
                             } else {
                                 if (res && res.errors) {
