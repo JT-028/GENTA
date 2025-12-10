@@ -199,104 +199,31 @@
                         }).done(function(res){
                             console.log('Server response:', res);
                             if (res && res.success) {
-                                var s = res.student;
-                                // Get DataTable reference
-                                var dt = null;
-                                try {
-                                    if ($.fn.DataTable && $.fn.DataTable.isDataTable('.defaultDataTable')) {
-                                        dt = $('.defaultDataTable').DataTable();
-                                    }
-                                } catch (e) {
-                                    console.warn('Could not get DataTable reference:', e);
-                                }
-                                
-                                if (dt && s && s.id) {
-                                    // update or add row
-                                    var id = String(s.id || '').trim();
-                                    var rowSelector = $();
-
-                                    // 1) Try DataTables-managed nodes (handles Responsive, etc.)
-                                    try {
-                                        rowSelector = $(dt.rows().nodes()).filter(function(){
-                                            var attr = $(this).attr('data-id');
-                                            return attr && String(attr).trim() === id;
-                                        });
-                                    } catch (err) {
-                                        rowSelector = $();
-                                    }
-
-                                    // 2) Fallback: search DOM rows directly (case-insensitive)
-                                    if (!rowSelector || !rowSelector.length) {
-                                        rowSelector = $('.defaultDataTable tbody tr').filter(function(){
-                                            var attr = $(this).attr('data-id') || $(this).data('id');
-                                            if (!attr) return false;
-                                            try { return String(attr).trim().toLowerCase() === id.toLowerCase(); } catch(e){ return false; }
-                                        });
-                                    }
-
-                                    // 3) Last resort: try matching by LRN only (LRN should be unique)
-                                    if (!rowSelector || !rowSelector.length) {
-                                        rowSelector = $('.defaultDataTable tbody tr').filter(function(){
-                                            var code = $(this).find('td').eq(0).text().trim();
-                                            return code === (s.lrn || '');
-                                        });
-                                    }
-
-                                    console.debug('[students] AJAX save: encryptedId=', id, 'matchedRows=', rowSelector ? rowSelector.length : 0);
-                                    if (rowSelector && rowSelector.length) {
-                                        // Update first matched row
-                                        var node = rowSelector[0];
-                                        dt.row(node).data([
-                                            '<input type="checkbox" class="form-check-input student-checkbox" value="' + escapeHtml(id) + '">',
-                                            '<span class="fw-bold">' + escapeHtml(s.lrn) + '</span>',
-                                            escapeHtml(s.name),
-                                            escapeHtml(s.grade_section),
-                                            generateActionButtonsHtml(s)
-                                        ]).draw(false);
-                                        // Ensure the data-id attribute remains on the updated row node
-                                        try {
-                                            var updatedNode = dt.row(node).node();
-                                            $(updatedNode).attr('data-id', id);
-                                            // Keep same cell classes/styles as server-rendered rows
-                                            $(updatedNode).find('td').eq(4).addClass('text-center').css('white-space', 'nowrap');
-                                        } catch (e) { /* noop */ }
-                                    } else {
-                                        // No existing row found -> check by LRN once more before adding
-                                        var existingByLrn = $('.defaultDataTable tbody tr').filter(function(){
-                                            return $(this).find('td').eq(0).text().trim() === (s.lrn || '');
-                                        });
-                                        if (existingByLrn && existingByLrn.length) {
-                                            // Update that row instead of adding duplicate
-                                            var node = existingByLrn[0];
-                                            dt.row(node).data([
-                                                '<input type="checkbox" class="form-check-input student-checkbox" value="' + escapeHtml(id) + '">',
-                                                '<span class="fw-bold">' + escapeHtml(s.lrn) + '</span>',
-                                                escapeHtml(s.name),
-                                                escapeHtml(s.grade_section),
-                                                generateActionButtonsHtml(s)
-                                            ]).draw(false);
-                                            try { $(node).attr('data-id', id); } catch(e) {}
-                                        } else {
-                                            var newRow = dt.row.add([
-                                                '<input type="checkbox" class="form-check-input student-checkbox" value="' + escapeHtml(id) + '">',
-                                                '<span class="fw-bold">' + escapeHtml(s.lrn) + '</span>',
-                                                escapeHtml(s.name),
-                                                escapeHtml(s.grade_section),
-                                                generateActionButtonsHtml(s)
-                                            ]).draw(false).node();
-                                            $(newRow).attr('data-id', id);
-                                        }
-                                        // Apply same classes/styles to action cell so layout matches server-rendered rows
-                                        try { $(newRow).find('td').eq(4).addClass('text-center').css('white-space', 'nowrap'); } catch(e) { /* noop */ }
-                                    }
-                                }
-                                // notify success (Swal optional)
+                                // Show success message, then refresh page content via AJAX
                                 if (window.Swal && typeof Swal.fire === 'function') {
                                     Swal.fire({icon: 'success', title: 'Success', text: res.message || 'Saved'})
-                                        .then(function(){ hideModal(); });
+                                        .then(function(){
+                                            hideModal();
+                                            // Refresh page content via AJAX to properly update the table
+                                            if (typeof reloadCurrentPage === 'function') {
+                                                reloadCurrentPage();
+                                            } else if (typeof loadPage === 'function') {
+                                                loadPage(window.location.href, false);
+                                            } else {
+                                                window.location.reload();
+                                            }
+                                        });
                                 } else {
                                     alert(res.message || 'Saved');
                                     hideModal();
+                                    // Refresh page content via AJAX
+                                    if (typeof reloadCurrentPage === 'function') {
+                                        reloadCurrentPage();
+                                    } else if (typeof loadPage === 'function') {
+                                        loadPage(window.location.href, false);
+                                    } else {
+                                        window.location.reload();
+                                    }
                                 }
                             } else {
                                 if (res && res.errors) {
