@@ -408,23 +408,31 @@
             `;
         }
 
-        // Use setTimeout to ensure DataTables initialization completes first
-        setTimeout(function() {
-            attachCheckboxHandlers();
-            
-            // Re-attach handlers after DataTable redraw
+        // Check if DataTable already exists (initialized by global script.js)
+        // If so, attach handlers immediately. Otherwise, wait.
+        function initBulkActions() {
             if ($.fn.DataTable && $.fn.DataTable.isDataTable('.defaultDataTable')) {
-                $('.defaultDataTable').DataTable().on('draw.dt', function() {
+                attachCheckboxHandlers();
+                
+                // Re-attach handlers after DataTable redraw
+                var table = $('.defaultDataTable').DataTable();
+                table.off('draw.dt.bulk').on('draw.dt.bulk', function() {
                     setTimeout(function() {
                         attachCheckboxHandlers();
                         var totalCheckboxes = $('.question-checkbox').length;
                         var checkedCheckboxes = $('.question-checkbox:checked').length;
                         $('#selectAllQuestions').prop('checked', totalCheckboxes > 0 && totalCheckboxes === checkedCheckboxes);
                         updateBulkActionsBarQuestions();
-                    }, 50);
+                    }, 10);
                 });
+            } else {
+                // DataTable not initialized yet, wait and retry
+                setTimeout(initBulkActions, 100);
             }
-        }, 200);
+        }
+
+        // Start initialization
+        initBulkActions();
     }
 
     init();

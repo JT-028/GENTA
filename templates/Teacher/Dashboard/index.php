@@ -1003,19 +1003,30 @@ document.addEventListener('click', function (e) {
             `;
         }
 
-        // Initialize after DataTables is ready
-        waitForDataTable(function() {
-            attachAssessmentCheckboxHandlers();
-            
-            // Re-initialize event handlers after DataTable draw (pagination, sort, etc.)
-            $('.defaultDataTable').off('draw.dt.bulkactions').on('draw.dt.bulkactions', function() {
+        // Check if DataTable already exists (initialized by global script.js)
+        function initBulkActions() {
+            if ($.fn.DataTable && $.fn.DataTable.isDataTable('.defaultDataTable')) {
                 attachAssessmentCheckboxHandlers();
-                var totalCheckboxes = $('.assessment-checkbox').length;
-                var checkedCheckboxes = $('.assessment-checkbox:checked').length;
-                $('#selectAllAssessments').prop('checked', totalCheckboxes > 0 && totalCheckboxes === checkedCheckboxes);
-                updateBulkActionsBarAssessments();
-            });
-        });
+                
+                // Re-attach handlers after DataTable redraw
+                var table = $('.defaultDataTable').DataTable();
+                table.off('draw.dt.bulk').on('draw.dt.bulk', function() {
+                    setTimeout(function() {
+                        attachAssessmentCheckboxHandlers();
+                        var totalCheckboxes = $('.assessment-checkbox').length;
+                        var checkedCheckboxes = $('.assessment-checkbox:checked').length;
+                        $('#selectAllAssessments').prop('checked', totalCheckboxes > 0 && totalCheckboxes === checkedCheckboxes);
+                        updateBulkActionsBarAssessments();
+                    }, 10);
+                });
+            } else {
+                // DataTable not initialized yet, wait and retry
+                setTimeout(initBulkActions, 100);
+            }
+        }
+
+        // Start initialization
+        initBulkActions();
     }
 
     if (document.readyState === 'loading') {

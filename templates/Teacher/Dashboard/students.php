@@ -451,24 +451,26 @@
                 }
             }
 
-            // Select All checkbox
-            $('#selectAllStudents').on('change', function() {
-                var isChecked = $(this).prop('checked');
-                $('.student-checkbox').prop('checked', isChecked);
-                updateBulkActionsBar();
-            });
+            function attachBulkHandlers() {
+                // Select All checkbox
+                $('#selectAllStudents').off('change.bulk').on('change.bulk', function() {
+                    var isChecked = $(this).prop('checked');
+                    $('.student-checkbox').prop('checked', isChecked);
+                    updateBulkActionsBar();
+                });
 
-            // Individual checkbox
-            $(document).on('change', '.student-checkbox', function() {
+                // Clear selection
+                $('.bulk-deselect').off('click.bulk').on('click.bulk', function() {
+                    $('.student-checkbox, #selectAllStudents').prop('checked', false);
+                    updateBulkActionsBar();
+                });
+            }
+
+            // Individual checkbox - MUST use event delegation
+            $(document).off('change.bulk', '.student-checkbox').on('change.bulk', '.student-checkbox', function() {
                 var totalCheckboxes = $('.student-checkbox').length;
                 var checkedCheckboxes = $('.student-checkbox:checked').length;
                 $('#selectAllStudents').prop('checked', totalCheckboxes === checkedCheckboxes);
-                updateBulkActionsBar();
-            });
-
-            // Clear selection
-            $('.bulk-deselect').on('click', function() {
-                $('.student-checkbox, #selectAllStudents').prop('checked', false);
                 updateBulkActionsBar();
             });
 
@@ -696,15 +698,23 @@
                                 { orderable: false, targets: [0, -1] }, // Disable sorting on checkbox and action columns
                                 { className: 'select-checkbox', targets: 0 }
                             ],
-                            language: { search: "Filter:" }
+                            language: { search: "Filter:" },
+                            initComplete: function() {
+                                // Attach handlers after DataTable completes initialization
+                                attachBulkHandlers();
+                            }
                         });
                     } else {
                         dt = $('.defaultDataTable').DataTable();
+                        // If already initialized, attach handlers now
+                        attachBulkHandlers();
                     }
                     
                     // Re-initialize event handlers after DataTable draw (pagination, sort, etc.)
                     if (dt) {
-                        dt.on('draw', function() {
+                        dt.on('draw.dt', function() {
+                            // Reattach handlers
+                            attachBulkHandlers();
                             // Recheck "select all" state
                             var totalCheckboxes = $('.student-checkbox').length;
                             var checkedCheckboxes = $('.student-checkbox:checked').length;
@@ -715,6 +725,8 @@
                 }
             } catch (e) {
                 console.warn('DataTable init failed', e);
+                // Try to attach handlers anyway
+                attachBulkHandlers();
             }
 
             // Auto-open modal when redirected here with query params: ?open=add or ?open=edit&id=<hash>
