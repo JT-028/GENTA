@@ -415,6 +415,27 @@ function initPage() {
                 }
             }
 
+            // Helper function to build proper API URLs (avoids double slashes)
+            function buildApiUrl(path) {
+                // Use APP_BASE if available, otherwise use origin
+                var base = (typeof window.APP_BASE !== 'undefined' && window.APP_BASE) 
+                    ? window.APP_BASE 
+                    : '/';
+                // Ensure base ends with slash
+                if (base.charAt(base.length - 1) !== '/') {
+                    base = base + '/';
+                }
+                // Remove leading slash from path if present
+                if (path.charAt(0) === '/') {
+                    path = path.substring(1);
+                }
+                // For absolute URLs, prepend origin if base is just a path
+                if (base.indexOf('://') === -1) {
+                    return window.location.origin + base + path;
+                }
+                return base + path;
+            }
+
             // ---- STUDENTS BULK ACTIONS ----
             if ($('.student-checkbox').length) {
                 // Get students data - columns: Checkbox(0), LRN(1), Name(2), Grade/Section(3), Action(4)
@@ -499,11 +520,10 @@ function initPage() {
 
                 function performBulkActionStudents(selectedIds, action) {
                     var csrf = getCsrfToken();
-                    var baseUrl = window.location.origin + (window.APP_BASE || '/GENTA');
                     
                     var actionPromises = selectedIds.map(function(id) {
                         return $.ajax({
-                            url: baseUrl + '/teacher/dashboard/delete-student/' + id,
+                            url: buildApiUrl('teacher/dashboard/delete-student/' + id),
                             method: 'POST',
                             headers: { 'X-CSRF-Token': csrf },
                             dataType: 'json'
@@ -636,14 +656,13 @@ function initPage() {
 
                 function performBulkActionQuestions(selectedIds, action) {
                     var csrf = getCsrfToken();
-                    var baseUrl = window.location.origin + (window.APP_BASE || '/GENTA');
                     
                     var actionPromises = selectedIds.map(function(id) {
                         var url;
                         if (action === 'delete') {
-                            url = baseUrl + '/teacher/dashboard/delete-question/' + id;
+                            url = buildApiUrl('teacher/dashboard/delete-question/' + id);
                         } else {
-                            url = baseUrl + '/teacher/dashboard/toggle-question-status/' + id;
+                            url = buildApiUrl('teacher/dashboard/toggle-question-status/' + id);
                         }
                         return $.ajax({
                             url: url,
@@ -816,11 +835,10 @@ function initPage() {
 
                 function performBulkActionMelcs(selectedIds, action) {
                     var csrf = getCsrfToken();
-                    var baseUrl = window.location.origin + (window.APP_BASE || '/GENTA');
                     
                     var actionPromises = selectedIds.map(function(id) {
                         return $.ajax({
-                            url: baseUrl + '/teacher/melcs/delete/' + id,
+                            url: buildApiUrl('teacher/melcs/delete/' + id),
                             method: 'POST',
                             headers: { 'X-CSRF-Token': csrf },
                             dataType: 'json'
@@ -2848,6 +2866,23 @@ $(document).ready(function () {
     // Deprecated legacy handler removed. The help button now opens the chooser above.
     // Run page initializers
     initPage();
+    
+    // Re-run initPage after a short delay to ensure DataTables initializes properly on first load
+    // This handles cases where DataTables plugin loads slightly after document.ready
+    setTimeout(function() {
+        try {
+            if ($.fn && $.fn.DataTable) {
+                $(".defaultDataTable").each(function () {
+                    var $tbl = $(this);
+                    if (!$.fn.DataTable.isDataTable($tbl)) {
+                        console.info('[initPage] Delayed DataTable init for:', $tbl.attr('class'));
+                        initPage();
+                    }
+                });
+            }
+        } catch(e) { /* ignore */ }
+    }, 150);
+    
     // Notify page-specific scripts that initPage completed (for AJAX/SPA flows)
     try { $(document).trigger('genta:page-ready'); } catch (e) { /* ignore */ }
 
