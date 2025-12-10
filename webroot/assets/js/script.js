@@ -37,6 +37,16 @@ function normalizeAppPath(path) {
 // Expose a placeholder so other scripts (shepherd-init) can detect WalkthroughSystem presence
 if (!window.WalkthroughSystem) window.WalkthroughSystem = {};
 
+// Suppress DataTables alert() errors IMMEDIATELY on script load.
+// This MUST run before any DataTable is initialized to prevent browser modals.
+(function() {
+    try {
+        if (typeof $ !== 'undefined' && $.fn && $.fn.DataTable && $.fn.DataTable.ext) {
+            $.fn.DataTable.ext.errMode = 'none';
+        }
+    } catch (e) { /* DataTables not loaded yet, will be set in initPage */ }
+})();
+
 // Global helper function to reload current page via AJAX (preserves DataTable styling)
 function reloadCurrentPage() {
     var currentUrl = window.location.href;

@@ -247,6 +247,7 @@
                                         // Update first matched row
                                         var node = rowSelector[0];
                                         dt.row(node).data([
+                                            '<input type="checkbox" class="form-check-input student-checkbox" value="' + escapeHtml(id) + '">',
                                             '<span class="fw-bold">' + escapeHtml(s.lrn) + '</span>',
                                             escapeHtml(s.name),
                                             escapeHtml(s.grade_section),
@@ -257,7 +258,7 @@
                                             var updatedNode = dt.row(node).node();
                                             $(updatedNode).attr('data-id', id);
                                             // Keep same cell classes/styles as server-rendered rows
-                                            $(updatedNode).find('td').eq(3).addClass('text-center').css('white-space', 'nowrap');
+                                            $(updatedNode).find('td').eq(4).addClass('text-center').css('white-space', 'nowrap');
                                         } catch (e) { /* noop */ }
                                     } else {
                                         // No existing row found -> check by LRN once more before adding
@@ -268,6 +269,7 @@
                                             // Update that row instead of adding duplicate
                                             var node = existingByLrn[0];
                                             dt.row(node).data([
+                                                '<input type="checkbox" class="form-check-input student-checkbox" value="' + escapeHtml(id) + '">',
                                                 '<span class="fw-bold">' + escapeHtml(s.lrn) + '</span>',
                                                 escapeHtml(s.name),
                                                 escapeHtml(s.grade_section),
@@ -276,6 +278,7 @@
                                             try { $(node).attr('data-id', id); } catch(e) {}
                                         } else {
                                             var newRow = dt.row.add([
+                                                '<input type="checkbox" class="form-check-input student-checkbox" value="' + escapeHtml(id) + '">',
                                                 '<span class="fw-bold">' + escapeHtml(s.lrn) + '</span>',
                                                 escapeHtml(s.name),
                                                 escapeHtml(s.grade_section),
@@ -284,7 +287,7 @@
                                             $(newRow).attr('data-id', id);
                                         }
                                         // Apply same classes/styles to action cell so layout matches server-rendered rows
-                                        try { $(newRow).find('td').eq(3).addClass('text-center').css('white-space', 'nowrap'); } catch(e) { /* noop */ }
+                                        try { $(newRow).find('td').eq(4).addClass('text-center').css('white-space', 'nowrap'); } catch(e) { /* noop */ }
                                     }
                                 }
                                 // notify success (Swal optional)
