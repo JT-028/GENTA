@@ -41,8 +41,27 @@
                 </div>
                 
                 <div class="d-flex gap-2">
-                    <?= $this->Html->link('<i class="mdi mdi-file-delimited me-1"></i> Export CSV', ['prefix' => 'Teacher', 'controller' => 'Melcs', 'action' => 'exportCsv'], ['class' => 'btn btn-outline-primary btn-sm flex-fill', 'escape' => false]) ?>
-                    <?= $this->Html->link('<i class="mdi mdi-code-braces me-1"></i> Export JSON', ['prefix' => 'Teacher', 'controller' => 'Melcs', 'action' => 'exportJson'], ['class' => 'btn btn-outline-secondary btn-sm flex-fill', 'escape' => false]) ?>
+                    <?= $this->Html->link(
+                        '<i class="mdi mdi-file-delimited me-1"></i> Export CSV', 
+                        ['prefix' => 'Teacher', 'controller' => 'Melcs', 'action' => 'exportCsv'], 
+                        [
+                            'id' => 'exportCsvBtn',                 // The JavaScript needs this ID!
+                            'data-count' => count($melcs),          // The JavaScript reads this number!
+                            'class' => 'btn btn-outline-primary btn-sm flex-fill', 
+                            'escape' => false
+                        ]
+                    ) ?>
+                    <?= $this->Html->link(
+                        '<i class="mdi mdi-code-braces me-1"></i> Export JSON', 
+                        ['prefix' => 'Teacher', 'controller' => 'Melcs', 'action' => 'exportJson'], 
+                        [
+                            'id' => 'exportJsonBtn',       // JavaScript needs this ID
+                            'data-count' => count($melcs), // JavaScript checks this number
+                            'class' => 'btn btn-outline-secondary btn-sm flex-fill', 
+                            'escape' => false,
+                            'target' => '_blank'           // Keep this for new tab support
+                        ]
+                    ) ?>
                 </div>
             </div>
         </div>
@@ -159,10 +178,9 @@
 <?php $this->start('script'); ?>
 <script>
 (function() {
-    // --- 0. CHECK FOR IMPORT SUCCESS (Runs immediately on page load) ---
-    // This checks if we just came back from an import
+    // --- 0. CHECK FOR IMPORT SUCCESS ---
     if (localStorage.getItem('genta_is_importing') === '1') {
-        localStorage.removeItem('genta_is_importing'); // Clear the flag
+        localStorage.removeItem('genta_is_importing');
         if (window.Swal) {
             Swal.fire({
                 icon: 'success',
@@ -173,6 +191,21 @@
             });
         }
     }
+
+    // --- 0.5 NEW: PRE-EMPTIVELY DISABLE BOTH EXPORT LINKS IF EMPTY ---
+    // This runs immediately to kill the links visually if count is 0
+    ['exportCsvBtn', 'exportJsonBtn'].forEach(function(btnId) {
+        var btn = document.getElementById(btnId);
+        if (btn) {
+            var count = btn.getAttribute('data-count');
+            if (count && parseInt(count) === 0) {
+                btn.setAttribute('href', 'javascript:void(0);');
+                btn.removeAttribute('target'); // Stop new tab behavior
+                btn.style.opacity = '0.7'; 
+                btn.style.cursor = 'not-allowed';
+            }
+        }
+    });
 
     // --- 1. Bulletproof "Choose File" Button Click ---
     document.addEventListener('click', function(e) {
@@ -251,40 +284,53 @@
     if (importForm) {
         importForm.addEventListener('submit', function(e) {
             var fileInput = document.getElementById('melcFileInput');
-            
-            // Check if file is empty
             if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
                 e.preventDefault(); 
                 if (window.Swal) {
-                    Swal.fire({
-                        icon: 'warning',
-                        title: 'Oops...',
-                        text: 'Please choose a file first!'
-                    });
+                    Swal.fire({ icon: 'warning', title: 'Oops...', text: 'Please choose a file first!' });
                 } else {
                     alert('Please choose a file first!');
                 }
                 return;
             }
-
-            // Set the "Flag" so we know to show "Success" when the page reloads
             localStorage.setItem('genta_is_importing', '1');
-
-            // Show "Importing..." loader
             if (window.Swal) {
                 Swal.fire({
                     title: 'Importing Data...',
                     html: 'Please wait while we process your CSV file.',
                     allowOutsideClick: false,
-                    didOpen: () => {
-                        Swal.showLoading();
-                    }
+                    didOpen: () => { Swal.showLoading(); }
                 });
             }
         });
     }
+
+    // --- 5. Export Validation (CSV AND JSON) ---
+    document.addEventListener('click', function(e) {
+        // Check if the clicked element is EITHER export button
+        var exportBtn = e.target.closest('#exportCsvBtn, #exportJsonBtn');
+        
+        if (exportBtn) {
+            var count = exportBtn.getAttribute('data-count');
+            if (parseInt(count) === 0) {
+                // Completely stop the new tab or download
+                e.preventDefault(); 
+                e.stopPropagation(); 
+                
+                if (window.Swal) {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'No Data Found',
+                        text: 'The database is empty. There is nothing to export yet!'
+                    });
+                } else {
+                    alert('No data found to export!');
+                }
+            }
+        }
+    });
     
-    // --- 5. Bulk Actions with "Deleting..." Indicator ---
+    // --- 6. Bulk Actions ---
     window.initBulkActionsMelcs = function() {
         if (!window.jQuery) return;
         var $ = window.jQuery;
@@ -315,7 +361,6 @@
             updateBulkBar();
         });
 
-        // Bulk Delete Click
         $(document).off('click', '.bulk-delete-melcs').on('click', '.bulk-delete-melcs', function() {
             var selectedIds = $('.melc-checkbox:checked').map(function() { return $(this).val(); }).get();
             if (selectedIds.length === 0) return;
@@ -329,18 +374,12 @@
                 confirmButtonText: 'Yes, delete them!'
             }).then((result) => {
                 if (result.isConfirmed) {
-                    
-                    // Show Loading Spinner IMMEDIATELY
                     Swal.fire({
                         title: 'Deleting...',
                         html: 'Removing records from database.',
                         allowOutsideClick: false,
-                        didOpen: () => {
-                            Swal.showLoading();
-                        }
+                        didOpen: () => { Swal.showLoading(); }
                     });
-
-                    // Small delay (500ms) to ensure the user SEES the spinner before AJAX starts/finishes
                     setTimeout(function() {
                         var csrf = $('meta[name=csrfToken]').attr('content') || '';
                         var deletePromises = selectedIds.map(function(id) {
@@ -352,7 +391,6 @@
                                 dataType: 'json'
                             });
                         });
-
                         Promise.all(deletePromises).then(function() {
                             Swal.fire({
                                 title: 'Deleted!',
@@ -360,23 +398,19 @@
                                 icon: 'success',
                                 timer: 2000,
                                 showConfirmButton: false
-                            }).then(() => {
-                                window.location.reload();
-                            });
+                            }).then(() => { window.location.reload(); });
                         }).catch(function() {
                             Swal.fire('Error', 'Something went wrong deleting the records.', 'error');
                         });
-                    }, 500); // 500ms delay
+                    }, 500); 
                 }
             });
         });
     };
 
-    if (window.initBulkActionsMelcs) {
-        window.initBulkActionsMelcs();
-    }
+    if (window.initBulkActionsMelcs) window.initBulkActionsMelcs();
 
-    // --- 6. Force DataTables to Restart ---
+    // --- 7. Force DataTables to Restart ---
     if (window.jQuery) {
         var $ = window.jQuery;
         var table = $('.defaultDataTable');
