@@ -279,13 +279,14 @@
         });
     });
 
-    // --- 4. Import Validation & Loading Indicator ---
+    // --- 4. Import via AJAX with Loading Indicator ---
     var importForm = document.getElementById('melcImportForm');
     if (importForm) {
         importForm.addEventListener('submit', function(e) {
+            e.preventDefault(); // Always prevent default - we handle via AJAX
+            
             var fileInput = document.getElementById('melcFileInput');
             if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
-                e.preventDefault(); 
                 if (window.Swal) {
                     Swal.fire({ icon: 'warning', title: 'Oops...', text: 'Please choose a file first!' });
                 } else {
@@ -293,15 +294,71 @@
                 }
                 return;
             }
-            localStorage.setItem('genta_is_importing', '1');
+            
+            // Show loading SweetAlert
             if (window.Swal) {
                 Swal.fire({
                     title: 'Importing Data...',
                     html: 'Please wait while we process your CSV file.',
                     allowOutsideClick: false,
-                    didOpen: () => { Swal.showLoading(); }
+                    allowEscapeKey: false,
+                    showConfirmButton: false,
+                    didOpen: function() { Swal.showLoading(); }
                 });
             }
+            
+            // Create FormData and submit via AJAX
+            var formData = new FormData(importForm);
+            var csrf = document.querySelector('meta[name="csrfToken"]');
+            
+            fetch(importForm.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-Token': csrf ? csrf.getAttribute('content') : ''
+                },
+                credentials: 'same-origin'
+            })
+            .then(function(response) {
+                return response.json();
+            })
+            .then(function(data) {
+                if (data.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Import Successful!',
+                        text: data.message || 'MELCs have been imported.',
+                        confirmButtonText: 'OK'
+                    }).then(function() {
+                        // Refresh only the content area via AJAX (not full page reload)
+                        if (typeof reloadCurrentPage === 'function') {
+                            reloadCurrentPage();
+                        } else if (typeof loadPage === 'function') {
+                            loadPage(window.location.href, false);
+                        } else {
+                            window.location.reload();
+                        }
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Import Failed',
+                        text: data.message || 'Failed to import MELCs.'
+                    });
+                }
+                // Clear the file input
+                fileInput.value = '';
+            })
+            .catch(function(error) {
+                console.error('Import error:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Import Error',
+                    text: 'An error occurred while importing. Please try again.'
+                });
+                fileInput.value = '';
+            });
         });
     }
 

@@ -128,9 +128,14 @@ class MelcsController extends AppController
     public function importCsv()
     {
         $this->request->allowMethod(['post']);
+        $isAjax = $this->request->is('ajax');
 
         $file = $this->request->getData('csv_file');
         if (empty($file) || $file->getError()) {
+            if ($isAjax) {
+                return $this->response->withType('application/json')
+                    ->withStringBody(json_encode(['success' => false, 'message' => 'Please upload a valid CSV file.']));
+            }
             $this->Flash->error('Please upload a valid CSV file.');
             return $this->redirect(['action' => 'index', 'prefix' => 'Teacher']);
         }
@@ -144,6 +149,10 @@ class MelcsController extends AppController
         $meta = $stream->getMetadata();
         $path = $meta['uri'] ?? null;
         if (!$path || !file_exists($path)) {
+            if ($isAjax) {
+                return $this->response->withType('application/json')
+                    ->withStringBody(json_encode(['success' => false, 'message' => 'Uploaded file could not be read.']));
+            }
             $this->Flash->error('Uploaded file could not be read.');
             return $this->redirect(['action' => 'index', 'prefix' => 'Teacher']);
         }
@@ -209,6 +218,21 @@ class MelcsController extends AppController
             }
         }
         fclose($f);
+
+        // Return JSON for AJAX requests
+        if ($isAjax) {
+            $message = "Successfully imported {$created} MELC(s).";
+            if (!empty($errors)) {
+                $message .= ' Some rows failed to import.';
+            }
+            return $this->response->withType('application/json')
+                ->withStringBody(json_encode([
+                    'success' => true,
+                    'message' => $message,
+                    'created' => $created,
+                    'errorCount' => count($errors)
+                ]));
+        }
 
         $this->Flash->success("Imported {$created} MELCs.");
         if (!empty($errors)) $this->Flash->error('Some rows failed to import.');
