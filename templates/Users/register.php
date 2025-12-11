@@ -339,9 +339,66 @@
                         </div>
                         <div class="modal-body" style="max-height: 60vh; overflow-y: auto;">
                             <h6 class="font-weight-bold">1. Acceptance of Terms</h6>
-                            <p>By creating an account on GENTA, you agree to these Terms and Conditions.</p>
-                            <h6 class="font-weight-bold">2. Academic Integrity</h6>
-                            <p>All users must maintain academic honesty. Cheating or plagiarism is prohibited.</p>
+                            <p>By creating an account on GENTA (Gamified Educational and Networking Tool for Academics), you agree to comply with and be bound by these Terms and Conditions.</p>
+                            
+                            <h6 class="font-weight-bold">2. User Accounts</h6>
+                            <p>You are responsible for maintaining the confidentiality of your account credentials. You must:</p>
+                            <ul>
+                                <li>Provide accurate and complete information during registration</li>
+                                <li>Keep your password secure and not share it with others</li>
+                                <li>Notify us immediately of any unauthorized access to your account</li>
+                                <li>Be responsible for all activities that occur under your account</li>
+                            </ul>
+                            
+                            <h6 class="font-weight-bold">3. Acceptable Use</h6>
+                            <p>You agree to use GENTA only for lawful educational purposes. You will not:</p>
+                            <ul>
+                                <li>Upload or share inappropriate, offensive, or copyrighted content</li>
+                                <li>Attempt to gain unauthorized access to the system</li>
+                                <li>Interfere with or disrupt the service</li>
+                                <li>Impersonate others or misrepresent your identity</li>
+                                <li>Use the platform for commercial purposes without authorization</li>
+                            </ul>
+                            
+                            <h6 class="font-weight-bold">4. Privacy and Data Protection</h6>
+                            <p>We respect your privacy and are committed to protecting your personal data:</p>
+                            <ul>
+                                <li>Your personal information will be collected, stored, and processed in accordance with applicable data protection laws</li>
+                                <li>We will not share your data with third parties without your consent, except as required by law</li>
+                                <li>You have the right to access, correct, or delete your personal information</li>
+                            </ul>
+                            
+                            <h6 class="font-weight-bold">5. Academic Integrity</h6>
+                            <p>All users must maintain academic honesty:</p>
+                            <ul>
+                                <li>Quiz answers must be your own work</li>
+                                <li>Sharing quiz answers or questions with others is prohibited</li>
+                                <li>Cheating or plagiarism will result in account suspension</li>
+                            </ul>
+                            
+                            <h6 class="font-weight-bold">6. Intellectual Property</h6>
+                            <p>All content, features, and functionality of GENTA are owned by the platform and protected by intellectual property laws. You may not:</p>
+                            <ul>
+                                <li>Copy, modify, or distribute platform content without permission</li>
+                                <li>Reverse engineer or attempt to extract source code</li>
+                                <li>Remove copyright or proprietary notices</li>
+                            </ul>
+                            
+                            <h6 class="font-weight-bold">7. Termination</h6>
+                            <p>We reserve the right to suspend or terminate your account if you violate these Terms and Conditions or engage in conduct that we deem harmful to the platform or other users.</p>
+                            
+                            <h6 class="font-weight-bold">8. Disclaimer of Warranties</h6>
+                            <p>GENTA is provided "as is" without warranties of any kind. We do not guarantee that the service will be uninterrupted, secure, or error-free.</p>
+                            
+                            <h6 class="font-weight-bold">9. Limitation of Liability</h6>
+                            <p>We shall not be liable for any indirect, incidental, special, or consequential damages arising from your use of the platform.</p>
+                            
+                            <h6 class="font-weight-bold">10. Changes to Terms</h6>
+                            <p>We reserve the right to modify these Terms and Conditions at any time. Continued use of the platform after changes constitutes acceptance of the updated terms.</p>
+                            
+                            <h6 class="font-weight-bold">11. Contact Information</h6>
+                            <p>For questions about these Terms and Conditions, please contact the GENTA administration team.</p>
+                            
                             <hr>
                             <p class="text-muted small"><strong>Last Updated:</strong> December 6, 2025</p>
                         </div>
