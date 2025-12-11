@@ -231,18 +231,32 @@
             const icon = this.querySelector('i');
             
             if (passwordVisible) {
-                // Show Text: Fill input with the saved actual variables
+                // Show Text
                 icon.className = 'mdi mdi-eye-outline';
                 passwordField.value = actualPassword;
                 if(confirmPasswordField) confirmPasswordField.value = actualConfirmPassword;
-                if (typeof window.showEyes === 'function') window.showEyes('peak', true);
+                
+                // ✅ CORRECT FIX: Set the flag, don't force the eyes
+                window.__passwordRevealed = true; 
+
             } else {
-                // Mask Text: Fill input with bullets
+                // Mask Text
                 icon.className = 'mdi mdi-eye-off-outline';
                 passwordField.value = '•'.repeat(actualPassword.length);
                 if(confirmPasswordField) confirmPasswordField.value = '•'.repeat(actualConfirmPassword.length);
-                if (typeof window.showEyes === 'function') window.showEyes('closed', true);
+                
+                // ✅ CORRECT FIX: Reset the flag
+                window.__passwordRevealed = false;
             }
+
+            // ✅ CRITICAL STEP: Ask the mascot to check the flag we just set
+            if (typeof window.passwordStateRefresh === 'function') {
+                window.passwordStateRefresh(true);
+            } else if (typeof window.showEyes === 'function') {
+                // Fallback only if the refresh function is missing
+                window.showEyes(passwordVisible ? 'peak' : 'closed', true);
+            }
+
             setTimeout(() => isToggling = false, 200);
         });
     }
@@ -431,6 +445,8 @@
         });
     }
 })();
+
+
 </script>
 
 <style>

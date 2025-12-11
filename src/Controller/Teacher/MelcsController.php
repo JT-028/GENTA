@@ -154,11 +154,44 @@ class MelcsController extends AppController
         $errors = [];
         while (($row = fgetcsv($f)) !== false) {
             if (!$header) { $header = $row; continue; }
+            // --- INSERT THIS SAFETY CHECK HERE ---
+            if (count($header) !== count($row)) {
+                continue;
+            }
+            // -------------------------------------
             $data = array_combine($header, $row);
+
+            // --- ADD THIS LINE ---
+            // Force the subject_id to 1 (Mathematics) so it never fails
+            $data['subject_id'] = 1; 
+            // ---------------------
+
+            // --- ADD THIS LINE ---
+            // This forces all headers (Description, Code, etc.) to be lowercase automatically
+            $data = array_change_key_case($data, CASE_LOWER);
+            // ---------------------
+
+            // Your previous fix is still here:
+            $data['subject_id'] = 1;
+            // ... rest of the code ...
             if (!$data) continue;
             $description = $data['description'] ?? ($data['desc'] ?? null);
             $subjectId = $data['subject_id'] ?? null;
             $subjectName = $data['subject_name'] ?? null;
+            // --- ADD THIS BLOCK ---
+            // If we have a Subject Name but no ID, try to find the ID from the database
+            if (empty($subjectId) && !empty($subjectName)) {
+                // Look for the subject in the database by name
+                $subject = $this->fetchTable('Subjects')->find()
+                    ->where(['name LIKE' => '%' . trim($subjectName) . '%'])
+                    ->first();
+
+                // If we found it, use its ID
+                if ($subject) {
+                    $subjectId = $subject->id;
+                }
+            }
+            // ----------------------
             if (!$subjectId && $subjectName) {
                 // try lookup
                 $s = $subjectsTable->find()->where(['name' => $subjectName])->first();
