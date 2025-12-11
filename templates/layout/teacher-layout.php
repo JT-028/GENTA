@@ -264,17 +264,17 @@
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link <?= $melcsActive ?>" href="<?= $this->Url->build(['prefix' => 'Teacher', 'controller' => 'Melcs', 'action' => 'index']) ?>">
+                                <span class="menu-title">MELCs</span>
+                                <i class="mdi mdi-book-open-page-variant menu-icon"></i>
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link <?= $profileActive ?>" href="<?= $this->Url->build(['controller' => 'Dashboard', 'action' => 'profile', 'prefix' => 'Teacher']) ?>">
                                 <span class="menu-title">Profile</span>
                                 <i class="mdi mdi-account menu-icon"></i>
                             </a>
                         </li>
-                            <li class="nav-item">
-                                <a class="nav-link <?= $melcsActive ?>" href="<?= $this->Url->build(['prefix' => 'Teacher', 'controller' => 'Melcs', 'action' => 'index']) ?>">
-                                    <span class="menu-title">MELCs</span>
-                                    <i class="mdi mdi-book-open-page-variant menu-icon"></i>
-                                </a>
-                            </li>
                         <li class="nav-item">
                             <!-- Force a non-prefixed logout URL so we hit App\Controller\UsersController::logout() and not a missing Teacher\UsersController -->
                             <a class="nav-link" href="<?= $this->Url->build('/users/logout') ?>" data-no-ajax="true">

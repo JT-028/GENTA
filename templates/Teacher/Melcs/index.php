@@ -312,6 +312,7 @@
         
         if (exportBtn) {
             var count = exportBtn.getAttribute('data-count');
+            var isCSV = exportBtn.id === 'exportCsvBtn';
             if (parseInt(count) === 0) {
                 // Completely stop the new tab or download
                 e.preventDefault(); 
@@ -319,12 +320,12 @@
                 
                 if (window.Swal) {
                     Swal.fire({
-                        icon: 'info',
-                        title: 'No Data Found',
-                        text: 'The database is empty. There is nothing to export yet!'
+                        icon: 'warning',
+                        title: 'No MELCs to Export',
+                        text: isCSV ? 'There are no MELC records to export as CSV.' : 'There are no MELC records to export as JSON.'
                     });
                 } else {
-                    alert('No data found to export!');
+                    alert('There are no MELC records to export.');
                 }
             }
         }

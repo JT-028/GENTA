@@ -252,45 +252,73 @@
 
         function performBulkActionQuestions(selectedIds, action) {
             var csrf = $('meta[name=csrfToken]').attr('content') || '';
-            var actionPromises = selectedIds.map(function(id) {
+            var completed = 0;
+            var total = selectedIds.length;
+            var actionText = action === 'delete' ? 'Deleting' : (action === 'suspend' ? 'Suspending' : 'Activating');
+            var actionTextPast = action === 'delete' ? 'deleted' : (action === 'suspend' ? 'suspended' : 'activated');
+            
+            // Show progress dialog
+            if (window.Swal && typeof Swal.fire === 'function') {
+                Swal.fire({
+                    title: actionText + ' Questions...',
+                    html: '<div class="mb-3">Processing <b>0</b> of <b>' + total + '</b> records</div>' +
+                          '<div class="progress" style="height: 20px;"><div class="progress-bar progress-bar-striped progress-bar-animated ' + (action === 'delete' ? 'bg-danger' : (action === 'suspend' ? 'bg-warning' : 'bg-success')) + '" role="progressbar" style="width: 0%"></div></div>',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    showConfirmButton: false,
+                    didOpen: function() {
+                        processNext(0);
+                    }
+                });
+            } else {
+                processNext(0);
+            }
+            
+            function updateProgress(current) {
+                var percent = Math.round((current / total) * 100);
+                var $content = $(Swal.getHtmlContainer());
+                $content.find('b').first().text(current);
+                $content.find('.progress-bar').css('width', percent + '%');
+            }
+            
+            function processNext(index) {
+                if (index >= total) {
+                    // All done
+                    if (window.Swal && typeof Swal.fire === 'function') {
+                        Swal.fire({
+                            title: 'Success!',
+                            text: completed + ' question(s) have been ' + actionTextPast + '.',
+                            icon: 'success'
+                        }).then(function() {
+                            window.location.reload();
+                        });
+                    } else {
+                        alert(completed + ' question(s) have been ' + actionTextPast + '.');
+                        window.location.reload();
+                    }
+                    return;
+                }
+                
                 var url;
                 if (action === 'delete') {
-                    url = '<?= $this->Url->build(['controller' => 'Dashboard', 'action' => 'deleteQuestion', 'prefix' => 'Teacher']) ?>/' + id;
+                    url = '<?= $this->Url->build(['controller' => 'Dashboard', 'action' => 'deleteQuestion', 'prefix' => 'Teacher']) ?>/' + selectedIds[index];
                 } else {
-                    url = '<?= $this->Url->build(['controller' => 'Dashboard', 'action' => 'toggleQuestionStatus', 'prefix' => 'Teacher']) ?>/' + id;
+                    url = '<?= $this->Url->build(['controller' => 'Dashboard', 'action' => 'toggleQuestionStatus', 'prefix' => 'Teacher']) ?>/' + selectedIds[index];
                 }
-                return $.ajax({
+                
+                $.ajax({
                     url: url,
                     method: 'POST',
                     headers: { 'X-CSRF-Token': csrf },
                     dataType: 'json'
+                }).always(function(data, textStatus) {
+                    if (textStatus === 'success' || (data && data.success)) {
+                        completed++;
+                    }
+                    updateProgress(index + 1);
+                    processNext(index + 1);
                 });
-            });
-
-            Promise.all(actionPromises).then(function(responses) {
-                var successCount = responses.filter(function(r) { return r && r.success; }).length;
-                var actionText = action === 'delete' ? 'deleted' : (action === 'suspend' ? 'suspended' : 'activated');
-                
-                if (window.Swal && typeof Swal.fire === 'function') {
-                    Swal.fire({
-                        title: 'Success!',
-                        text: successCount + ' question(s) have been ' + actionText + '.',
-                        icon: 'success'
-                    }).then(function() {
-                        window.location.reload();
-                    });
-                } else {
-                    alert(successCount + ' question(s) have been ' + actionText + '.');
-                    window.location.reload();
-                }
-            }).catch(function(error) {
-                console.error('Bulk action error:', error);
-                if (window.Swal && typeof Swal.fire === 'function') {
-                    Swal.fire('Error', 'Failed to perform action on some questions.', 'error');
-                } else {
-                    alert('Failed to perform action on some questions.');
-                }
-            });
+            }
         }
 
         // Print Functionality for Questions - use event delegation

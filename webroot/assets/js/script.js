@@ -529,6 +529,30 @@ function initPage() {
                     var completed = 0;
                     var total = selectedIds.length;
                     
+                    // Show progress dialog
+                    if (window.Swal && typeof Swal.fire === 'function') {
+                        Swal.fire({
+                            title: 'Deleting Students...',
+                            html: '<div class="mb-3">Processing <b>0</b> of <b>' + total + '</b> records</div>' +
+                                  '<div class="progress" style="height: 20px;"><div class="progress-bar progress-bar-striped progress-bar-animated bg-danger" role="progressbar" style="width: 0%"></div></div>',
+                            allowOutsideClick: false,
+                            allowEscapeKey: false,
+                            showConfirmButton: false,
+                            didOpen: function() {
+                                deleteNext(0);
+                            }
+                        });
+                    } else {
+                        deleteNext(0);
+                    }
+                    
+                    function updateProgress(current) {
+                        var percent = Math.round((current / total) * 100);
+                        var $content = $(Swal.getHtmlContainer());
+                        $content.find('b').first().text(current);
+                        $content.find('.progress-bar').css('width', percent + '%');
+                    }
+                    
                     // Process deletions sequentially to avoid race conditions
                     function deleteNext(index) {
                         if (index >= total) {
@@ -557,11 +581,10 @@ function initPage() {
                                 // parsererror happens when server returns HTML redirect but we still succeeded
                                 completed++;
                             }
+                            updateProgress(index + 1);
                             deleteNext(index + 1);
                         });
                     }
-                    
-                    deleteNext(0);
                 }
             }
 
@@ -862,6 +885,30 @@ function initPage() {
                     var completed = 0;
                     var total = selectedIds.length;
                     
+                    // Show progress dialog
+                    if (window.Swal && typeof Swal.fire === 'function') {
+                        Swal.fire({
+                            title: 'Deleting MELCs...',
+                            html: '<div class="mb-3">Processing <b>0</b> of <b>' + total + '</b> records</div>' +
+                                  '<div class="progress" style="height: 20px;"><div class="progress-bar progress-bar-striped progress-bar-animated bg-danger" role="progressbar" style="width: 0%"></div></div>',
+                            allowOutsideClick: false,
+                            allowEscapeKey: false,
+                            showConfirmButton: false,
+                            didOpen: function() {
+                                deleteNext(0);
+                            }
+                        });
+                    } else {
+                        deleteNext(0);
+                    }
+                    
+                    function updateProgress(current) {
+                        var percent = Math.round((current / total) * 100);
+                        var $content = $(Swal.getHtmlContainer());
+                        $content.find('b').first().text(current);
+                        $content.find('.progress-bar').css('width', percent + '%');
+                    }
+                    
                     function deleteNext(index) {
                         if (index >= total) {
                             if (window.Swal && typeof Swal.fire === 'function') {
@@ -887,11 +934,10 @@ function initPage() {
                             if (textStatus === 'success' || textStatus === 'parsererror') {
                                 completed++;
                             }
+                            updateProgress(index + 1);
                             deleteNext(index + 1);
                         });
                     }
-                    
-                    deleteNext(0);
                 }
 
                 // Individual MELC delete button handler (uses SweetAlert)
