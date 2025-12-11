@@ -329,7 +329,7 @@
                                             $jsonQuizzes = h(json_encode($quizItems));
                                         ?>
 
-                                        <button class="btn btn-sm btn-info btn-view-all" type="button" data-quizzes='<?= $jsonQuizzes ?>' style="margin: 5px;>
+                                        <button class="btn btn-sm btn-info btn-view-all" type="button" data-quizzes='<?= $jsonQuizzes ?>' style="margin: 5px";>
                                             <i class="mdi mdi-file-document-outline me-1"></i>View All
                                         </button>
                                         <!-- Delete all attempts for this student+subject -->
