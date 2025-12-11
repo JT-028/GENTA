@@ -154,37 +154,37 @@
             <!-- UPPER NAVIGATION TAB -->
             <!-- Removed pt-5 / mt-3 to prevent extra top spacing; set explicit pt-0 mt-0 -->
             <nav class="navbar default-layout-navbar col-lg-12 col-12 p-0 pt-0 mt-0 fixed-top d-flex flex-row">
-                <div class="text-center navbar-brand-wrapper d-flex align-items-center justify-content-center">
-                    <!-- DEFAULT LOGO -->
-                    <?= $this->Html->link(
-                        '<i class="mdi mdi-robot" style="font-size:2rem; color: var(--brand-primary)"></i> <span style="font-family: Aitech Rounded, sans-serif; font-size:1.7rem; color: var(--brand-primary); vertical-align:middle;">GENTA</span>',
-                        ['controller' => 'Dashboard', 'action' => 'index', 'prefix' => 'Teacher'],
-                        ['escape' => false, 'class' => 'navbar-brand brand-logo']
-                    ) ?>
-                    <!-- MINI LOGO -->
-                    <?= $this->Html->link(
-                        '<i class="mdi mdi-robot" style="font-size:1.5rem; color: var(--brand-primary)"></i>',
-                        ['controller' => 'Dashboard', 'action' => 'index', 'prefix' => 'Teacher'],
-                        ['escape' => false, 'class' => 'navbar-brand brand-logo-mini']
-                    ) ?>
+                
+                <div class="navbar-brand-wrapper d-flex align-items-center justify-content-center">
                 </div>
+
                 <div class="navbar-menu-wrapper d-flex align-items-stretch">
-                    <button class="navbar-toggler navbar-toggler align-self-center" type="button" data-toggle="minimize">
+                    
+                    <button class="navbar-toggler navbar-toggler align-self-center d-none d-lg-block me-2" type="button" data-toggle="minimize">
                         <span class="mdi mdi-menu"></span>
                     </button>
+
+                    <div class="d-flex align-items-center">
+                        <?= $this->Html->link(
+                            '<i class="mdi mdi-robot" style="font-size:2rem; color: var(--brand-primary)"></i> <span style="font-family: Aitech Rounded, sans-serif; font-size:1.7rem; color: var(--brand-primary); vertical-align:middle; margin-left: 10px;">GENTA</span>',
+                            ['controller' => 'Dashboard', 'action' => 'index', 'prefix' => 'Teacher'],
+                            ['escape' => false, 'class' => 'navbar-brand brand-logo d-flex align-items-center', 'style' => 'font-size: 1.25rem; line-height: inherit; white-space: nowrap; margin-left: 20px;']
+                        ) ?>
+                    </div>
+
                     <ul class="navbar-nav navbar-nav-right">
                         <li class="nav-item d-none d-lg-block full-screen-link">
                             <a class="nav-link">
                                 <i class="mdi mdi-fullscreen" id="fullscreen-button"></i>
                             </a>
                         </li>
-                        <!-- HELP BUTTON FOR WALKTHROUGH -->
                         <li class="nav-item d-none d-lg-block">
-                            <a class="nav-link" id="help-walkthrough-btn" title="Show Help / Walkthrough" style="position:relative;">
+                            <a class="nav-link" id="help-walkthrough-btn" title="Show Help / Walkthrough">
                                 <i class="mdi mdi-help-circle-outline" style="font-size:1.7rem; color:var(--brand-primary);"></i>
                             </a>
                         </li>
                     </ul>
+                    
                     <button class="navbar-toggler navbar-toggler-right d-lg-none align-self-center" type="button" data-toggle="offcanvas">
                         <span class="mdi mdi-menu"></span>
                     </button>

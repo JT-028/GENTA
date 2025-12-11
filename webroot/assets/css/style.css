@@ -14448,3 +14448,263 @@ dl {
   flex-grow: 1; }
 
 /*# sourceMappingURL=style.css.map */
+
+/* Ensure the hamburger button has no border/weird outline in the white header */
+.navbar .navbar-brand-wrapper .navbar-toggler {
+    border: none;
+    background: transparent;
+    padding-left: 0;
+    padding-right: 0;
+}
+
+/* --- FINAL NAV LAYOUT FIX (BURGER LEFT OF LOGO) --- */
+
+/* 1. Crush the old Brand Wrapper so it takes zero space */
+.navbar .navbar-brand-wrapper {
+    width: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    overflow: hidden !important; 
+}
+
+/* 2. Expand the Menu Wrapper to fill the whole bar */
+.navbar .navbar-menu-wrapper {
+    width: 100% !important; 
+    padding-left: 1.5rem !important; /* Standard left padding */
+    padding-right: 1.5rem !important;
+}
+
+/* 3. Style the Burger Button inside the menu */
+.navbar .navbar-menu-wrapper .navbar-toggler {
+    padding: 0;
+    height: auto; /* Let it fit naturally */
+    border: none;
+}
+
+/* --- MOBILE LAYOUT: ALIGN TO RIGHT --- */
+@media (max-width: 991px) {
+    /* 1. Hide the empty placeholder completely on mobile */
+    .navbar .navbar-brand-wrapper {
+        display: none !important;
+    }
+
+    /* 2. Make the menu wrapper full width */
+    .navbar .navbar-menu-wrapper {
+        width: 100% !important;
+        
+        /* 3. THIS IS THE FIX: Push everything (Logo + Burger) to the Right */
+        justify-content: flex-end !important; 
+    }
+    
+    /* Optional: Ensure spacing is neat on mobile */
+    .navbar .navbar-menu-wrapper .navbar-toggler {
+        margin-left: 15px; /* Add space between icons and the burger */
+    }
+}
+
+/* --- FIX 1: MOBILE DATATABLES (Search & Show Entries) --- */
+@media (max-width: 767px) {
+    /* 1. Force the wrapper row to stack vertically */
+    .dataTables_wrapper .row {
+        display: flex !important;
+        flex-direction: column !important;
+        width: 100% !important;
+        margin: 0 !important;
+    }
+
+    /* 2. Make the containers for "Show" and "Search" full width */
+    .dataTables_wrapper .col-sm-12.col-md-6 {
+        width: 100% !important;
+        max-width: 100% !important;
+        flex: 0 0 100% !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        margin-bottom: 10px !important; /* Add space between them */
+    }
+
+    /* 3. Align the text/controls to the left for better readability */
+    .dataTables_length, 
+    .dataTables_filter {
+        text-align: left !important;
+    }
+
+    /* 4. Make the Search input box wide and easy to tap */
+    .dataTables_filter label {
+        width: 100% !important;
+    }
+    .dataTables_filter input {
+        width: 100% !important;
+        margin-left: 0 !important; /* Remove default left margin */
+        display: block !important;
+        margin-top: 5px;
+    }
+}
+
+
+/* --- COMPLETE DATA TABLE & SORTING FIXES --- */
+
+/* 1. TEXT WRAPPING (Prevents overflow on mobile) */
+.table td, 
+.table th {
+    white-space: normal !important; 
+    word-wrap: break-word !important; 
+    vertical-align: top;
+}
+
+/* 2. SPECIFIC COLUMN WIDTH CONTROL */
+/* Prevents the Question column from getting too wide */
+.table td {
+    max-width: 200px;
+}
+
+/* 3. MOBILE OPTIMIZATION (Max Width 767px) */
+@media (max-width: 767px) {
+    /* Reduce padding to save screen space */
+    .table td, .table th {
+        padding: 0.5rem 0.25rem !important;
+        font-size: 0.85rem; 
+    }
+    
+    /* Fix buttons inside tables stacking weirdly */
+    .table td .btn {
+        padding: 0.25rem 0.5rem;
+        margin: 0;
+    }
+}
+
+/* --- 4. SORTING ICONS (FIX JUMPING & ALIGNMENT) --- */
+
+/* Disable default DataTables background images (Stops the "Jump") */
+table.dataTable thead .sorting,
+table.dataTable thead .sorting_asc,
+table.dataTable thead .sorting_desc,
+table.dataTable thead .sorting_asc_disabled,
+table.dataTable thead .sorting_desc_disabled {
+    background-image: none !important; 
+    position: relative !important;
+}
+
+/* Reserve space on the right so text doesn't overlap the arrows */
+table.dataTable thead th {
+    padding-right: 20px !important; 
+}
+
+/* Create Custom Arrows using Pseudo-elements (Consistent placement) */
+table.dataTable thead .sorting::before,
+table.dataTable thead .sorting::after,
+table.dataTable thead .sorting_asc::before,
+table.dataTable thead .sorting_asc::after,
+table.dataTable thead .sorting_desc::before,
+table.dataTable thead .sorting_desc::after {
+    position: absolute !important;
+    right: 5px !important;        /* Lock to 5px from right edge */
+    display: block !important;
+    font-family: inherit !important;
+    font-size: 0.8em !important;
+    line-height: 1 !important;
+}
+
+/* Position the UP Arrow (▲) */
+table.dataTable thead .sorting::before,
+table.dataTable thead .sorting_asc::before,
+table.dataTable thead .sorting_desc::before {
+    bottom: 50% !important;       
+    margin-bottom: 2px !important; 
+    content: "▲" !important;      
+    opacity: 0.3 !important;      /* Dim by default */
+}
+
+/* Position the DOWN Arrow (▼) */
+table.dataTable thead .sorting::after,
+table.dataTable thead .sorting_asc::after,
+table.dataTable thead .sorting_desc::after {
+    top: 50% !important;          
+    margin-top: 2px !important;   
+    content: "▼" !important;      
+    opacity: 0.3 !important;      
+}
+
+/* Highlight the Active Sorting Direction */
+table.dataTable thead .sorting_asc::before {
+    opacity: 1 !important; 
+}
+table.dataTable thead .sorting_desc::after {
+    opacity: 1 !important; 
+}
+
+/* --- 5. HIDE ICONS ON DISABLED COLUMNS --- */
+/* Completely remove arrows from Checkbox or Action columns */
+table.dataTable thead .sorting_disabled::before,
+table.dataTable thead .sorting_disabled::after,
+table.dataTable thead .no-sort::before,
+table.dataTable thead .no-sort::after {
+    display: none !important;
+    content: none !important;
+}
+
+/* Reset padding on disabled columns to center the content */
+table.dataTable thead .sorting_disabled,
+table.dataTable thead .no-sort {
+    padding-right: 0.75rem !important; 
+}
+/* --- 5. HIDE ICONS ON DISABLED COLUMNS (STRONGER FIX) --- */
+
+/* 1. Force hide pseudo-elements on disabled columns, even if they have 'sorting_asc' */
+table.dataTable thead .sorting_disabled::before,
+table.dataTable thead .sorting_disabled::after,
+table.dataTable thead .no-sort::before,
+table.dataTable thead .no-sort::after,
+table.dataTable thead .sorting_disabled.sorting_asc::before,  /* Specific override */
+table.dataTable thead .sorting_disabled.sorting_asc::after,   /* Specific override */
+table.dataTable thead .sorting_disabled.sorting_desc::before, /* Specific override */
+table.dataTable thead .sorting_disabled.sorting_desc::after {
+    display: none !important;
+    content: none !important;
+    opacity: 0 !important;
+}
+
+/* 2. Reset padding and background on those specific columns */
+table.dataTable thead .sorting_disabled,
+table.dataTable thead .no-sort {
+    padding-right: 0.75rem !important; /* Restore standard padding */
+    background-image: none !important; /* Ensure no background icon */
+    cursor: default !important;
+}
+/* --- FIX STUBBORN BUTTON GROUPS (Print/Export) --- */
+@media (max-width: 767px) {
+    
+    .card .card-body .btn,
+    .card .card-body .btn-group .btn {
+        font-size: 10px !important;   /* Reduce text size slightly */
+    }
+
+    /* 1. Target the main container */
+    .card .card-body > .d-flex {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 15px !important;
+    }
+
+    /* 2. CRITICAL: Break the Button Group (.btn-group) */
+    /* This specifically targets the wrapper holding Print & Export */
+    .card .card-body .btn-group {
+        display: flex !important;
+        flex-direction: column !important;
+        width: 100% !important;
+    }
+
+    /* 3. Style the buttons inside the group */
+    .card .card-body .btn-group .btn {
+        width: 100% !important;
+        margin-bottom: 10px !important; /* Space between Print and Export */
+        border-radius: 5px !important; /* Restore rounded corners */
+        border-right-width: 1px !important; /* Restore border if lost */
+    }
+
+    /* 4. Fix the "Clear Selection" button container if it's separate */
+    .card .card-body > .d-flex > div {
+        width: 100% !important;
+        text-align: center !important;
+        margin-bottom: 10px !important;
+    }
+}
