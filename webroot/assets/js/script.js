@@ -2572,7 +2572,7 @@ $(document).ready(function () {
         // Disable Shepherd's auto-resume so we can control the sequence manually
         window.DISABLE_SHEPHERD_AUTO_RESUME = true;
 
-        var tourKeys = ['dashboard', 'melcs', 'students', 'questions', 'profile'];
+        var tourKeys = ['dashboard', 'students', 'questions', 'melcs', 'profile'];
         var currentIndex = 0;
         var isRunningSequence = true; // Flag to prevent premature completion
 
