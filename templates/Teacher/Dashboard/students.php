@@ -745,4 +745,20 @@
     }
 })();
 </script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (localStorage.getItem('genta_student_added') === 'true') {
+        localStorage.removeItem('genta_student_added');
+        if (window.Swal) {
+            Swal.fire({
+                icon: 'success',
+                title: 'Student Added!',
+                text: 'The list has been updated.',
+                timer: 3000,
+                showConfirmButton: false
+            });
+        }
+    }
+});
+</script>
 <?php $this->end(); ?>
