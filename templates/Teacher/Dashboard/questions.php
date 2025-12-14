@@ -61,7 +61,7 @@
                             <th width="12%">Answer</th>
                             <th width="8%">Score</th>
                             <th width="8%">Status</th>
-                            <th width="8%" class="text-center">Action</th>
+                            <th width="8%" class="text-center actions-column">Action</th> 
                         </tr>
                     </thead>
                     <tbody>
@@ -83,12 +83,15 @@
                                         <span class="badge bg-secondary status-badge">Suspended</span>
                                     <?php endif; ?>
                                 </td>
+                                
                                 <td class="text-center">
-                                    <?= $this->Html->link('<i class="mdi mdi-lead-pencil mx-2"></i>', ['controller' => 'Dashboard', 'action' => 'createEditQuestion', 'prefix' => 'Teacher', $this->Encrypt->hex($question->id)], ['escape' => false, 'class' => 'btn-edit-question']) ?>
+                                    <div class="d-flex justify-content-center gap-2">
+                                        <?= $this->Html->link('<i class="mdi mdi-lead-pencil"></i>', ['controller' => 'Dashboard', 'action' => 'createEditQuestion', 'prefix' => 'Teacher', $this->Encrypt->hex($question->id)], ['escape' => false, 'class' => 'btn-edit-question', 'title' => 'Edit']) ?>
 
-                                    <a href="#" class="toggleQuestionStatusBtn" data-question-id="<?= h($this->Encrypt->hex($question->id)) ?>" title="Toggle status"><i class="mdi mdi-power-plug mx-2"></i></a>
+                                        <a href="#" class="toggleQuestionStatusBtn" data-question-id="<?= h($this->Encrypt->hex($question->id)) ?>" title="Toggle status"><i class="mdi mdi-power-plug"></i></a>
 
-                                    <a href="#" class="deleteQuestionBtn" data-question-id="<?= h($this->Encrypt->hex($question->id)) ?>"><i class="mdi mdi-close mx-2"></i></a>
+                                        <a href="#" class="deleteQuestionBtn" data-question-id="<?= h($this->Encrypt->hex($question->id)) ?>" title="Delete"><i class="mdi mdi-close"></i></a>
+                                    </div>
                                 </td>
                             </tr>
                         <?php } ?>
