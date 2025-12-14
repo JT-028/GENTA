@@ -2251,6 +2251,65 @@ $(document).ready(function () {
                     icon: "💾",
                 },
             ],
+            melcs: [
+                {
+                    id: 'melcs-overview',
+                    title: "📚 MELCs Management",
+                    text: "Welcome to MELCs (Most Essential Learning Competencies)! This is where you manage the learning competencies that drive the GenAI-powered question generation.",
+                    target: null,
+                    navigateTo: '/teacher/melcs',
+                    position: "center",
+                    icon: "📚",
+                },
+                {
+                    id: 'melcs-add-new',
+                    title: "Add New MELC",
+                    text: "Click this button to add a new learning competency. Each MELC you add helps train the AI to generate more relevant quiz questions.",
+                    target: '.btn-add-melc, a.btn-add-melc, button:contains("Add MELC")',
+                    position: "bottom",
+                    icon: "➕",
+                },
+                {
+                    id: 'melcs-export',
+                    title: "Export Your Data",
+                    text: "Download all your MELCs in CSV or JSON format. This is useful for backups or sharing with other teachers.",
+                    target: '#exportCsvBtn, #exportJsonBtn, .btn-outline-primary:contains("Export")',
+                    position: "bottom",
+                    icon: "📤",
+                },
+                {
+                    id: 'melcs-import',
+                    title: "Import MELCs",
+                    text: "Easily restore or bulk-add MELCs by uploading a CSV file. Drag and drop your file here or click to browse.",
+                    target: '#melcDropArea, .file-drop-area, #melcImportForm',
+                    position: "left",
+                    icon: "📥",
+                },
+                {
+                    id: 'melcs-table',
+                    title: "MELC Records",
+                    text: "View all your MELCs in this table. You can see the upload date, description, and subject for each competency.",
+                    target: '.card .table, table.defaultDataTable, .table-responsive',
+                    position: "top",
+                    icon: "📋",
+                },
+                {
+                    id: 'melcs-bulk-actions',
+                    title: "Bulk Actions",
+                    text: "Select multiple MELCs using the checkboxes, then use bulk actions to delete or print them all at once.",
+                    target: '#selectAllMelcs, .bulk-actions-bar-melcs, tbody tr:first .melc-checkbox',
+                    position: "bottom",
+                    icon: "☑️",
+                },
+                {
+                    id: 'melcs-actions',
+                    title: "Edit & Delete",
+                    text: "Use these buttons to edit or remove individual MELCs. Changes take effect immediately.",
+                    target: 'tbody tr:first .btn-edit-melc, tbody tr:first .btn-delete-melc-single',
+                    position: "left",
+                    icon: "✏️",
+                },
+            ],
         },
 
         init() {
@@ -2283,6 +2342,7 @@ $(document).ready(function () {
 
         detectCurrentPage() {
             const path = window.location.pathname.toLowerCase();
+            if (path.includes("/melcs")) return "melcs";
             if (path.includes("/students")) return "students";
             if (path.includes("/questions") || path.includes("/quiz"))
                 return "questions";
@@ -2512,7 +2572,7 @@ $(document).ready(function () {
         // Disable Shepherd's auto-resume so we can control the sequence manually
         window.DISABLE_SHEPHERD_AUTO_RESUME = true;
 
-        var tourKeys = ['dashboard', 'students', 'questions', 'profile'];
+        var tourKeys = ['dashboard', 'melcs', 'students', 'questions', 'profile'];
         var currentIndex = 0;
         var isRunningSequence = true; // Flag to prevent premature completion
 
@@ -2691,10 +2751,12 @@ $(document).ready(function () {
                          console.info('runNextTour: Pre-flight navigation required to', targetPath);
                          
                          // Set resume marker so it auto-starts after load
+                         // noCancelIcon: true for first-time tours (no X button)
                          var resume = { 
                              key: key, 
                              stepId: firstStep.id, 
-                             expectedPath: targetPath 
+                             expectedPath: targetPath,
+                             noCancelIcon: true
                          };
                          sessionStorage.setItem('genta_walkthrough_resume', JSON.stringify(resume));
                          
@@ -2724,7 +2786,8 @@ $(document).ready(function () {
                             console.info('Creating tour for ' + key + ' with ' + WalkthroughSystem.tours[key].length + ' steps');
                         }
 
-                        var tour = WalkthroughSystem._createShepherdFrom(key);
+                        // First-time tours are non-cancellable (no X button, no escape key)
+                        var tour = WalkthroughSystem._createShepherdFrom(key, { noCancelIcon: true });
                         if (tour) {
                             attachSequenceHooks(tour);
                             
@@ -2814,6 +2877,7 @@ $(document).ready(function () {
     function showTourChooser() {
         var options = {
             dashboard: 'Dashboard — Overview & quick actions',
+            melcs: 'MELCs — Manage learning competencies',
             students: 'Students — Manage students',
             questions: 'Quiz — Manage questions and questions bank',
             profile: 'Profile — Update your account'

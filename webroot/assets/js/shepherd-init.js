@@ -69,7 +69,11 @@
         }
 
         // helper to convert a single tour definition to Shepherd
-        window.WalkthroughSystem._createShepherdFrom = function(key){
+        // options: { noCancelIcon: boolean } - when true, hides the X button and disables escape key
+        window.WalkthroughSystem._createShepherdFrom = function(key, options){
+            options = options || {};
+            var allowCancel = !options.noCancelIcon;
+            
             try{
                 var def = WalkthroughSystem.tours[key];
                 if(!def || !def.length) return null;
@@ -77,12 +81,13 @@
                     useModalOverlay: true,
                     defaultStepOptions: {
                         scrollTo: { behavior: 'smooth', block: 'center' },
-                        cancelIcon: { enabled: true },
+                        cancelIcon: { enabled: allowCancel },
                         classes: 'genta-shepherd-theme',
                         modalOverlayOpeningPadding: 4,
                         modalOverlayOpeningRadius: 8
                     },
-                    keyboardNavigation: true
+                    keyboardNavigation: allowCancel, // Disable escape key when noCancelIcon is true
+                    exitOnEsc: allowCancel // Explicitly disable ESC key exit
                 });
 
                 def.forEach(function(s, idx){
@@ -390,7 +395,13 @@
                                                     if(window.sessionStorage && key){
                                                         var stepId = (s.id || 'step-' + idx);
                                                         // store expectedPath so resume only triggers when on the intended page
-                                                        var resume = { key: key, stepId: stepId, expectedPath: navUrlFull };
+                                                        // Preserve noCancelIcon option if tour was started with it
+                                                        var resume = { 
+                                                            key: key, 
+                                                            stepId: stepId, 
+                                                            expectedPath: navUrlFull,
+                                                            noCancelIcon: !allowCancel
+                                                        };
                                                         try{ 
                                                             sessionStorage.setItem('genta_walkthrough_resume', JSON.stringify(resume)); 
                                                             console.info('shepherd-init: stored resume data', resume);
@@ -548,9 +559,10 @@
 
         // expose a function to start a Shepherd tour by key
         // `startStep` may be a numeric index (legacy) or a step id string (preferred).
-        WalkthroughSystem.startShepherd = function(key, startStep){
-            console.info && console.info('shepherd-init: startShepherd called', { key: key, startStep: startStep });
-            var t = WalkthroughSystem._createShepherdFrom(key);
+        // `options` may contain: { noCancelIcon: boolean } - when true, hides X button and disables escape
+        WalkthroughSystem.startShepherd = function(key, startStep, options){
+            console.info && console.info('shepherd-init: startShepherd called', { key: key, startStep: startStep, options: options });
+            var t = WalkthroughSystem._createShepherdFrom(key, options);
             if(!t) return false;
             try{
                 // If resuming to a specific step, show that step directly instead of starting from beginning
@@ -628,8 +640,10 @@
                                                 setTimeout(function(){
                                                     try{ 
                                                         var t = null;
-                                                        if(obj.stepId){ t = WalkthroughSystem.startShepherd(obj.key, obj.stepId); } 
-                                                        else if(typeof obj.step === 'number'){ t = WalkthroughSystem.startShepherd(obj.key, obj.step); } 
+                                                        // Pass noCancelIcon option when resuming first-time tours
+                                                        var resumeOptions = obj.noCancelIcon ? { noCancelIcon: true } : {};
+                                                        if(obj.stepId){ t = WalkthroughSystem.startShepherd(obj.key, obj.stepId, resumeOptions); } 
+                                                        else if(typeof obj.step === 'number'){ t = WalkthroughSystem.startShepherd(obj.key, obj.step, resumeOptions); } 
                                                         
                                                         if(t && window.jQuery) {
                                                             // Fire event so sequential runner can re-hook
@@ -653,8 +667,10 @@
                                         setTimeout(function(){
                                             try{ 
                                                 var t = null;
-                                                if(obj.stepId){ t = WalkthroughSystem.startShepherd(obj.key, obj.stepId); } 
-                                                else if(typeof obj.step === 'number'){ t = WalkthroughSystem.startShepherd(obj.key, obj.step); } 
+                                                // Pass noCancelIcon option when resuming first-time tours
+                                                var resumeOptions = obj.noCancelIcon ? { noCancelIcon: true } : {};
+                                                if(obj.stepId){ t = WalkthroughSystem.startShepherd(obj.key, obj.stepId, resumeOptions); } 
+                                                else if(typeof obj.step === 'number'){ t = WalkthroughSystem.startShepherd(obj.key, obj.step, resumeOptions); } 
                                                 
                                                 if(t && window.jQuery) {
                                                     // Fire event so sequential runner can re-hook
