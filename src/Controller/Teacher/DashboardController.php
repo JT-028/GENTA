@@ -966,49 +966,75 @@ class DashboardController extends AppController
 
         $safeName = str_replace(' ', '_', $student->name);
         $lrn = $student->lrn;
+        
+        // Fetch report from ngrok tunnel using secure proxy
+        $ngrokConfig = \Cake\Core\Configure::read('Ngrok');
+        if (!$ngrokConfig) {
+            throw new \Cake\Http\Exception\InternalErrorException('Ngrok configuration not found');
+        }
+
+        $baseUrl = rtrim($ngrokConfig['baseUrl'], '/');
+        $apiKey = $ngrokConfig['apiKey'];
+        $timeout = $ngrokConfig['timeout'] ?? 30;
+
+        // Determine endpoint and filename
         if ($type === 'tailored') {
+            $endpoint = $ngrokConfig['tailoredEndpoint'];
             $basename = 'tailored_module_' . $safeName . '_' . $lrn . '.docx';
-        } else {
+        } elseif ($type === 'analysis') {
+            $endpoint = $ngrokConfig['analysisEndpoint'];
             $basename = 'analysis_result_' . $safeName . '_' . $lrn . '.docx';
+        } else {
+            throw new \Cake\Http\Exception\NotFoundException('Invalid document type');
         }
 
-        $possibleDirs = [
-            WWW_ROOT . 'uploads' . DS,
-            WWW_ROOT,
-            // Prefer the developer's OneDrive IoT MAIN_SYSTEM uploads folder (requested new location)
-            'C:\\Users\\vonti\\OneDrive\\Desktop\\GENTA_MAIN_SYSTEM_IoT\\MAIN_SYSTEM\\uploads\\',
-            // Also check older IoT location (kept for compatibility)
-            'C:\\Users\\vonti\\OneDrive\\Desktop\\GENTA_MAIN_SYSTEM_IoT\\uploads\\',
-            // Legacy OneDrive location kept as fallback
-            'C:\\Users\\vonti\\OneDrive\\Desktop\\GENTA SYS\\MAIN_SYSTEM\\uploads\\'
-        ];
+        // Build request URL with LRN parameter
+        $requestUrl = $baseUrl . $endpoint . '?' . http_build_query(['lrn' => $lrn]);
 
-        foreach ($possibleDirs as $d) {
-            $f = $d . $basename;
-            if (file_exists($f)) {
-                // Stream file for download; use the original basename as the download name
-                return $this->response->withFile($f, ['download' => true, 'name' => $basename]);
-            }
-        }
-
-        // If not found locally, try the remote host as a last resort
-        $remoteHost = 'https://nonbasic-bob-inimical.ngrok-free.dev/';
-        $remoteUrl = rtrim($remoteHost, '/') . '/' . $basename;
+        // Make authenticated request to ngrok tunnel
+        $http = new \Cake\Http\Client(['timeout' => $timeout]);
+        
         try {
-            $hdrs = @get_headers($remoteUrl);
-            if ($hdrs && is_array($hdrs)) {
-                foreach ($hdrs as $h) {
-                    if (stripos($h, '200') !== false) {
-                        // redirect to remote resource
-                        return $this->redirect($remoteUrl);
-                    }
+            $response = $http->get($requestUrl, [], [
+                'headers' => [
+                    'X-GENTA-API-KEY' => $apiKey,
+                    'Accept' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                ]
+            ]);
+
+            if (!$response->isOk()) {
+                $statusCode = $response->getStatusCode();
+                if ($statusCode === 404) {
+                    throw new \Cake\Http\Exception\NotFoundException('Report not found for this student. The student may not have completed a quiz yet.');
+                } elseif ($statusCode === 401) {
+                    throw new \Cake\Http\Exception\InternalErrorException('API authentication failed');
+                } else {
+                    throw new \Cake\Http\Exception\InternalErrorException('Failed to fetch report from server (HTTP ' . $statusCode . ')');
                 }
             }
-        } catch (\Throwable $e) {
-            // ignore
-        }
 
-        throw new \Cake\Http\Exception\NotFoundException('File not found');
+            // Return the file for download
+            $fileContent = $response->getStringBody();
+            if (empty($fileContent)) {
+                throw new \Cake\Http\Exception\NotFoundException('Report file is empty');
+            }
+
+            // Stream the file to the user
+            return $this->response
+                ->withStringBody($fileContent)
+                ->withType('application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+                ->withDownload($basename);
+
+        } catch (\Cake\Http\Exception\HttpException $e) {
+            // Re-throw HTTP exceptions (404, 401, etc.)
+            throw $e;
+        } catch (\Throwable $e) {
+            // Log the error and return user-friendly message
+            $this->log('Ngrok fetch error: ' . $e->getMessage(), 'error');
+            throw new \Cake\Http\Exception\InternalErrorException(
+                'Unable to fetch report. The report service may be temporarily unavailable. Please try again later.'
+            );
+        }
     }
 
     /**

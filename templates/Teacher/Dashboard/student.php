@@ -40,14 +40,14 @@
                     <div class="row mt-3 px-0">
                         <div class="col-12">
                             <div class="student-actions d-flex flex-wrap gap-2">
-                                <a href="<?= $this->Url->build(['controller' => 'Dashboard', 'action' => 'downloadDocument', 'prefix' => 'Teacher', $this->Encrypt->hex($student->id), 'tailored']) ?>" class="btn btn-warning btn-sm btn-icon-label d-inline-flex align-items-center doc-link" data-type="tailored" data-student="<?= $this->Encrypt->hex($student->id) ?>" target="_blank" rel="noopener noreferrer">
-                                    <i class="mdi mdi-file-document-box-outline me-2" style="font-size:1.15rem;"></i>
-                                    <span class="d-none d-sm-inline">Tailored Module</span>
+                                <a href="<?= $this->Url->build(['controller' => 'Dashboard', 'action' => 'downloadDocument', 'prefix' => 'Teacher', $this->Encrypt->hex($student->id), 'tailored']) ?>" class="btn btn-warning btn-sm btn-icon-label d-inline-flex align-items-center doc-link" data-type="tailored" data-student="<?= $this->Encrypt->hex($student->id) ?>" data-doc-type="Tailored Module">
+                                    <i class="mdi mdi-file-document-box-outline me-2 doc-icon" style="font-size:1.15rem;"></i>
+                                    <span class="d-none d-sm-inline doc-text">Tailored Module</span>
                                 </a>
 
-                                <a href="<?= $this->Url->build(['controller' => 'Dashboard', 'action' => 'downloadDocument', 'prefix' => 'Teacher', $this->Encrypt->hex($student->id), 'analysis']) ?>" class="btn btn-teal btn-sm btn-icon-label d-inline-flex align-items-center doc-link" data-type="analysis" data-student="<?= $this->Encrypt->hex($student->id) ?>" target="_blank" rel="noopener noreferrer">
-                                    <i class="mdi mdi-chart-areaspline me-2" style="font-size:1.15rem;"></i>
-                                    <span class="d-none d-sm-inline">Analysis</span>
+                                <a href="<?= $this->Url->build(['controller' => 'Dashboard', 'action' => 'downloadDocument', 'prefix' => 'Teacher', $this->Encrypt->hex($student->id), 'analysis']) ?>" class="btn btn-teal btn-sm btn-icon-label d-inline-flex align-items-center doc-link" data-type="analysis" data-student="<?= $this->Encrypt->hex($student->id) ?>" data-doc-type="Analysis Report">
+                                    <i class="mdi mdi-chart-areaspline me-2 doc-icon" style="font-size:1.15rem;"></i>
+                                    <span class="d-none d-sm-inline doc-text">Analysis</span>
                                 </a>
 
                                 <?= $this->Form->button('<i class="mdi mdi-send me-2" style="font-size:1.1rem;"></i> Submit', ['class' => 'btn btn-success btn-sm d-inline-flex align-items-center d-none', 'id' => 'submitRemarksBtn', 'type' => 'submit', 'escapeTitle' => false]) ?>
@@ -93,3 +93,57 @@
         </div>
     </div>
 </div>
+
+<?php $this->start('script'); ?>
+<script>
+(function() {
+    // Add loading state to document download buttons
+    $(document).on('click', '.doc-link', function(e) {
+        var $btn = $(this);
+        var docType = $btn.data('doc-type') || 'Document';
+        var $icon = $btn.find('.doc-icon');
+        var $text = $btn.find('.doc-text');
+        var originalIcon = $icon.attr('class');
+        var originalText = $text.text();
+        
+        // Show loading state
+        $icon.attr('class', 'mdi mdi-loading mdi-spin me-2');
+        $text.text('Fetching...');
+        $btn.prop('disabled', true).css('opacity', '0.6');
+        
+        // Show SweetAlert loading (if available)
+        if (window.Swal && typeof Swal.fire === 'function') {
+            Swal.fire({
+                title: 'Fetching Report',
+                html: 'Please wait while we retrieve the <strong>' + docType + '</strong> from the server...',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false,
+                didOpen: function() {
+                    Swal.showLoading();
+                }
+            });
+            
+            // Auto-close SweetAlert after download starts (give it 3 seconds for download to initiate)
+            setTimeout(function() {
+                Swal.close();
+                // Restore button state
+                $icon.attr('class', originalIcon);
+                $text.text(originalText);
+                $btn.prop('disabled', false).css('opacity', '1');
+            }, 3000);
+        } else {
+            // Fallback: just restore button state after delay
+            setTimeout(function() {
+                $icon.attr('class', originalIcon);
+                $text.text(originalText);
+                $btn.prop('disabled', false).css('opacity', '1');
+            }, 3000);
+        }
+        
+        // Let the default link behavior proceed (download will start in new tab)
+        // If download fails (404, 500, etc.), server will show error page in new tab
+    });
+})();
+</script>
+<?php $this->end(); ?>
