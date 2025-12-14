@@ -1,29 +1,25 @@
 <link rel="stylesheet" href="<?= $this->Url->build('/assets/css/mascot.css') ?>">
 
-<!-- Mascot centered above the original single-column form -->
 <div id="genta-mascot" class="genta-mascot" aria-hidden="true">
     <div id="genta-mascot-container" class="frame-circle" aria-hidden="true"></div>
 </div>
 
-<!-- WELCOME TEXT -->
 <div class="text-center mb-4">
     <h2 class="auth-title mb-2" style="font-weight: 600; color: #2c3e50;">Welcome Back! 👋</h2>
     <p class="auth-subtitle" style="color: #6c757d; font-size: 0.95rem;">Sign in to continue managing your quizzes, students, and results</p>
 </div>
 
-<!-- LOG IN FORM -->
-<?php
-// Use a canonical route-array for the login action so the generated action
-// is always '/users/login' (prefixed by App.base). For safety, force no
-// prefix to avoid inheriting any current routing prefix (e.g. 'teacher').
-?>
 <?= $this->Form->create(null, ['url' => ['controller' => 'Users', 'action' => 'login', 'prefix' => false], 'id' => 'loginForm']) ?>
     <div class="form-group">
         <?= $this->Form->email('email', ['class' => 'form-control form-control-lg', 'id' => 'email', 'placeholder' => 'Email Address', 'required' => 'required', 'aria-label' => 'Email']) ?>
     </div>
+    
     <div class="form-group position-relative">
-        <?= $this->Form->password('password', ['class' => 'form-control form-control-lg', 'id' => 'password', 'placeholder' => 'Password', 'required' => 'required', 'aria-label' => 'Password']) ?>
-    <button type="button" id="toggle-password-visibility" class="password-toggle-icon" aria-label="Toggle password visibility"><i class="mdi mdi-eye-off-outline" aria-hidden="true"></i></button>
+        <input type="password" name="password" class="form-control form-control-lg" id="password" placeholder="Password" required aria-label="Password" autocomplete="current-password" style="padding-right: 45px;">
+        
+        <button type="button" id="toggle-password-visibility" class="password-toggle-icon" aria-label="Toggle password visibility" tabindex="-1">
+            <i class="mdi mdi-eye-off-outline" aria-hidden="true"></i>
+        </button>
     </div>
     
     <?php if (isset($showCaptcha) && $showCaptcha): ?>
@@ -65,10 +61,8 @@
     </div>
 <?= $this->Form->end() ?>
 
-<!-- Session Timeout Detection -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Show a friendly message if the user was redirected after session timeout
     try {
         var urlParams = new URLSearchParams(window.location.search);
         var redirectParam = urlParams.get('redirect');
@@ -81,59 +75,162 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
     } catch (err) {
-        // Non-fatal: don't break the page if Swal or URL parsing fails
         console.warn('Session timeout helper error', err);
     }
 });
 </script>
 
 <script>
-// Password toggle for login page
-document.addEventListener('DOMContentLoaded', function() {
-    const toggleBtn = document.getElementById('toggle-password-visibility');
-    const passwordField = document.getElementById('password');
-    
-    if (toggleBtn && passwordField) {
-        // Use mousedown to prevent default focus behavior
-        toggleBtn.addEventListener('mousedown', function(e) {
-            e.preventDefault(); // Prevent focus from shifting away from password field
-        });
+(function() {
+    document.addEventListener('DOMContentLoaded', function() {
+        const passwordField = document.getElementById('password');
+        const toggleBtn = document.getElementById('toggle-password-visibility');
+        const form = document.getElementById('loginForm');
         
-        toggleBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
+        let actualPassword = '';
+        let lastCharTimer = null;
+        let passwordVisible = false;
+        let isToggling = false;
+
+        // 1. INITIALIZATION
+        if (passwordField) {
+            passwordField.setAttribute('type', 'text');
+            passwordField.removeAttribute('data-password'); 
             
-            const icon = this.querySelector('i');
-            
-            // Save cursor position before toggle
-            const cursorPos = passwordField.selectionStart;
-            const cursorEnd = passwordField.selectionEnd;
-            
-            if (passwordField.type === 'password') {
-                passwordField.type = 'text';
-                icon.classList.remove('mdi-eye-off-outline');
-                icon.classList.add('mdi-eye-outline');
-                window.__passwordRevealed = true;
-            } else {
-                passwordField.type = 'password';
-                icon.classList.remove('mdi-eye-outline');
-                icon.classList.add('mdi-eye-off-outline');
-                window.__passwordRevealed = false;
-            }
-            
-            // Keep focus on password field and restore cursor position after type change completes
-            requestAnimationFrame(() => {
-                passwordField.focus();
-                passwordField.setSelectionRange(cursorPos, cursorEnd);
-                
-                // Trigger mascot eye update immediately
-                if (typeof window.passwordStateRefresh === 'function') {
-                    window.passwordStateRefresh(true);
+            // Check for browser autofill on load
+            setTimeout(() => {
+                if(passwordField.value && passwordField.value !== '') {
+                    actualPassword = passwordField.value;
+                    passwordField.value = '•'.repeat(actualPassword.length);
+                }
+            }, 100);
+        }
+
+        // 2. MASKING LOGIC
+        if (passwordField) {
+            passwordField.addEventListener('input', function(e) {
+                if (isToggling) return;
+
+                if (passwordVisible) {
+                    actualPassword = this.value;
+                    return;
+                }
+
+                const currentValue = this.value;
+                const cursorPos = this.selectionStart;
+                const previousValue = actualPassword;
+
+                // Handle Bulk (Paste/Autofill)
+                if (currentValue.length > previousValue.length + 1 || (currentValue && !currentValue.includes('•'))) {
+                    actualPassword = currentValue;
+                    this.value = '•'.repeat(currentValue.length);
+                    this.setSelectionRange(cursorPos, cursorPos);
+                }
+                // Handle Single Character
+                else if (currentValue.length > previousValue.length) {
+                    const newChar = e.data || currentValue.slice(-1);
+                    const insertedVal = previousValue.slice(0, cursorPos - 1) + newChar + previousValue.slice(cursorPos - 1);
+                    actualPassword = insertedVal;
+
+                    this.value = '•'.repeat(insertedVal.length - 1) + newChar;
+                    this.setSelectionRange(cursorPos, cursorPos);
+
+                    clearTimeout(lastCharTimer);
+                    lastCharTimer = setTimeout(() => {
+                        if (!passwordVisible) {
+                            this.value = '•'.repeat(insertedVal.length);
+                            this.setSelectionRange(cursorPos, cursorPos);
+                        }
+                    }, 500);
+                }
+                // Handle Deletion
+                else if (currentValue.length < previousValue.length) {
+                    const diff = previousValue.length - currentValue.length;
+                    const removedVal = previousValue.slice(0, cursorPos) + previousValue.slice(cursorPos + diff);
+                    actualPassword = removedVal;
+                    this.value = '•'.repeat(removedVal.length);
+                    this.setSelectionRange(cursorPos, cursorPos);
                 }
             });
-        });
-    }
-});
+        }
+
+        // 3. SECURE SUBMIT
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                const hiddenPass = document.createElement('input');
+                hiddenPass.type = 'hidden';
+                hiddenPass.name = 'password'; 
+                hiddenPass.value = actualPassword;
+                this.appendChild(hiddenPass);
+
+                if (passwordField) passwordField.removeAttribute('name');
+            });
+        }
+
+        // 4. TOGGLE VISIBILITY
+        if (toggleBtn && passwordField) {
+            toggleBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                isToggling = true;
+                passwordVisible = !passwordVisible;
+                const icon = this.querySelector('i');
+                const cursorPos = passwordField.selectionStart;
+
+                if (passwordVisible) {
+                    icon.className = 'mdi mdi-eye-outline';
+                    passwordField.value = actualPassword;
+                    window.__passwordRevealed = true;
+                } else {
+                    icon.className = 'mdi mdi-eye-off-outline';
+                    passwordField.value = '•'.repeat(actualPassword.length);
+                    window.__passwordRevealed = false;
+                }
+
+                requestAnimationFrame(() => {
+                    passwordField.focus();
+                    passwordField.setSelectionRange(cursorPos, cursorPos);
+                    if (typeof window.passwordStateRefresh === 'function') {
+                        window.passwordStateRefresh(true);
+                    }
+                });
+
+                setTimeout(() => isToggling = false, 200);
+            });
+
+            toggleBtn.addEventListener('mousedown', function(e) { e.preventDefault(); });
+        }
+    });
+})();
 </script>
 
 <script src="<?= $this->Url->build('/assets/js/mascot.js') ?>?v=<?= filemtime(WWW_ROOT . 'assets/js/mascot.js') ?>" defer></script>
+
+<style>
+/* CSS FIX: Vertically center the icon regardless of input height */
+.form-group.position-relative .password-toggle-icon {
+    position: absolute !important;
+    top: 50% !important;           /* Position from top 50% */
+    right: 0 !important;           /* Align right */
+    transform: translateY(-50%) !important; /* Pull back up by 50% of its own height */
+    width: 45px !important;        /* Fixed width */
+    height: 45px !important;       /* Fixed height (touch target) */
+    
+    background: transparent !important;
+    border: none !important;
+    z-index: 10 !important;
+    color: #6c757d;
+    cursor: pointer;
+    
+    /* Flex to center the icon inside the button */
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.password-toggle-icon:hover { color: #2c3e50; }
+.password-toggle-icon:focus { outline: none; }
+</style>

@@ -41,26 +41,50 @@
                 </div>
                 
                 <div class="d-flex gap-2">
+                    <?php 
+                        $count = count($melcs);
+                        $hasData = $count > 0;
+                        
+                        // CSV Button Logic
+                        $csvUrl = $hasData 
+                            ? ['prefix' => 'Teacher', 'controller' => 'Melcs', 'action' => 'exportCsv'] 
+                            : 'javascript:void(0);';
+                            
+                        $csvAttributes = [
+                            'id' => 'exportCsvBtn',
+                            'data-count' => $count,
+                            'class' => 'btn btn-outline-primary btn-sm flex-fill ' . (!$hasData ? 'disabled-export' : ''),
+                            'escape' => false
+                        ];
+                        
+                        // JSON Button Logic
+                        $jsonUrl = $hasData 
+                            ? ['prefix' => 'Teacher', 'controller' => 'Melcs', 'action' => 'exportJson'] 
+                            : 'javascript:void(0);';
+                            
+                        $jsonAttributes = [
+                            'id' => 'exportJsonBtn',
+                            'data-count' => $count,
+                            'class' => 'btn btn-outline-secondary btn-sm flex-fill ' . (!$hasData ? 'disabled-export' : ''),
+                            'escape' => false,
+                        ];
+                        
+                        // Only add target blank if we actually have data (prevents opening empty tab)
+                        if ($hasData) {
+                            $jsonAttributes['target'] = '_blank';
+                        }
+                    ?>
+
                     <?= $this->Html->link(
                         '<i class="mdi mdi-file-delimited me-1"></i> Export CSV', 
-                        ['prefix' => 'Teacher', 'controller' => 'Melcs', 'action' => 'exportCsv'], 
-                        [
-                            'id' => 'exportCsvBtn',                 // The JavaScript needs this ID!
-                            'data-count' => count($melcs),          // The JavaScript reads this number!
-                            'class' => 'btn btn-outline-primary btn-sm flex-fill', 
-                            'escape' => false
-                        ]
+                        $csvUrl, 
+                        $csvAttributes
                     ) ?>
+                    
                     <?= $this->Html->link(
                         '<i class="mdi mdi-code-braces me-1"></i> Export JSON', 
-                        ['prefix' => 'Teacher', 'controller' => 'Melcs', 'action' => 'exportJson'], 
-                        [
-                            'id' => 'exportJsonBtn',       // JavaScript needs this ID
-                            'data-count' => count($melcs), // JavaScript checks this number
-                            'class' => 'btn btn-outline-secondary btn-sm flex-fill', 
-                            'escape' => false,
-                            'target' => '_blank'           // Keep this for new tab support
-                        ]
+                        $jsonUrl, 
+                        $jsonAttributes
                     ) ?>
                 </div>
             </div>
@@ -87,8 +111,9 @@
                     <div class="file-drop-area" id="melcDropArea" style="border: 2px dashed #dee2e6; border-radius: 8px; padding: 40px 20px; text-align: center; background-color: #fafafa; cursor: pointer; transition: all 0.3s;">
                         <i class="mdi mdi-upload text-muted" style="font-size: 48px; display: block; margin-bottom: 12px;"></i>
                         <p class="mb-2 text-muted">Drag and drop backup file here or click to browse</p>
-                        <input type="file" name="csv_file" id="melcFileInput" accept=".csv" style="display: none;">
-                        <button type="button" class="btn btn-success" id="melcChooseFileBtn">
+                        <input type="file" name="csv_file" id="melcFileInput" accept=".csv" style="display: none;"
+    onchange="if(this.files.length > 0) { document.getElementById('melcFileName').textContent = this.files[0].name; document.getElementById('melcFileNameDisplay').style.display = 'block'; }">
+                        <button type="button" class="btn btn-success" onclick="document.getElementById('melcFileInput').click(); return false;">
                             Choose File
                         </button>
                         <p class="text-muted small mt-3 mb-0">Supports CSV format</p>
@@ -175,311 +200,149 @@
     </div>
 </div>
 
+
 <?php $this->start('script'); ?>
 <script>
 (function() {
-    // --- 0. CHECK FOR IMPORT SUCCESS ---
-    if (localStorage.getItem('genta_is_importing') === '1') {
-        localStorage.removeItem('genta_is_importing');
-        if (window.Swal) {
-            Swal.fire({
-                icon: 'success',
-                title: 'Import Successful!',
-                text: 'Your MELC records have been added.',
-                timer: 3000,
-                showConfirmButton: false
-            });
-        }
-    }
-
-    // --- 0.5 NEW: PRE-EMPTIVELY DISABLE BOTH EXPORT LINKS IF EMPTY ---
-    // This runs immediately to kill the links visually if count is 0
-    ['exportCsvBtn', 'exportJsonBtn'].forEach(function(btnId) {
-        var btn = document.getElementById(btnId);
-        if (btn) {
-            var count = btn.getAttribute('data-count');
-            if (count && parseInt(count) === 0) {
-                btn.setAttribute('href', 'javascript:void(0);');
-                btn.removeAttribute('target'); // Stop new tab behavior
-                btn.style.opacity = '0.7'; 
-                btn.style.cursor = 'not-allowed';
-            }
-        }
-    });
-
-    // --- 1. Bulletproof "Choose File" Button Click ---
+    // --- 1. GLOBAL CLICK INTERCEPTOR (For Export Alerts Only) ---
     document.addEventListener('click', function(e) {
-        if (e.target && e.target.id === 'melcChooseFileBtn') {
-            e.preventDefault();
-            var fileInput = document.getElementById('melcFileInput');
-            if (fileInput) {
-                fileInput.value = ''; 
-                fileInput.click();    
-            }
-        }
+        var exportBtn = e.target.closest('#exportCsvBtn, #exportJsonBtn');
         
-        var dropArea = e.target.closest('#melcDropArea');
-        if (dropArea && e.target.id !== 'melcChooseFileBtn' && e.target.type !== 'file') {
-            var fileInput = document.getElementById('melcFileInput');
-            if (fileInput) fileInput.click();
-        }
-    });
-
-    // --- 2. Handle File Selection ---
-    document.addEventListener('change', function(e) {
-        if (e.target && e.target.id === 'melcFileInput') {
-            if (e.target.files && e.target.files.length > 0) {
-                var fileName = document.getElementById('melcFileName');
-                var fileNameDisplay = document.getElementById('melcFileNameDisplay');
-                if (fileName && fileNameDisplay) {
-                    fileName.textContent = e.target.files[0].name;
-                    fileNameDisplay.style.display = 'block';
-                }
-            }
-        }
-    });
-
-    // --- 3. Drag and Drop Logic ---
-    var events = ['dragenter', 'dragover', 'dragleave', 'drop'];
-    events.forEach(function(eventName) {
-        document.addEventListener(eventName, function(e) {
-            var dropArea = document.getElementById('melcDropArea');
-            if (!dropArea) return;
-
-            if (eventName === 'drop' || eventName === 'dragenter' || eventName === 'dragover') {
-                e.preventDefault();
-                e.stopPropagation();
-            }
+        if (exportBtn) {
+            var count = parseInt(exportBtn.getAttribute('data-count') || 0);
             
-            if (e.target.closest && e.target.closest('#melcDropArea')) {
-                if (eventName === 'dragenter' || eventName === 'dragover') {
-                    dropArea.style.borderColor = '#198754';
-                    dropArea.style.backgroundColor = '#f0fdf4';
-                }
-            } else {
-                 if (eventName === 'dragenter') {
-                    dropArea.style.borderColor = '#dee2e6';
-                    dropArea.style.backgroundColor = '#fafafa';
-                 }
-            }
-            
-            if (eventName === 'drop' && e.target.closest('#melcDropArea')) {
-                dropArea.style.borderColor = '#dee2e6';
-                dropArea.style.backgroundColor = '#fafafa';
+            // If empty, intercept and show alert
+            if (count === 0) {
+                e.preventDefault(); 
+                e.stopImmediatePropagation();
                 
-                var dt = e.dataTransfer;
-                var files = dt.files;
-                if (files && files.length > 0) {
-                    var fileInput = document.getElementById('melcFileInput');
-                    fileInput.files = files;
-                    var event = new Event('change', { bubbles: true });
-                    fileInput.dispatchEvent(event);
+                var isCSV = exportBtn.id === 'exportCsvBtn';
+                var message = isCSV 
+                    ? 'There are no MELC records to export as CSV.' 
+                    : 'There are no MELC records to export as JSON.';
+
+                if (window.Swal) {
+                    Swal.fire({ icon: 'warning', title: 'No MELCs to Export', text: message });
+                } else {
+                    alert(message);
                 }
             }
-        });
+        }
     });
 
-    // --- 4. Import via AJAX with Loading Indicator ---
-    var importForm = document.getElementById('melcImportForm');
-    if (importForm) {
-        importForm.addEventListener('submit', function(e) {
-            e.preventDefault(); // Always prevent default - we handle via AJAX
+    // --- 2. IMPORT FORM SUBMIT ---
+    document.addEventListener('submit', function(e) {
+        if (e.target && e.target.id === 'melcImportForm') {
+            e.preventDefault();
             
+            var form = e.target;
             var fileInput = document.getElementById('melcFileInput');
+            
             if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
-                if (window.Swal) {
-                    Swal.fire({ icon: 'warning', title: 'Oops...', text: 'Please choose a file first!' });
-                } else {
-                    alert('Please choose a file first!');
-                }
+                window.Swal ? Swal.fire({ icon: 'warning', title: 'Oops...', text: 'Please choose a file first!' }) : alert('Please choose a file!');
                 return;
             }
             
-            // Show loading SweetAlert
             if (window.Swal) {
                 Swal.fire({
                     title: 'Importing Data...',
                     html: 'Please wait while we process your CSV file.',
                     allowOutsideClick: false,
-                    allowEscapeKey: false,
                     showConfirmButton: false,
                     didOpen: function() { Swal.showLoading(); }
                 });
             }
             
-            // Create FormData and submit via AJAX
-            var formData = new FormData(importForm);
+            var formData = new FormData(form);
             var csrf = document.querySelector('meta[name="csrfToken"]');
             
-            fetch(importForm.action, {
+            fetch(form.action, {
                 method: 'POST',
                 body: formData,
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
                     'X-CSRF-Token': csrf ? csrf.getAttribute('content') : ''
-                },
-                credentials: 'same-origin'
+                }
             })
-            .then(function(response) {
-                return response.json();
-            })
+            .then(function(r) { return r.json(); })
             .then(function(data) {
                 if (data.success) {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Import Successful!',
-                        text: data.message || 'MELCs have been imported.',
-                        confirmButtonText: 'OK'
-                    }).then(function() {
-                        // Refresh only the content area via AJAX (not full page reload)
-                        if (typeof reloadCurrentPage === 'function') {
-                            reloadCurrentPage();
-                        } else if (typeof loadPage === 'function') {
-                            loadPage(window.location.href, false);
-                        } else {
-                            window.location.reload();
-                        }
-                    });
+                    localStorage.setItem('genta_is_importing', '1');
+                    window.location.reload();
                 } else {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Import Failed',
-                        text: data.message || 'Failed to import MELCs.'
-                    });
+                    Swal.fire({ icon: 'error', title: 'Import Failed', text: data.message });
                 }
-                // Clear the file input
-                fileInput.value = '';
             })
-            .catch(function(error) {
-                console.error('Import error:', error);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Import Error',
-                    text: 'An error occurred while importing. Please try again.'
-                });
-                fileInput.value = '';
+            .catch(function(err) {
+                Swal.fire({ icon: 'error', title: 'Import Error', text: 'An error occurred.' });
             });
-        });
-    }
-
-    // --- 5. Export Validation (CSV AND JSON) ---
-    document.addEventListener('click', function(e) {
-        // Check if the clicked element is EITHER export button
-        var exportBtn = e.target.closest('#exportCsvBtn, #exportJsonBtn');
-        
-        if (exportBtn) {
-            var count = exportBtn.getAttribute('data-count');
-            var isCSV = exportBtn.id === 'exportCsvBtn';
-            if (parseInt(count) === 0) {
-                // Completely stop the new tab or download
-                e.preventDefault(); 
-                e.stopPropagation(); 
-                
-                if (window.Swal) {
-                    Swal.fire({
-                        icon: 'warning',
-                        title: 'No MELCs to Export',
-                        text: isCSV ? 'There are no MELC records to export as CSV.' : 'There are no MELC records to export as JSON.'
-                    });
-                } else {
-                    alert('There are no MELC records to export.');
-                }
-            }
         }
     });
+
+    // --- 3. DRAG AND DROP LOGIC ---
+    var dragEvents = ['dragenter', 'dragover', 'dragleave', 'drop'];
+    dragEvents.forEach(function(eventName) {
+        document.addEventListener(eventName, function(e) {
+            var dropArea = document.getElementById('melcDropArea');
+            if (!dropArea) return;
+
+            var isInside = e.target.closest('#melcDropArea');
+
+            // Always prevent default if inside area, or if it's a drop event
+            if (isInside || eventName === 'drop') {
+                if (eventName === 'drop' || eventName === 'dragenter' || eventName === 'dragover') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+            }
+
+            // Styling
+            if (isInside && (eventName === 'dragenter' || eventName === 'dragover')) {
+                dropArea.style.borderColor = '#198754';
+                dropArea.style.backgroundColor = '#f0fdf4';
+            } else if (eventName === 'dragleave' || eventName === 'drop') {
+                dropArea.style.borderColor = '#dee2e6';
+                dropArea.style.backgroundColor = '#fafafa';
+            }
+
+            // Handle File Drop
+            if (eventName === 'drop' && isInside) {
+                var dt = e.dataTransfer;
+                var files = dt.files;
+                if (files && files.length > 0) {
+                    var fileInput = document.getElementById('melcFileInput');
+                    fileInput.files = files;
+                    
+                    // Manually trigger the visual update because dragging bypasses the inline 'onchange'
+                    document.getElementById('melcFileName').textContent = files[0].name;
+                    document.getElementById('melcFileNameDisplay').style.display = 'block';
+                }
+            }
+        });
+    });
+
+    // --- 4. INIT TASKS ---
+    // Toast
+    if (localStorage.getItem('genta_is_importing') === '1') {
+        localStorage.removeItem('genta_is_importing');
+        setTimeout(function() {
+            if (window.Swal) Swal.fire({ icon: 'success', title: 'Import Successful!', text: 'Records added.', timer: 3000, showConfirmButton: false });
+        }, 300);
+    }
     
-    // --- 6. Bulk Actions ---
-    window.initBulkActionsMelcs = function() {
-        if (!window.jQuery) return;
-        var $ = window.jQuery;
-
-        $('#selectAllMelcs').prop('checked', false);
-        $('.melc-checkbox').prop('checked', false);
-        $('.bulk-actions-bar-melcs').hide();
-
-        function updateBulkBar() {
-            var count = $('.melc-checkbox:checked').length;
-            if (count > 0) {
-                $('.bulk-actions-bar-melcs').fadeIn();
-                $('.selected-count-melcs').text(count + ' selected');
-            } else {
-                $('.bulk-actions-bar-melcs').fadeOut();
+    // DataTables
+    function initTables() {
+        if (window.jQuery) {
+            var $ = window.jQuery;
+            var table = $('.defaultDataTable');
+            if (table.length > 0 && !$.fn.DataTable.isDataTable(table)) {
+                table.DataTable({ "pageLength": 10, "columnDefs": [ { "orderable": false, "targets": 0 } ] });
             }
         }
-
-        $(document).off('change', '#selectAllMelcs').on('change', '#selectAllMelcs', function() {
-            $('.melc-checkbox').prop('checked', $(this).prop('checked'));
-            updateBulkBar();
-        });
-
-        $(document).off('change', '.melc-checkbox').on('change', '.melc-checkbox', function() {
-            var all = $('.melc-checkbox').length;
-            var checked = $('.melc-checkbox:checked').length;
-            $('#selectAllMelcs').prop('checked', all > 0 && all === checked);
-            updateBulkBar();
-        });
-
-        $(document).off('click', '.bulk-delete-melcs').on('click', '.bulk-delete-melcs', function() {
-            var selectedIds = $('.melc-checkbox:checked').map(function() { return $(this).val(); }).get();
-            if (selectedIds.length === 0) return;
-
-            Swal.fire({
-                title: 'Are you sure?',
-                text: "You are about to delete " + selectedIds.length + " MELC records.",
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#d33',
-                confirmButtonText: 'Yes, delete them!'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    Swal.fire({
-                        title: 'Deleting...',
-                        html: 'Removing records from database.',
-                        allowOutsideClick: false,
-                        didOpen: () => { Swal.showLoading(); }
-                    });
-                    setTimeout(function() {
-                        var csrf = $('meta[name=csrfToken]').attr('content') || '';
-                        var deletePromises = selectedIds.map(function(id) {
-                            var deleteUrl = '<?= $this->Url->build(['prefix' => 'Teacher', 'controller' => 'Melcs', 'action' => 'delete', '__ID__']) ?>'.replace('__ID__', id);
-                            return $.ajax({
-                                url: deleteUrl,
-                                method: 'POST',
-                                headers: { 'X-CSRF-Token': csrf },
-                                dataType: 'json'
-                            });
-                        });
-                        Promise.all(deletePromises).then(function() {
-                            Swal.fire({
-                                title: 'Deleted!',
-                                text: 'Your files have been deleted.',
-                                icon: 'success',
-                                timer: 2000,
-                                showConfirmButton: false
-                            }).then(() => { window.location.reload(); });
-                        }).catch(function() {
-                            Swal.fire('Error', 'Something went wrong deleting the records.', 'error');
-                        });
-                    }, 500); 
-                }
-            });
-        });
-    };
-
-    if (window.initBulkActionsMelcs) window.initBulkActionsMelcs();
-
-    // --- 7. Force DataTables to Restart ---
-    if (window.jQuery) {
-        var $ = window.jQuery;
-        var table = $('.defaultDataTable');
-        if (table.length > 0 && !$.fn.DataTable.isDataTable(table)) {
-            table.DataTable({
-                "pageLength": 10,
-                "columnDefs": [ { "orderable": false, "targets": 0 } ],
-                "language": { "search": "Search:", "lengthMenu": "Show _MENU_ entries" }
-            });
-        }
     }
+    initTables();
+    window.addEventListener('load', initTables);
+
 })();
 </script>
 <?php $this->end(); ?>
@@ -498,3 +361,10 @@
         </div>
     </div>
 </div>
+
+<style>
+    .disabled-export {
+        opacity: 0.6 !important;
+        cursor: not-allowed !important;
+    }
+</style>
