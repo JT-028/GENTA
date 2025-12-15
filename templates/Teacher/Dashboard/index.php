@@ -862,18 +862,8 @@ document.addEventListener('click', function (e) {
             ensureDataTableSync(0);
         });
 
-        // Print Functionality for Assessments - use event delegation
-        $(document).on('click', '#printAssessments', function() {
-            var printContent = generateAssessmentsPrintContent();
-            var printWindow = window.open('', '_blank', 'width=800,height=600');
-            printWindow.document.write(printContent);
-            printWindow.document.close();
-            printWindow.focus();
-            setTimeout(function() {
-                printWindow.print();
-                printWindow.close();
-            }, 250);
-        });
+        // Print Functionality for Assessments is now handled globally in script.js using printViaIframe
+        // No duplicate handler needed here
 
         // Export CSV - use event delegation
         $(document).on('click', '#exportAssessmentsCSV', function() {
