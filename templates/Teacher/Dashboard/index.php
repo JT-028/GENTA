@@ -144,6 +144,12 @@
     transform: translateY(-5px);
     transition: all 0.3s ease;
 }
+
+/* Compact badge for Attempts column to avoid breaking table layout */
+.attempts-cell { white-space: nowrap; width: 110px; vertical-align: middle; }
+.attempts-badge { display: inline-block; white-space: nowrap; padding: .22rem .45rem; font-size: .78rem; line-height: 1; min-width: 56px; text-align: center; }
+.attempts-badge .mdi { vertical-align: middle; }
+
 </style>
 
 <!-- TABLE -->
@@ -230,8 +236,8 @@
                                 <td><?= h($student->grade . ' - ' . $student->section) ?></td>
                                 <td><?= h($subject->name ?? 'N/A') ?></td>
                                 <td><?= isset($latestQuiz->quiz_version) && $latestQuiz->quiz_version ? h($latestQuiz->quiz_version->version_number) : '—' ?></td>
-                                <td>
-                                    <span class="badge bg-primary">
+                                <td class="attempts-cell">
+                                    <span class="badge bg-primary attempts-badge">
                                         <?= $attempts ?> <?= $attempts > 1 ? 'attempts' : 'attempt' ?>
                                     </span>
                                 </td>
