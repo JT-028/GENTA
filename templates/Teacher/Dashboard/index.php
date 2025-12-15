@@ -152,6 +152,17 @@
 
 </style>
 
+<style>
+/* Ensure action buttons fit within a fixed column to avoid table reflow */
+.actions-cell { vertical-align: middle; min-width: 120px; max-width: 160px; text-align: center; }
+.actions-cell .btn { display: block; width: 100%; box-sizing: border-box; padding: .35rem .5rem; margin-bottom: .45rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.actions-cell .btn i { margin-right: .35rem; }
+@media (min-width: 992px) {
+    /* On wide screens keep buttons compact but allow inline where space permits */
+    .actions-cell { min-width: 140px; }
+}
+</style>
+
 <!-- TABLE -->
 <div class="row">
     <div class="col-12 grid-margin">
@@ -260,10 +271,10 @@
                                         <i class="mdi mdi-trophy text-warning ms-1" title="Best score achieved"></i>
                                     <?php endif; ?>
                                 </td>
-                                <td class="text-center">
+                                <td class="text-center actions-cell">
                                     <?php if ($attempts == 1): ?>
                                         <?= $this->Html->link(
-                                            '<i class="mdi mdi-file-document-outline me-1"></i>View',
+                                            '<i class="mdi mdi-file-document-outline"></i> View',
                                             ['controller' => 'Dashboard', 'action' => 'studentQuiz', 'prefix' => 'Teacher', $this->Encrypt->hex($latestQuiz->id)],
                                             ['escape' => false, 'class' => 'btn btn-sm btn-info text-white']
                                         ) ?>
@@ -335,13 +346,13 @@
                                             $jsonQuizzes = h(json_encode($quizItems));
                                         ?>
 
-                                        <button class="btn btn-sm btn-info btn-view-all" type="button" data-quizzes='<?= $jsonQuizzes ?>' style="margin: 5px";>
-                                            <i class="mdi mdi-file-document-outline me-1"></i>View All
+                                        <button class="btn btn-sm btn-info btn-view-all" type="button" data-quizzes='<?= $jsonQuizzes ?>'>
+                                            <i class="mdi mdi-file-document-outline"></i> View All
                                         </button>
                                         <!-- Delete all attempts for this student+subject -->
                                         <?php $studentHash = $this->Encrypt->hex($student->id); $subjectHash = $this->Encrypt->hex($subject->id); ?>
-                                        <button class="btn btn-sm btn-danger ms-2 deleteAssessmentsBtn" type="button" data-student="<?= h($studentHash) ?>" data-subject="<?= h($subjectHash) ?>">
-                                            <i class="mdi mdi-trash-can-outline me-1"></i>Delete
+                                        <button class="btn btn-sm btn-danger deleteAssessmentsBtn" type="button" data-student="<?= h($studentHash) ?>" data-subject="<?= h($subjectHash) ?>">
+                                            <i class="mdi mdi-trash-can-outline"></i> Delete
                                         </button>
                                     <?php endif; ?>
                                 </td>
