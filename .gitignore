@@ -32,7 +32,7 @@ tests.sqlite
 
 # Archive folder created by cleanup script/workflow
 /archive-debugging-2025-11-15/
-
+*.sql
 *.swp
 *.swo
 # sublime text & textmate
