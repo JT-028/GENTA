@@ -56,5 +56,12 @@
             "cakephp/plugin-installer": true,
             "dealerdirect/phpcodesniffer-composer-installer": true
         }
+    },
+    "extra": {
+        "paas": {
+            "document-root": "webroot",
+            "index-document": "index.php",
+            "nginx-includes": ["nginx-app.conf"]
+        }
     }
 }
