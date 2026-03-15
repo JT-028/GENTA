@@ -173,6 +173,11 @@
                     </div>
 
                     <ul class="navbar-nav navbar-nav-right">
+                        <li class="nav-item d-none d-lg-block">
+                            <span id="teacher-iot-status" class="badge bg-secondary text-dark" style="margin-right:10px; font-weight:bold; letter-spacing:0.5px;">⚪ IoT Offline</span>
+                            <button id="teacher-iot-start" class="btn btn-sm btn-gradient-success" onclick="toggleTeacherIoT('start')" style="padding: 0.4rem 1rem; border-radius: 20px;"><i class="mdi mdi-play"></i> Start IoT</button>
+                            <button id="teacher-iot-stop" class="btn btn-sm btn-gradient-danger d-none" onclick="toggleTeacherIoT('stop')" style="padding: 0.4rem 1rem; border-radius: 20px;"><i class="mdi mdi-stop"></i> Stop IoT</button>
+                        </li>
                         <li class="nav-item d-none d-lg-block full-screen-link">
                             <a class="nav-link">
                                 <i class="mdi mdi-fullscreen" id="fullscreen-button"></i>
@@ -525,6 +530,73 @@ JS;
                     console.warn('setBrandPrimaryRgba failed', e);
                 }
             })();
+        </script>
+        
+        <script>
+            // Teacher IoT Controls Logic
+            const FlaskServerURL = "http://localhost:5000"; // Assuming local flask fallback
+            const IoTStatusLabel = document.getElementById('teacher-iot-status');
+            const IoTStartBtn = document.getElementById('teacher-iot-start');
+            const IoTStopBtn = document.getElementById('teacher-iot-stop');
+
+            async function checkTeacherIoTStatus() {
+                try {
+                    const response = await fetch(`${FlaskServerURL}/api/system/status`);
+                    const data = await response.json();
+                    
+                    if (data && data.is_running) {
+                        IoTStatusLabel.textContent = '🟢 IoT Running';
+                        IoTStatusLabel.className = 'badge bg-success text-white';
+                        IoTStartBtn.classList.add('d-none');
+                        IoTStopBtn.classList.remove('d-none');
+                    } else {
+                        IoTStatusLabel.textContent = '⚪ IoT Offline';
+                        IoTStatusLabel.className = 'badge bg-secondary text-dark';
+                        IoTStartBtn.classList.remove('d-none');
+                        IoTStopBtn.classList.add('d-none');
+                    }
+                } catch (e) {
+                    console.warn("Could not reach IoT server:", e);
+                    IoTStatusLabel.textContent = '🔴 IoT Unreachable';
+                    IoTStatusLabel.className = 'badge bg-danger text-white';
+                }
+            }
+
+            async function toggleTeacherIoT(action) {
+                const endpoint = action === 'start' ? '/api/system/start' : '/api/system/stop';
+                try {
+                    IoTStartBtn.disabled = true;
+                    IoTStopBtn.disabled = true;
+                    
+                    Swal.fire({
+                        title: 'Sending command...',
+                        text: `Please wait while the IoT system is ${action === 'start' ? 'starting' : 'stopping'}.`,
+                        allowOutsideClick: false,
+                        didOpen: () => Swal.showLoading()
+                    });
+
+                    const response = await fetch(`${FlaskServerURL}${endpoint}`, { method: 'POST' });
+                    const data = await response.json();
+                    
+                    if (data && data.status === 'success') {
+                        Swal.fire('Success', data.message, 'success');
+                    } else {
+                        Swal.fire('Error', data?.message || 'Operation failed', 'error');
+                    }
+                } catch (e) {
+                    Swal.fire('Error', 'Could not communicate with IoT Server on port 5000.', 'error');
+                } finally {
+                    IoTStartBtn.disabled = false;
+                    IoTStopBtn.disabled = false;
+                    checkTeacherIoTStatus();
+                }
+            }
+
+            // Check every 5 seconds
+            if(IoTStatusLabel) {
+                checkTeacherIoTStatus();
+                setInterval(checkTeacherIoTStatus, 5000);
+            }
         </script>
     </body>
 </html>
