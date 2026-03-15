@@ -173,10 +173,10 @@
                     </div>
 
                     <ul class="navbar-nav navbar-nav-right">
-                        <li class="nav-item d-none d-lg-block">
+                        <li class="nav-item d-flex align-items-center me-2">
                             <span id="teacher-iot-status" class="badge bg-secondary text-dark" style="margin-right:10px; font-weight:bold; letter-spacing:0.5px;">⚪ IoT Offline</span>
-                            <button id="teacher-iot-start" class="btn btn-sm btn-gradient-success" onclick="toggleTeacherIoT('start')" style="padding: 0.4rem 1rem; border-radius: 20px;"><i class="mdi mdi-play"></i> Start IoT</button>
-                            <button id="teacher-iot-stop" class="btn btn-sm btn-gradient-danger d-none" onclick="toggleTeacherIoT('stop')" style="padding: 0.4rem 1rem; border-radius: 20px;"><i class="mdi mdi-stop"></i> Stop IoT</button>
+                            <button id="teacher-iot-start" class="btn btn-sm btn-gradient-success" onclick="toggleTeacherIoT('start')" style="padding: 0.4rem 1rem; border-radius: 20px;"><i class="mdi mdi-play"></i> Start</button>
+                            <button id="teacher-iot-stop" class="btn btn-sm btn-gradient-danger d-none" onclick="toggleTeacherIoT('stop')" style="padding: 0.4rem 1rem; border-radius: 20px;"><i class="mdi mdi-stop"></i> Stop</button>
                         </li>
                         <li class="nav-item d-none d-lg-block full-screen-link">
                             <a class="nav-link">
