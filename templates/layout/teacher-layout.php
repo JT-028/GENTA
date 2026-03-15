@@ -534,7 +534,9 @@ JS;
         
         <script>
             // Teacher IoT Controls Logic
-            const FlaskServerURL = "http://localhost:5000"; // Assuming local flask fallback
+            // Dynamically use the host IP rather than hardcoded 'localhost', 
+            // so phones/other devices on the network connect back to the server running CakePHP/Flask.
+            const FlaskServerURL = `${window.location.protocol}//${window.location.hostname}:5000`; 
             const IoTStatusLabel = document.getElementById('teacher-iot-status');
             const IoTStartBtn = document.getElementById('teacher-iot-start');
             const IoTStopBtn = document.getElementById('teacher-iot-stop');
