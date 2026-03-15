@@ -430,5 +430,10 @@ return [
      */
     'Session' => [
         'defaults' => 'php',
+        'ini' => [
+            'session.cookie_secure' => false,
+            'session.cookie_samesite' => '',
+            'session.cookie_path' => '/'
+        ]
     ],
 ];

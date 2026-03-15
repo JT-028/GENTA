@@ -80,6 +80,9 @@ class UsersController extends AppController
     }
     public function login()
     {
+        // Disable browser caching for login page to prevent CSRF staleness on mobile devices
+        $this->response = $this->response->withDisabledCache();
+        
         $this->request->allowMethod(['get', 'post']);
 
         $email = null;

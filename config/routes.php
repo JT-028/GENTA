@@ -63,7 +63,7 @@ return function (RouteBuilder $routes): void {
     // redirected to the canonical login page instead of seeing a missing
     // route. Add a redirect (GET) so '/' -> '/users/login'. This preserves
     // a single canonical login path while making the site root reachable.
-    $builder->redirect('/', '/users/login');
+    $builder->redirect('/', ['controller' => 'Users', 'action' => 'login']);
         // Route for walkthrough AJAX endpoint
     $builder->connect('/users/set-walkthrough-shown', ['controller' => 'Users', 'action' => 'setWalkthroughShown', 'plugin' => null]);
         // Route for email verification

@@ -237,7 +237,11 @@ class Application extends BaseApplication implements AuthenticationServiceProvid
             // requests whose path includes '/users/approvalCallback'. Adjust as needed
             // if your callback path differs or the app is hosted under a subdirectory.
             ->add((function () {
-                $csrf = new CsrfProtectionMiddleware(['httponly' => true]);
+                $csrf = new CsrfProtectionMiddleware([
+                    'httponly' => true,
+                    'secure' => false,
+                    'samesite' => null // Set to null to avoid mobile IP cross-site rejection issues
+                ]);
                 $csrf->skipCheckCallback(function ($request) {
                     try {
                         $path = (string)$request->getUri()->getPath();
